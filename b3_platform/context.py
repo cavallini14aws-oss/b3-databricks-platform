@@ -17,9 +17,9 @@ class PlatformContext:
         return f"keyvault-{self.env}-datahub"
 
 
-def get_context(project: str = "clientes") -> PlatformContext:
+def get_context(project: str = "clientes", use_catalog: bool = False) -> PlatformContext:
     env = get_env()
-    naming = Naming(env=env, project=project)
+    naming = Naming(env=env, project=project, use_catalog=use_catalog)
     flags = PlatformFlags()
 
     return PlatformContext(

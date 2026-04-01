@@ -4,8 +4,8 @@ from b3_platform.context import get_context
 from b3_platform.logger import PlatformLogger
 
 
-def run_demo_pipeline(spark, project: str = "clientes") -> None:
-    ctx = get_context(project=project)
+def run_demo_pipeline(spark, project: str = "clientes", use_catalog: bool = False) -> None:
+    ctx = get_context(project=project, use_catalog=use_catalog)
     logger = PlatformLogger(
         component="demo_pipeline",
         env=ctx.env,
@@ -23,7 +23,7 @@ def run_demo_pipeline(spark, project: str = "clientes") -> None:
     ]
     df = spark.createDataFrame(rows)
 
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {ctx.naming.catalog}.{ctx.naming.schema_silver}")
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {ctx.naming.schema_silver}")
 
     df.write.mode("overwrite").saveAsTable(ctx.naming.demo_table)
 

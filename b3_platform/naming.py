@@ -5,6 +5,7 @@ from dataclasses import dataclass
 class Naming:
     env: str
     project: str
+    use_catalog: bool = False
 
     @property
     def catalog(self) -> str:
@@ -28,8 +29,12 @@ class Naming:
 
     @property
     def log_table(self) -> str:
-        return f"{self.catalog}.{self.schema_obs}.log_platform"
+        if self.use_catalog:
+            return f"{self.catalog}.{self.schema_obs}.log_platform"
+        return f"{self.schema_obs}.log_platform"
 
     @property
     def demo_table(self) -> str:
-        return f"{self.catalog}.{self.schema_silver}.demo_clientes"
+        if self.use_catalog:
+            return f"{self.catalog}.{self.schema_silver}.demo_clientes"
+        return f"{self.schema_silver}.demo_clientes"
