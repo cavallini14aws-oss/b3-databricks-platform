@@ -5,7 +5,7 @@ import pandas as pd
 from b3_platform.context import get_context
 from b3_platform.logger import PlatformLogger
 from b3_platform.pipeline_runner import run_with_observability
-from b3_platform.config_loader import load_json_config
+from b3_platform.config_loader import load_yaml_config
 from pipelines.ingest_file_clientes import run_ingest_file_clientes
 from pipelines.ingest_table_clientes import run_ingest_table_clientes
 from pipelines.silver_consolidado_clientes import run_silver_consolidado_clientes
@@ -17,7 +17,7 @@ def run_clientes_end_to_end(
     spark,
     config_path: str,
 ) -> None:
-    config = load_json_config(config_path)
+    config = load_yaml_config(config_path)
 
     project = config["project"]
     use_catalog = config["use_catalog"]
@@ -33,7 +33,7 @@ def run_clientes_end_to_end(
     run_id = base_logger.run_id
 
     def _run(logger: PlatformLogger):
-        logger.info(f"Config carregada: {config_path}")
+        logger.info(f"Config YAML carregada: {config_path}")
 
         steps = config["steps"]
 
