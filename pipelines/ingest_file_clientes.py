@@ -6,7 +6,8 @@ from b3_platform.logger import PlatformLogger
 
 def run_ingest_file_clientes(
     spark,
-    file_path: str,
+    df_input,
+    source_path: str = "inline_csv_memory",
     project: str = "clientes",
     use_catalog: bool = False,
 ) -> None:
@@ -23,22 +24,35 @@ def run_ingest_file_clientes(
         else f"{ctx.naming.schema_bronze}.raw_clientes_file"
     )
 
-    logger.info(f"Iniciando ingestão por arquivo: {file_path}")
+    logger.info("Iniciando ingestão por arquivo")
+    logger.info(f"source_path={source_path}")
     logger.info(f"bronze_table={bronze_table}")
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {ctx.naming.schema_bronze}")
 
     df = (
-        spark.read
-        .option("header", True)
-        .csv(file_path)
+        df_input
         .withColumn("source_type", F.lit("file"))
-        .withColumn("source_path", F.lit(file_path))
+        .withColumn("source_path", F.lit(source_path))
+        .withColumn("source_name", F.lit(None).cast("string"))
         .withColumn("ingestion_date", F.current_timestamp())
         .withColumn("update_date", F.current_timestamp())
         .withColumn("run_id", F.lit(logger.run_id))
     )
 
-    df.write.mode("overwrite").saveAsTable(bronze_table)
+    df = df.select(
+        "id_cliente",
+        "nome",
+        "segmento",
+        "status",
+        "source_type",
+        "source_path",
+        "source_name",
+        "ingestion_date",
+        "update_date",
+        "run_id",
+    )
+
+    df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(bronze_table)
 
     logger.info(f"Ingestão por arquivo finalizada com sucesso: {bronze_table}")

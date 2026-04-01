@@ -16,8 +16,17 @@ def run_gold_clientes_ativos(
         project=ctx.project,
     )
 
-    silver_table = f"{ctx.naming.schema_silver}.tb_clientes_consolidado"
-    gold_table = f"{ctx.naming.schema_gold}.tb_clientes_ativos"
+    silver_table = (
+        f"{ctx.naming.catalog}.{ctx.naming.schema_silver}.tb_clientes_consolidado"
+        if use_catalog
+        else f"{ctx.naming.schema_silver}.tb_clientes_consolidado"
+    )
+
+    gold_table = (
+        f"{ctx.naming.catalog}.{ctx.naming.schema_gold}.tb_clientes_ativos"
+        if use_catalog
+        else f"{ctx.naming.schema_gold}.tb_clientes_ativos"
+    )
 
     logger.info("Iniciando transformação gold")
     logger.info(f"silver_table={silver_table}")

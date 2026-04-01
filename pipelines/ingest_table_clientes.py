@@ -39,9 +39,23 @@ def run_ingest_table_clientes(
         spark.createDataFrame(rows)
         .withColumn("source_type", F.lit("table"))
         .withColumn("source_name", F.lit("source_clientes_simulada"))
+        .withColumn("source_path", F.lit(None).cast("string"))
         .withColumn("ingestion_date", F.current_timestamp())
         .withColumn("update_date", F.current_timestamp())
         .withColumn("run_id", F.lit(logger.run_id))
+    )
+
+    df = df.select(
+        "id_cliente",
+        "nome",
+        "segmento",
+        "status",
+        "source_type",
+        "source_path",
+        "source_name",
+        "ingestion_date",
+        "update_date",
+        "run_id",
     )
 
     df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(bronze_table)
