@@ -28,7 +28,7 @@ def run_ingest_table_clientes(
             else f"{ctx.naming.schema_bronze}.raw_clientes_table"
         )
 
-        logger.info("Iniciando ingestão por tabela/origem simulada")
+        logger.info("Iniciando ingestão por tabela")
         logger.info(f"bronze_table={bronze_table}")
 
         spark.sql(f"CREATE SCHEMA IF NOT EXISTS {ctx.naming.schema_bronze}")
@@ -65,7 +65,7 @@ def run_ingest_table_clientes(
 
         df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(bronze_table)
 
-        logger.info(f"Ingestão por tabela finalizada com sucesso: {bronze_table}")
+        logger.info(f"Sucesso ingest_table: {bronze_table}")
 
     run_with_observability(
         spark=spark,

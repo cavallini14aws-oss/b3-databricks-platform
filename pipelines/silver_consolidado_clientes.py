@@ -25,10 +25,9 @@ def run_silver_consolidado_clientes(
         bronze_table = f"{ctx.naming.schema_bronze}.raw_clientes_table"
         silver_table = f"{ctx.naming.schema_silver}.tb_clientes_consolidado"
 
-        logger.info("Iniciando consolidação silver")
+        logger.info("Iniciando silver")
         logger.info(f"bronze_file={bronze_file}")
         logger.info(f"bronze_table={bronze_table}")
-        logger.info(f"silver_table={silver_table}")
 
         df_file = spark.table(bronze_file)
         df_table = spark.table(bronze_table)
@@ -44,9 +43,10 @@ def run_silver_consolidado_clientes(
         )
 
         spark.sql(f"CREATE SCHEMA IF NOT EXISTS {ctx.naming.schema_silver}")
+
         df_final.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(silver_table)
 
-        logger.info(f"Silver consolidado criado com sucesso: {silver_table}")
+        logger.info(f"Sucesso silver: {silver_table}")
 
     run_with_observability(
         spark=spark,
