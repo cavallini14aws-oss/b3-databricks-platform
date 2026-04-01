@@ -1,6 +1,6 @@
 import os
 
-from platform.env import get_env
+from b3_platform.env import get_env
 
 
 def test_get_env_dev():

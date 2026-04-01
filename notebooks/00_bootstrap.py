@@ -1,5 +1,5 @@
-from platform.context import get_context
-from platform.logger import PlatformLogger
+from b3_platform.context import get_context
+from b3_platform.logger import PlatformLogger
 
 ctx = get_context(project="clientes")
 logger = PlatformLogger(

@@ -1,7 +1,7 @@
 from pyspark.sql import Row
 
-from platform.context import get_context
-from platform.logger import PlatformLogger
+from b3_platform.context import get_context
+from b3_platform.logger import PlatformLogger
 
 
 def run_demo_pipeline(spark, project: str = "clientes") -> None:

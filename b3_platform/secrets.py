@@ -1,4 +1,4 @@
-from platform.context import PlatformContext
+from b3_platform.context import PlatformContext
 
 
 def get_secret_scope(context: PlatformContext) -> str:

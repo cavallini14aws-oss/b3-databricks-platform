@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from platform.env import get_env
-from platform.flags import PlatformFlags
-from platform.naming import Naming
+from b3_platform.env import get_env
+from b3_platform.flags import PlatformFlags
+from b3_platform.naming import Naming
 
 
 @dataclass(frozen=True)
