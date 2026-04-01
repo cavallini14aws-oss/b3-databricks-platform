@@ -24,7 +24,6 @@ def run_demo_pipeline(spark, project: str = "clientes", use_catalog: bool = Fals
     df = spark.createDataFrame(rows)
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {ctx.naming.schema_silver}")
-
     df.write.mode("overwrite").saveAsTable(ctx.naming.demo_table)
 
     logger.info(f"Tabela gravada com sucesso: {ctx.naming.demo_table}")
