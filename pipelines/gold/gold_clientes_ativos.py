@@ -42,6 +42,7 @@ def run_gold_clientes_ativos(
     )
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {ctx.naming.schema_gold}")
-    df.write.mode("overwrite").saveAsTable(gold_table)
+
+    df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(gold_table)
 
     logger.info(f"Gold criada com sucesso: {gold_table}")
