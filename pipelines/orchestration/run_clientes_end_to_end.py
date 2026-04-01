@@ -7,11 +7,11 @@ from b3_platform.core.context import get_context
 from b3_platform.core.logger import PlatformLogger
 from b3_platform.orchestration.pipeline_runner import run_with_observability
 from b3_platform.core.config_loader import load_yaml_config
-from pipelines.ingest_file_clientes import run_ingest_file_clientes
-from pipelines.ingest_table_clientes import run_ingest_table_clientes
-from pipelines.silver_consolidado_clientes import run_silver_consolidado_clientes
-from pipelines.gold_clientes_ativos import run_gold_clientes_ativos
-from pipelines.gold_clientes_survivorship import run_gold_clientes_survivorship
+from pipelines.bronze.ingest_file_clientes import run_ingest_file_clientes
+from pipelines.bronze.ingest_table_clientes import run_ingest_table_clientes
+from pipelines.silver.silver_consolidado_clientes import run_silver_consolidado_clientes
+from pipelines.gold.gold_clientes_ativos import run_gold_clientes_ativos
+from pipelines.gold.gold_clientes_survivorship import run_gold_clientes_survivorship
 
 
 def run_clientes_end_to_end(
