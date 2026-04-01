@@ -10,6 +10,9 @@ def run_gold_clientes_survivorship(
     spark,
     project: str = "clientes",
     use_catalog: bool = False,
+    parent_component: str | None = None,
+    parent_run_id: str | None = None,
+    forced_run_id: str | None = None,
 ) -> None:
     ctx = get_context(project=project, use_catalog=use_catalog)
 
@@ -19,11 +22,20 @@ def run_gold_clientes_survivorship(
         project=ctx.project,
     )
 
-    run_id = base_logger.run_id
+    run_id = forced_run_id or base_logger.run_id
 
     def _run(logger: PlatformLogger):
-        silver_table = f"{ctx.naming.schema_silver}.tb_clientes_consolidado"
-        gold_table = f"{ctx.naming.schema_gold}.tb_clientes_survivorship"
+        silver_table = (
+            f"{ctx.naming.catalog}.{ctx.naming.schema_silver}.tb_clientes_consolidado"
+            if use_catalog
+            else f"{ctx.naming.schema_silver}.tb_clientes_consolidado"
+        )
+
+        gold_table = (
+            f"{ctx.naming.catalog}.{ctx.naming.schema_gold}.tb_clientes_survivorship"
+            if use_catalog
+            else f"{ctx.naming.schema_gold}.tb_clientes_survivorship"
+        )
 
         logger.info("Iniciando gold com survivorship")
         logger.info(f"silver_table={silver_table}")
@@ -64,4 +76,6 @@ def run_gold_clientes_survivorship(
         run_id=run_id,
         fn=_run,
         use_catalog=use_catalog,
+        parent_component=parent_component,
+        parent_run_id=parent_run_id,
     )
