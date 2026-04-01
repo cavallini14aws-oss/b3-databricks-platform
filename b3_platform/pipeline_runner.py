@@ -1,5 +1,6 @@
 from b3_platform.logger import PlatformLogger
 from b3_platform.observability import log_pipeline_event
+from b3_platform.lineage import log_pipeline_lineage
 
 
 def run_with_observability(
@@ -10,6 +11,8 @@ def run_with_observability(
     run_id: str,
     fn,
     use_catalog: bool = False,
+    parent_component: str | None = None,
+    parent_run_id: str | None = None,
 ):
     logger = PlatformLogger(
         component=component,
@@ -17,6 +20,17 @@ def run_with_observability(
         project=project,
         run_id=run_id,
     )
+
+    if parent_component and parent_run_id:
+        log_pipeline_lineage(
+            spark=spark,
+            parent_component=parent_component,
+            parent_run_id=parent_run_id,
+            child_component=component,
+            child_run_id=run_id,
+            project=project,
+            use_catalog=use_catalog,
+        )
 
     log_pipeline_event(
         spark=spark,
