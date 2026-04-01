@@ -1,5 +1,1 @@
-from b3_platform.context import PlatformContext
-
-
-def get_secret_scope(context: PlatformContext) -> str:
-    return context.secret_scope
+from b3_platform.core.secrets import *

@@ -1,11 +1,12 @@
 from io import StringIO
+from uuid import uuid4
 
 import pandas as pd
 
-from b3_platform.context import get_context
-from b3_platform.logger import PlatformLogger
-from b3_platform.pipeline_runner import run_with_observability
-from b3_platform.config_loader import load_yaml_config
+from b3_platform.core.context import get_context
+from b3_platform.core.logger import PlatformLogger
+from b3_platform.orchestration.pipeline_runner import run_with_observability
+from b3_platform.core.config_loader import load_yaml_config
 from pipelines.ingest_file_clientes import run_ingest_file_clientes
 from pipelines.ingest_table_clientes import run_ingest_table_clientes
 from pipelines.silver_consolidado_clientes import run_silver_consolidado_clientes
@@ -30,7 +31,7 @@ def run_clientes_end_to_end(
         project=ctx.project,
     )
 
-    run_id = base_logger.run_id
+    orchestrator_run_id = base_logger.run_id
 
     def _run(logger: PlatformLogger):
         logger.info(f"Config YAML carregada: {config_path}")
@@ -52,6 +53,9 @@ def run_clientes_end_to_end(
                 source_path=source_path,
                 project=project,
                 use_catalog=use_catalog,
+                parent_component="run_clientes_end_to_end",
+                parent_run_id=orchestrator_run_id,
+                forced_run_id=str(uuid4()),
             )
 
         if steps.get("ingest_table"):
@@ -60,6 +64,9 @@ def run_clientes_end_to_end(
                 spark=spark,
                 project=project,
                 use_catalog=use_catalog,
+                parent_component="run_clientes_end_to_end",
+                parent_run_id=orchestrator_run_id,
+                forced_run_id=str(uuid4()),
             )
 
         if steps.get("silver_consolidado"):
@@ -68,6 +75,9 @@ def run_clientes_end_to_end(
                 spark=spark,
                 project=project,
                 use_catalog=use_catalog,
+                parent_component="run_clientes_end_to_end",
+                parent_run_id=orchestrator_run_id,
+                forced_run_id=str(uuid4()),
             )
 
         if steps.get("gold_ativos"):
@@ -76,6 +86,9 @@ def run_clientes_end_to_end(
                 spark=spark,
                 project=project,
                 use_catalog=use_catalog,
+                parent_component="run_clientes_end_to_end",
+                parent_run_id=orchestrator_run_id,
+                forced_run_id=str(uuid4()),
             )
 
         if steps.get("gold_survivorship"):
@@ -84,6 +97,9 @@ def run_clientes_end_to_end(
                 spark=spark,
                 project=project,
                 use_catalog=use_catalog,
+                parent_component="run_clientes_end_to_end",
+                parent_run_id=orchestrator_run_id,
+                forced_run_id=str(uuid4()),
             )
 
         logger.info("Pipeline end-to-end concluído com sucesso")
@@ -93,7 +109,7 @@ def run_clientes_end_to_end(
         component="run_clientes_end_to_end",
         env=ctx.env,
         project=ctx.project,
-        run_id=run_id,
+        run_id=orchestrator_run_id,
         fn=_run,
         use_catalog=use_catalog,
     )

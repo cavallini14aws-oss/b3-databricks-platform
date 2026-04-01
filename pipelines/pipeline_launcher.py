@@ -1,4 +1,4 @@
-from b3_platform.pipeline_registry import resolve_pipeline_callable
+from b3_platform.orchestration.pipeline_registry import resolve_pipeline_callable
 
 
 def run_pipeline(

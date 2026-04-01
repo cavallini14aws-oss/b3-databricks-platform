@@ -1,6 +1,6 @@
-from b3_platform.context import get_context
-from b3_platform.logger import PlatformLogger
-from b3_platform.observability import log_pipeline_event
+from b3_platform.core.context import get_context
+from b3_platform.core.logger import PlatformLogger
+from b3_platform.orchestration.observability import log_pipeline_event
 
 
 def run_log_pipeline_runs_demo(

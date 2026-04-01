@@ -1,13 +1,1 @@
-from pathlib import Path
-
-import yaml
-
-
-def load_yaml_config(config_path: str) -> dict:
-    path = Path(config_path)
-
-    if not path.exists():
-        raise FileNotFoundError(f"Arquivo de configuração não encontrado: {config_path}")
-
-    with path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+from b3_platform.core.config_loader import *

@@ -1,7 +1,7 @@
 from pyspark.sql import functions as F
 
-from b3_platform.context import get_context
-from b3_platform.logger import PlatformLogger
+from b3_platform.core.context import get_context
+from b3_platform.core.logger import PlatformLogger
 
 
 def run_gold_clientes_ativos(

@@ -1,9 +1,9 @@
 from pyspark.sql import Row
 from pyspark.sql import functions as F
 
-from b3_platform.context import get_context
-from b3_platform.logger import PlatformLogger
-from b3_platform.pipeline_runner import run_with_observability
+from b3_platform.core.context import get_context
+from b3_platform.core.logger import PlatformLogger
+from b3_platform.orchestration.pipeline_runner import run_with_observability
 
 
 def run_ingest_table_clientes(
