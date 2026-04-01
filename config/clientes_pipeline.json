@@ -1,0 +1,20 @@
+{
+  "project": "clientes",
+  "use_catalog": false,
+  "steps": {
+    "ingest_file": true,
+    "ingest_table": true,
+    "silver_consolidado": true,
+    "gold_ativos": true,
+    "gold_survivorship": true
+  },
+  "sources": {
+    "file": {
+      "source_path": "inline_csv_memory",
+      "csv_content": "id_cliente,nome,segmento,status\n100,Gabi,PF,ATIVO\n101,Heitor,PJ,ATIVO\n102,Iris,PF,INATIVO\n"
+    }
+  },
+  "survivorship": {
+    "priority_order": ["table", "file"]
+  }
+}
