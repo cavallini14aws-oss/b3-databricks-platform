@@ -32,6 +32,7 @@ def run_ingest_table_clientes(
         Row(id_cliente=10, nome="Daniel", segmento="PF", status="ATIVO"),
         Row(id_cliente=11, nome="Erika", segmento="PJ", status="ATIVO"),
         Row(id_cliente=12, nome="Fabio", segmento="PF", status="INATIVO"),
+        Row(id_cliente=100, nome="Gabi_TABELA", segmento="PF", status="ATIVO"),
     ]
 
     df = (
@@ -43,6 +44,6 @@ def run_ingest_table_clientes(
         .withColumn("run_id", F.lit(logger.run_id))
     )
 
-    df.write.mode("overwrite").saveAsTable(bronze_table)
+    df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(bronze_table)
 
     logger.info(f"Ingestão por tabela finalizada com sucesso: {bronze_table}")
