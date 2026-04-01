@@ -1,0 +1,28 @@
+bundle:
+  name: b3-platform
+
+workspace:
+  root_path: /Workspace/Users/${workspace.current_user.userName}/b3-platform
+
+targets:
+  dev:
+    default: true
+    mode: development
+    workspace:
+      host: ${workspace.host}
+
+resources:
+  jobs:
+    bootstrap_job:
+      name: b3_bootstrap_job
+      tasks:
+        - task_key: bootstrap
+          spark_python_task:
+            python_file: notebooks/00_bootstrap.py
+
+    setup_demo_job:
+      name: b3_setup_demo_job
+      tasks:
+        - task_key: setup_demo
+          spark_python_task:
+            python_file: notebooks/01_setup_demo_tables.py
