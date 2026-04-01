@@ -9,6 +9,9 @@ def run_silver_consolidado_clientes(
     spark,
     project: str = "clientes",
     use_catalog: bool = False,
+    parent_component: str | None = None,
+    parent_run_id: str | None = None,
+    forced_run_id: str | None = None,
 ) -> None:
     ctx = get_context(project=project, use_catalog=use_catalog)
 
@@ -18,7 +21,7 @@ def run_silver_consolidado_clientes(
         project=ctx.project,
     )
 
-    run_id = base_logger.run_id
+    run_id = forced_run_id or base_logger.run_id
 
     def _run(logger: PlatformLogger):
         bronze_file = f"{ctx.naming.schema_bronze}.raw_clientes_file"
@@ -28,6 +31,7 @@ def run_silver_consolidado_clientes(
         logger.info("Iniciando silver")
         logger.info(f"bronze_file={bronze_file}")
         logger.info(f"bronze_table={bronze_table}")
+        logger.info(f"silver_table={silver_table}")
 
         df_file = spark.table(bronze_file)
         df_table = spark.table(bronze_table)
@@ -56,4 +60,6 @@ def run_silver_consolidado_clientes(
         run_id=run_id,
         fn=_run,
         use_catalog=use_catalog,
+        parent_component=parent_component,
+        parent_run_id=parent_run_id,
     )
