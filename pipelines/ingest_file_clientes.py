@@ -11,6 +11,9 @@ def run_ingest_file_clientes(
     source_path: str = "inline_csv_memory",
     project: str = "clientes",
     use_catalog: bool = False,
+    parent_component: str | None = None,
+    parent_run_id: str | None = None,
+    forced_run_id: str | None = None,
 ) -> None:
     ctx = get_context(project=project, use_catalog=use_catalog)
 
@@ -20,7 +23,7 @@ def run_ingest_file_clientes(
         project=ctx.project,
     )
 
-    run_id = base_logger.run_id
+    run_id = forced_run_id or base_logger.run_id
 
     def _run(logger: PlatformLogger):
         bronze_table = (
@@ -70,4 +73,6 @@ def run_ingest_file_clientes(
         run_id=run_id,
         fn=_run,
         use_catalog=use_catalog,
+        parent_component=parent_component,
+        parent_run_id=parent_run_id,
     )
