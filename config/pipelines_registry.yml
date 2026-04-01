@@ -1,5 +1,5 @@
 pipelines:
   clientes_end_to_end:
-    module: pipelines.run_clientes_end_to_end
+    module: pipelines.orchestration.run_clientes_end_to_end
     function: run_clientes_end_to_end
     config_path: /Workspace/Repos/b3-databricks-platform/b3-databricks-platform/config/clientes_pipeline.yml
