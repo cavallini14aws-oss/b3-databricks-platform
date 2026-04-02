@@ -1,0 +1,19 @@
+environment:
+  name: prd
+  use_catalog: true
+  debug_mode: false
+
+storage:
+  model_artifact_base_path: "/mnt/prd/models/clientes"
+  enable_model_artifact_persistence: true
+
+flags:
+  enable_data_pipeline: true
+  enable_ml_pipeline: true
+  enable_llm_pipeline: false
+  enable_baseline: true
+  enable_confusion_matrix: true
+  enable_predictions_logging: true
+  enable_registry: true
+  enable_feature_store: true
+  enable_strict_quality_gates: true

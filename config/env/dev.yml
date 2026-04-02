@@ -1,0 +1,19 @@
+environment:
+  name: dev
+  use_catalog: false
+  debug_mode: true
+
+storage:
+  model_artifact_base_path: "/tmp/local_models"
+  enable_model_artifact_persistence: false
+
+flags:
+  enable_data_pipeline: true
+  enable_ml_pipeline: true
+  enable_llm_pipeline: false
+  enable_baseline: true
+  enable_confusion_matrix: true
+  enable_predictions_logging: true
+  enable_registry: true
+  enable_feature_store: false
+  enable_strict_quality_gates: false
