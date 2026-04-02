@@ -3,14 +3,18 @@ model:
   algorithm: logistic_regression
 
 dataset:
+  version: v2
   source_table: clientes_silver.tb_clientes_consolidado
-  target_column: status
+  target_column: status_final
   label_mapping:
     positive: ATIVO
     negative: INATIVO
   feature_columns:
-    - segmento
-    - source_type
+    - segmento_dominante
+    - source_type_dominante
+    - qtd_registros
+    - tem_file
+    - tem_table
   split:
     strategy: modulo_id
     test_modulo: 3

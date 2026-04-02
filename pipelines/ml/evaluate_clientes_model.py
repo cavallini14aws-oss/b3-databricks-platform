@@ -25,8 +25,8 @@ PREDICTIONS_SCHEMA = T.StructType(
         T.StructField("model_name", T.StringType(), False),
         T.StructField("model_version", T.StringType(), False),
         T.StructField("id_cliente", T.LongType(), False),
-        T.StructField("segmento", T.StringType(), True),
-        T.StructField("source_type", T.StringType(), True),
+        T.StructField("segmento_dominante", T.StringType(), True),
+        T.StructField("source_type_dominante", T.StringType(), True),
         T.StructField("label", T.DoubleType(), True),
         T.StructField("prediction", T.DoubleType(), True),
         T.StructField("dataset_split", T.StringType(), True),
@@ -58,6 +58,7 @@ def run_evaluate_clientes_model(
 
     model_name = config["model"]["name"]
     feature_columns = config["dataset"]["feature_columns"]
+    dataset_version = config["dataset"].get("version", "v2")
     metric_names = config["evaluation"]["metrics"]
     config_generate_confusion_matrix = config["evaluation"]["generate_confusion_matrix"]
     config_generate_baseline = config["evaluation"]["generate_baseline"]
@@ -72,6 +73,7 @@ def run_evaluate_clientes_model(
         dataset_table = get_training_dataset_table(
             project=project,
             use_catalog=use_catalog,
+            version=dataset_version,
         )
 
         predictions_table = ctx.naming.qualified_table(
@@ -84,6 +86,7 @@ def run_evaluate_clientes_model(
 
         logger.info(f"dataset_table={dataset_table}")
         logger.info(f"model_version={model_version}")
+        logger.info(f"dataset_version={dataset_version}")
         logger.info(f"predictions_table={predictions_table}")
         logger.info(f"feature_columns={feature_columns}")
         logger.info(f"enable_baseline={generate_baseline}")
@@ -97,11 +100,21 @@ def run_evaluate_clientes_model(
         logger.info(f"train_count={train_df.count()}")
         logger.info(f"test_count={test_df.count()}")
 
+        categorical_features = []
+        numeric_features = []
+
+        for feature_name in feature_columns:
+            field_type = dict(train_df.dtypes).get(feature_name)
+            if field_type in {"string"}:
+                categorical_features.append(feature_name)
+            else:
+                numeric_features.append(feature_name)
+
         indexers = []
         encoder_inputs = []
         encoder_outputs = []
 
-        for feature_name in feature_columns:
+        for feature_name in categorical_features:
             idx_col = f"{feature_name}_idx"
             ohe_col = f"{feature_name}_ohe"
 
@@ -116,13 +129,22 @@ def run_evaluate_clientes_model(
             encoder_inputs.append(idx_col)
             encoder_outputs.append(ohe_col)
 
-        encoder = OneHotEncoder(
-            inputCols=encoder_inputs,
-            outputCols=encoder_outputs,
-        )
+        stages = []
+
+        if indexers:
+            stages.extend(indexers)
+
+        if encoder_inputs:
+            encoder = OneHotEncoder(
+                inputCols=encoder_inputs,
+                outputCols=encoder_outputs,
+            )
+            stages.append(encoder)
+
+        assembler_inputs = encoder_outputs + numeric_features
 
         assembler = VectorAssembler(
-            inputCols=encoder_outputs,
+            inputCols=assembler_inputs,
             outputCol="features",
         )
 
@@ -135,14 +157,9 @@ def run_evaluate_clientes_model(
             maxIter=10,
         )
 
-        pipeline = Pipeline(
-            stages=[
-                *indexers,
-                encoder,
-                assembler,
-                classifier,
-            ]
-        )
+        stages.extend([assembler, classifier])
+
+        pipeline = Pipeline(stages=stages)
 
         model = pipeline.fit(train_df)
         predictions = model.transform(test_df)
@@ -225,8 +242,8 @@ def run_evaluate_clientes_model(
                     model_name=model_name,
                     model_version=model_version,
                     id_cliente=int(row["id_cliente"]),
-                    segmento=row["segmento"],
-                    source_type=row["source_type"],
+                    segmento_dominante=row["segmento_dominante"],
+                    source_type_dominante=row["source_type_dominante"],
                     label=float(row["label"]) if row["label"] is not None else None,
                     prediction=float(row["prediction"]) if row["prediction"] is not None else None,
                     dataset_split=row["dataset_split"],
@@ -234,8 +251,8 @@ def run_evaluate_clientes_model(
                 )
                 for row in predictions.select(
                     "id_cliente",
-                    "segmento",
-                    "source_type",
+                    "segmento_dominante",
+                    "source_type_dominante",
                     "label",
                     "prediction",
                     "dataset_split",
