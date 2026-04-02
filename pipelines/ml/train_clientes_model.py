@@ -47,6 +47,10 @@ def run_train_clientes_model(
 
         logger.info(f"dataset_table={dataset_table}")
         logger.info(f"feature_columns={feature_columns}")
+        logger.info(f"enable_registry={ctx.flags.enable_registry}")
+        logger.info(
+            f"enable_model_artifact_persistence={ctx.enable_model_artifact_persistence}"
+        )
 
         df = spark.table(dataset_table)
         train_df = df.filter(F.col("dataset_split") == "train")
@@ -102,17 +106,31 @@ def run_train_clientes_model(
 
         model = pipeline.fit(train_df)
 
-        register_model(
-            spark=spark,
-            model_name=model_name,
-            model_version=model_version,
-            algorithm=algorithm,
-            run_id=run_id,
-            status="TRAINED",
-            artifact_path=None,
-            project=project,
-            use_catalog=use_catalog,
-        )
+        artifact_path = None
+        if ctx.enable_model_artifact_persistence:
+            artifact_path = (
+                f"{ctx.model_artifact_base_path}/{model_name}/{model_version}"
+            )
+            logger.info(
+                f"Persistencia de artifact habilitada para ambiente: {artifact_path}"
+            )
+            logger.warn(
+                "Artifact persistence esta preparada por ambiente, mas a gravacao real "
+                "do modelo ainda depende da estrategia final de storage do ambiente."
+            )
+
+        if ctx.flags.enable_registry:
+            register_model(
+                spark=spark,
+                model_name=model_name,
+                model_version=model_version,
+                algorithm=algorithm,
+                run_id=run_id,
+                status="TRAINED",
+                artifact_path=artifact_path,
+                project=project,
+                use_catalog=use_catalog,
+            )
 
         logger.info(f"Modelo treinado com sucesso: version={model_version}")
 

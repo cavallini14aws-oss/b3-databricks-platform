@@ -59,8 +59,14 @@ def run_evaluate_clientes_model(
     model_name = config["model"]["name"]
     feature_columns = config["dataset"]["feature_columns"]
     metric_names = config["evaluation"]["metrics"]
-    generate_confusion_matrix = config["evaluation"]["generate_confusion_matrix"]
-    generate_baseline = config["evaluation"]["generate_baseline"]
+    config_generate_confusion_matrix = config["evaluation"]["generate_confusion_matrix"]
+    config_generate_baseline = config["evaluation"]["generate_baseline"]
+
+    generate_confusion_matrix = (
+        config_generate_confusion_matrix and ctx.flags.enable_confusion_matrix
+    )
+    generate_baseline = config_generate_baseline and ctx.flags.enable_baseline
+    generate_predictions_logging = ctx.flags.enable_predictions_logging
 
     def _run(logger: PlatformLogger):
         dataset_table = get_training_dataset_table(
@@ -80,6 +86,9 @@ def run_evaluate_clientes_model(
         logger.info(f"model_version={model_version}")
         logger.info(f"predictions_table={predictions_table}")
         logger.info(f"feature_columns={feature_columns}")
+        logger.info(f"enable_baseline={generate_baseline}")
+        logger.info(f"enable_confusion_matrix={generate_confusion_matrix}")
+        logger.info(f"enable_predictions_logging={generate_predictions_logging}")
 
         df = spark.table(dataset_table)
         train_df = df.filter(F.col("dataset_split") == "train")
@@ -207,38 +216,45 @@ def run_evaluate_clientes_model(
                 use_catalog=use_catalog,
             )
 
-        prediction_rows = [
-            Row(
-                event_timestamp=datetime.now(UTC).replace(tzinfo=None),
-                env=ctx.env,
-                project=ctx.project,
-                model_name=model_name,
-                model_version=model_version,
-                id_cliente=int(row["id_cliente"]),
-                segmento=row["segmento"],
-                source_type=row["source_type"],
-                label=float(row["label"]) if row["label"] is not None else None,
-                prediction=float(row["prediction"]) if row["prediction"] is not None else None,
-                dataset_split=row["dataset_split"],
-                run_id=run_id,
-            )
-            for row in predictions.select(
-                "id_cliente",
-                "segmento",
-                "source_type",
-                "label",
-                "prediction",
-                "dataset_split",
-            ).collect()
-        ]
+        if generate_predictions_logging:
+            prediction_rows = [
+                Row(
+                    event_timestamp=datetime.now(UTC).replace(tzinfo=None),
+                    env=ctx.env,
+                    project=ctx.project,
+                    model_name=model_name,
+                    model_version=model_version,
+                    id_cliente=int(row["id_cliente"]),
+                    segmento=row["segmento"],
+                    source_type=row["source_type"],
+                    label=float(row["label"]) if row["label"] is not None else None,
+                    prediction=float(row["prediction"]) if row["prediction"] is not None else None,
+                    dataset_split=row["dataset_split"],
+                    run_id=run_id,
+                )
+                for row in predictions.select(
+                    "id_cliente",
+                    "segmento",
+                    "source_type",
+                    "label",
+                    "prediction",
+                    "dataset_split",
+                ).collect()
+            ]
 
-        if prediction_rows:
-            prediction_df = spark.createDataFrame(prediction_rows, schema=PREDICTIONS_SCHEMA)
+            if prediction_rows:
+                prediction_df = spark.createDataFrame(
+                    prediction_rows,
+                    schema=PREDICTIONS_SCHEMA,
+                )
 
-            if spark.catalog.tableExists(predictions_table):
-                prediction_df.write.mode("append").saveAsTable(predictions_table)
-            else:
-                prediction_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(predictions_table)
+                if spark.catalog.tableExists(predictions_table):
+                    prediction_df.write.mode("append").saveAsTable(predictions_table)
+                else:
+                    prediction_df.write.mode("overwrite").option(
+                        "overwriteSchema",
+                        "true",
+                    ).saveAsTable(predictions_table)
 
         logger.info("Avaliação do modelo concluída com sucesso")
 
