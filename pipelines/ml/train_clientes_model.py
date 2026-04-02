@@ -82,10 +82,7 @@ def run_train_clientes_model(
             ]
         )
 
-        model = pipeline.fit(df)
-
-        artifact_path = f"/tmp/{model_name}_{model_version}"
-        model.write().overwrite().save(artifact_path)
+        _ = pipeline.fit(df)
 
         register_model(
             spark=spark,
@@ -94,12 +91,12 @@ def run_train_clientes_model(
             algorithm="logistic_regression",
             run_id=run_id,
             status="TRAINED",
-            artifact_path=artifact_path,
+            artifact_path=None,
             project=project,
             use_catalog=use_catalog,
         )
 
-        logger.info(f"Modelo treinado com sucesso: {artifact_path}")
+        logger.info(f"Modelo treinado com sucesso: version={model_version}")
 
     run_with_observability(
         spark=spark,

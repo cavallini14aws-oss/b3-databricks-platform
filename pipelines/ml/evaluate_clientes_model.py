@@ -1,5 +1,7 @@
-from pyspark.ml import PipelineModel
+from pyspark.ml import Pipeline
+from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.evaluation import BinaryClassificationEvaluator, MulticlassClassificationEvaluator
+from pyspark.ml.feature import OneHotEncoder, StringIndexer, VectorAssembler
 
 from b3_platform.core.context import get_context
 from b3_platform.core.logger import PlatformLogger
@@ -34,13 +36,53 @@ def run_evaluate_clientes_model(
             use_catalog=use_catalog,
         )
 
-        artifact_path = f"/tmp/{model_name}_{model_version}"
-
         logger.info(f"dataset_table={dataset_table}")
-        logger.info(f"artifact_path={artifact_path}")
+        logger.info(f"model_version={model_version}")
 
         df = spark.table(dataset_table)
-        model = PipelineModel.load(artifact_path)
+
+        segment_indexer = StringIndexer(
+            inputCol="segmento",
+            outputCol="segmento_idx",
+            handleInvalid="keep",
+        )
+
+        source_indexer = StringIndexer(
+            inputCol="source_type",
+            outputCol="source_type_idx",
+            handleInvalid="keep",
+        )
+
+        encoder = OneHotEncoder(
+            inputCols=["segmento_idx", "source_type_idx"],
+            outputCols=["segmento_ohe", "source_type_ohe"],
+        )
+
+        assembler = VectorAssembler(
+            inputCols=["segmento_ohe", "source_type_ohe"],
+            outputCol="features",
+        )
+
+        classifier = LogisticRegression(
+            featuresCol="features",
+            labelCol="label",
+            predictionCol="prediction",
+            probabilityCol="probability",
+            rawPredictionCol="rawPrediction",
+            maxIter=10,
+        )
+
+        pipeline = Pipeline(
+            stages=[
+                segment_indexer,
+                source_indexer,
+                encoder,
+                assembler,
+                classifier,
+            ]
+        )
+
+        model = pipeline.fit(df)
         predictions = model.transform(df)
 
         accuracy = MulticlassClassificationEvaluator(
