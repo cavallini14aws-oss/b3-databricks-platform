@@ -5,6 +5,7 @@ from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import OneHotEncoder, StringIndexer, VectorAssembler
 from pyspark.sql import functions as F
 
+from b3_platform.core.config_loader import load_yaml_config
 from b3_platform.core.context import get_context
 from b3_platform.core.logger import PlatformLogger
 from b3_platform.mlops.datasets import get_training_dataset_table
@@ -16,6 +17,7 @@ def run_train_clientes_model(
     spark,
     project: str = "clientes",
     use_catalog: bool = False,
+    config_path: str = "config/clientes_ml_pipeline.yml",
     parent_component: str | None = None,
     parent_run_id: str | None = None,
     forced_run_id: str | None = None,
@@ -29,8 +31,13 @@ def run_train_clientes_model(
     )
 
     run_id = forced_run_id or base_logger.run_id
+    config = load_yaml_config(config_path)
+
+    model_name = config["model"]["name"]
+    algorithm = config["model"]["algorithm"]
+    feature_columns = config["dataset"]["feature_columns"]
+
     model_version = str(uuid4())
-    model_name = "clientes_status_classifier"
 
     def _run(logger: PlatformLogger):
         dataset_table = get_training_dataset_table(
@@ -39,31 +46,39 @@ def run_train_clientes_model(
         )
 
         logger.info(f"dataset_table={dataset_table}")
+        logger.info(f"feature_columns={feature_columns}")
 
         df = spark.table(dataset_table)
         train_df = df.filter(F.col("dataset_split") == "train")
 
         logger.info(f"train_count={train_df.count()}")
 
-        segment_indexer = StringIndexer(
-            inputCol="segmento",
-            outputCol="segmento_idx",
-            handleInvalid="keep",
-        )
+        indexers = []
+        encoder_inputs = []
+        encoder_outputs = []
 
-        source_indexer = StringIndexer(
-            inputCol="source_type",
-            outputCol="source_type_idx",
-            handleInvalid="keep",
-        )
+        for feature_name in feature_columns:
+            idx_col = f"{feature_name}_idx"
+            ohe_col = f"{feature_name}_ohe"
+
+            indexers.append(
+                StringIndexer(
+                    inputCol=feature_name,
+                    outputCol=idx_col,
+                    handleInvalid="keep",
+                )
+            )
+
+            encoder_inputs.append(idx_col)
+            encoder_outputs.append(ohe_col)
 
         encoder = OneHotEncoder(
-            inputCols=["segmento_idx", "source_type_idx"],
-            outputCols=["segmento_ohe", "source_type_ohe"],
+            inputCols=encoder_inputs,
+            outputCols=encoder_outputs,
         )
 
         assembler = VectorAssembler(
-            inputCols=["segmento_ohe", "source_type_ohe"],
+            inputCols=encoder_outputs,
             outputCol="features",
         )
 
@@ -78,8 +93,7 @@ def run_train_clientes_model(
 
         pipeline = Pipeline(
             stages=[
-                segment_indexer,
-                source_indexer,
+                *indexers,
                 encoder,
                 assembler,
                 classifier,
@@ -92,7 +106,7 @@ def run_train_clientes_model(
             spark=spark,
             model_name=model_name,
             model_version=model_version,
-            algorithm="logistic_regression",
+            algorithm=algorithm,
             run_id=run_id,
             status="TRAINED",
             artifact_path=None,

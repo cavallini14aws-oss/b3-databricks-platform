@@ -1,0 +1,25 @@
+model:
+  name: clientes_status_classifier
+  algorithm: logistic_regression
+
+dataset:
+  source_table: clientes_silver.tb_clientes_consolidado
+  target_column: status
+  label_mapping:
+    positive: ATIVO
+    negative: INATIVO
+  feature_columns:
+    - segmento
+    - source_type
+  split:
+    strategy: modulo_id
+    test_modulo: 3
+    test_value: 0
+
+evaluation:
+  metrics:
+    - accuracy
+    - f1
+    - auc
+  generate_confusion_matrix: true
+  generate_baseline: true
