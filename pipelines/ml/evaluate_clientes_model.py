@@ -8,10 +8,12 @@ from pyspark.sql import Row
 from pyspark.sql import functions as F
 from pyspark.sql import types as T
 
+from b3_platform.core.config_loader import load_yaml_config
 from b3_platform.core.context import get_context
 from b3_platform.core.logger import PlatformLogger
+from b3_platform.mlops.baseline import compute_majority_baseline_accuracy, log_baseline_metric
 from b3_platform.mlops.datasets import get_training_dataset_table
-from b3_platform.mlops.evaluation import log_model_metric
+from b3_platform.mlops.evaluation import log_confusion_matrix, log_model_metric
 from b3_platform.orchestration.pipeline_runner import run_with_observability
 
 
@@ -38,6 +40,7 @@ def run_evaluate_clientes_model(
     model_version: str,
     project: str = "clientes",
     use_catalog: bool = False,
+    config_path: str = "config/clientes_ml_pipeline.yml",
     parent_component: str | None = None,
     parent_run_id: str | None = None,
     forced_run_id: str | None = None,
@@ -51,7 +54,13 @@ def run_evaluate_clientes_model(
     )
 
     run_id = forced_run_id or base_logger.run_id
-    model_name = "clientes_status_classifier"
+    config = load_yaml_config(config_path)
+
+    model_name = config["model"]["name"]
+    feature_columns = config["dataset"]["feature_columns"]
+    metric_names = config["evaluation"]["metrics"]
+    generate_confusion_matrix = config["evaluation"]["generate_confusion_matrix"]
+    generate_baseline = config["evaluation"]["generate_baseline"]
 
     def _run(logger: PlatformLogger):
         dataset_table = get_training_dataset_table(
@@ -70,6 +79,7 @@ def run_evaluate_clientes_model(
         logger.info(f"dataset_table={dataset_table}")
         logger.info(f"model_version={model_version}")
         logger.info(f"predictions_table={predictions_table}")
+        logger.info(f"feature_columns={feature_columns}")
 
         df = spark.table(dataset_table)
         train_df = df.filter(F.col("dataset_split") == "train")
@@ -78,25 +88,32 @@ def run_evaluate_clientes_model(
         logger.info(f"train_count={train_df.count()}")
         logger.info(f"test_count={test_df.count()}")
 
-        segment_indexer = StringIndexer(
-            inputCol="segmento",
-            outputCol="segmento_idx",
-            handleInvalid="keep",
-        )
+        indexers = []
+        encoder_inputs = []
+        encoder_outputs = []
 
-        source_indexer = StringIndexer(
-            inputCol="source_type",
-            outputCol="source_type_idx",
-            handleInvalid="keep",
-        )
+        for feature_name in feature_columns:
+            idx_col = f"{feature_name}_idx"
+            ohe_col = f"{feature_name}_ohe"
+
+            indexers.append(
+                StringIndexer(
+                    inputCol=feature_name,
+                    outputCol=idx_col,
+                    handleInvalid="keep",
+                )
+            )
+
+            encoder_inputs.append(idx_col)
+            encoder_outputs.append(ohe_col)
 
         encoder = OneHotEncoder(
-            inputCols=["segmento_idx", "source_type_idx"],
-            outputCols=["segmento_ohe", "source_type_ohe"],
+            inputCols=encoder_inputs,
+            outputCols=encoder_outputs,
         )
 
         assembler = VectorAssembler(
-            inputCols=["segmento_ohe", "source_type_ohe"],
+            inputCols=encoder_outputs,
             outputCol="features",
         )
 
@@ -111,8 +128,7 @@ def run_evaluate_clientes_model(
 
         pipeline = Pipeline(
             stages=[
-                segment_indexer,
-                source_indexer,
+                *indexers,
                 encoder,
                 assembler,
                 classifier,
@@ -122,35 +138,70 @@ def run_evaluate_clientes_model(
         model = pipeline.fit(train_df)
         predictions = model.transform(test_df)
 
-        accuracy = MulticlassClassificationEvaluator(
-            labelCol="label",
-            predictionCol="prediction",
-            metricName="accuracy",
-        ).evaluate(predictions)
+        metric_values = {}
 
-        f1_score = MulticlassClassificationEvaluator(
-            labelCol="label",
-            predictionCol="prediction",
-            metricName="f1",
-        ).evaluate(predictions)
+        if "accuracy" in metric_names:
+            metric_values["accuracy"] = MulticlassClassificationEvaluator(
+                labelCol="label",
+                predictionCol="prediction",
+                metricName="accuracy",
+            ).evaluate(predictions)
 
-        auc = BinaryClassificationEvaluator(
-            labelCol="label",
-            rawPredictionCol="rawPrediction",
-            metricName="areaUnderROC",
-        ).evaluate(predictions)
+        if "f1" in metric_names:
+            metric_values["f1"] = MulticlassClassificationEvaluator(
+                labelCol="label",
+                predictionCol="prediction",
+                metricName="f1",
+            ).evaluate(predictions)
 
-        for metric_name, metric_value in [
-            ("accuracy", accuracy),
-            ("f1", f1_score),
-            ("auc", auc),
-        ]:
+        if "auc" in metric_names:
+            metric_values["auc"] = BinaryClassificationEvaluator(
+                labelCol="label",
+                rawPredictionCol="rawPrediction",
+                metricName="areaUnderROC",
+            ).evaluate(predictions)
+
+        for metric_name, metric_value in metric_values.items():
             log_model_metric(
                 spark=spark,
                 model_name=model_name,
                 model_version=model_version,
                 metric_name=metric_name,
                 metric_value=metric_value,
+                run_id=run_id,
+                project=project,
+                use_catalog=use_catalog,
+            )
+
+        if generate_baseline:
+            baseline_accuracy = compute_majority_baseline_accuracy(test_df)
+
+            log_baseline_metric(
+                spark=spark,
+                model_name=model_name,
+                model_version=model_version,
+                baseline_name="majority_class",
+                metric_name="accuracy",
+                metric_value=baseline_accuracy,
+                run_id=run_id,
+                project=project,
+                use_catalog=use_catalog,
+            )
+
+        if generate_confusion_matrix:
+            confusion_rows = (
+                predictions
+                .groupBy("label", "prediction")
+                .count()
+                .withColumnRenamed("count", "record_count")
+                .collect()
+            )
+
+            log_confusion_matrix(
+                spark=spark,
+                model_name=model_name,
+                model_version=model_version,
+                confusion_rows=confusion_rows,
                 run_id=run_id,
                 project=project,
                 use_catalog=use_catalog,
@@ -190,6 +241,12 @@ def run_evaluate_clientes_model(
                 prediction_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(predictions_table)
 
         logger.info("Avaliação do modelo concluída com sucesso")
+
+        del predictions
+        del model
+        del train_df
+        del test_df
+        del df
 
     run_with_observability(
         spark=spark,

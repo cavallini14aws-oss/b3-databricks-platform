@@ -100,7 +100,7 @@ def run_train_clientes_model(
             ]
         )
 
-        _ = pipeline.fit(train_df)
+        model = pipeline.fit(train_df)
 
         register_model(
             spark=spark,
@@ -115,6 +115,10 @@ def run_train_clientes_model(
         )
 
         logger.info(f"Modelo treinado com sucesso: version={model_version}")
+
+        del model
+        del train_df
+        del df
 
     run_with_observability(
         spark=spark,
