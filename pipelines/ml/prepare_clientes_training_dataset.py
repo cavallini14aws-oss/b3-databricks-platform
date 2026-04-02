@@ -47,7 +47,11 @@ def run_prepare_clientes_training_dataset(
             .select("id_cliente", "segmento", "source_type", "status")
             .withColumn(
                 "label",
-                F.when(F.col("status") == "ATIVO", F.lit(1)).otherwise(F.lit(0))
+                F.when(F.col("status") == "ATIVO", F.lit(1.0)).otherwise(F.lit(0.0))
+            )
+            .withColumn(
+                "dataset_split",
+                F.when((F.col("id_cliente") % 3) == 0, F.lit("test")).otherwise(F.lit("train"))
             )
         )
 

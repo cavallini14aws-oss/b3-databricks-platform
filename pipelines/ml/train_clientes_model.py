@@ -3,6 +3,7 @@ from uuid import uuid4
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import OneHotEncoder, StringIndexer, VectorAssembler
+from pyspark.sql import functions as F
 
 from b3_platform.core.context import get_context
 from b3_platform.core.logger import PlatformLogger
@@ -40,6 +41,9 @@ def run_train_clientes_model(
         logger.info(f"dataset_table={dataset_table}")
 
         df = spark.table(dataset_table)
+        train_df = df.filter(F.col("dataset_split") == "train")
+
+        logger.info(f"train_count={train_df.count()}")
 
         segment_indexer = StringIndexer(
             inputCol="segmento",
@@ -82,7 +86,7 @@ def run_train_clientes_model(
             ]
         )
 
-        _ = pipeline.fit(df)
+        _ = pipeline.fit(train_df)
 
         register_model(
             spark=spark,
