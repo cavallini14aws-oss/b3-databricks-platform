@@ -11,6 +11,8 @@ resources:
               - clientes
               - --config-path
               - config/clientes_ml_pipeline.yml
+              - --use-catalog
+              - "false"
           existing_cluster_id: ${var.dev_cluster_id}
       tags:
         environment: dev

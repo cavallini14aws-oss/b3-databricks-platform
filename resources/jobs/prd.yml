@@ -11,6 +11,8 @@ resources:
               - clientes
               - --config-path
               - config/clientes_ml_pipeline.yml
+              - --use-catalog
+              - "true"
           existing_cluster_id: ${var.prd_cluster_id}
       tags:
         environment: prd
