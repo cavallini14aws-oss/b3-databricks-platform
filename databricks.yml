@@ -1,28 +1,17 @@
 bundle:
-  name: b3-platform
+  name: b3-databricks-platform
 
-workspace:
-  root_path: /Workspace/Users/${workspace.current_user.userName}/b3-platform
+include:
+  - resources/jobs/*.yml
 
 targets:
   dev:
     default: true
-    mode: development
     workspace:
-      host: ${workspace.host}
-
-resources:
-  jobs:
-    bootstrap_job:
-      name: b3_bootstrap_job
-      tasks:
-        - task_key: bootstrap
-          spark_python_task:
-            python_file: notebooks/00_bootstrap.py
-
-    setup_demo_job:
-      name: b3_setup_demo_job
-      tasks:
-        - task_key: setup_demo
-          spark_python_task:
-            python_file: notebooks/01_setup_demo_tables.py
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+  hml:
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+  prd:
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
