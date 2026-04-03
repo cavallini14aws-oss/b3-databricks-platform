@@ -1,5 +1,10 @@
 from dataclasses import dataclass
+from datetime import datetime, UTC
 
+from pyspark.sql import Row
+from pyspark.sql import types as T
+
+from b3_platform.core.context import get_context
 from b3_platform.core.job_config import JobConfig
 
 
@@ -7,6 +12,27 @@ from b3_platform.core.job_config import JobConfig
 class PromotionDecision:
     approved: bool
     reason: str
+
+
+PROMOTION_DECISION_SCHEMA = T.StructType(
+    [
+        T.StructField("event_timestamp", T.TimestampType(), False),
+        T.StructField("env", T.StringType(), False),
+        T.StructField("project", T.StringType(), False),
+        T.StructField("model_name", T.StringType(), False),
+        T.StructField("model_version", T.StringType(), False),
+        T.StructField("source_env", T.StringType(), False),
+        T.StructField("target_env", T.StringType(), True),
+        T.StructField("approved", T.BooleanType(), False),
+        T.StructField("reason", T.StringType(), False),
+        T.StructField("accuracy", T.DoubleType(), True),
+        T.StructField("f1", T.DoubleType(), True),
+        T.StructField("auc", T.DoubleType(), True),
+        T.StructField("tests_passed", T.BooleanType(), False),
+        T.StructField("manual_approval", T.BooleanType(), False),
+        T.StructField("run_id", T.StringType(), False),
+    ]
+)
 
 
 def evaluate_ml_promotion(
@@ -61,3 +87,52 @@ def evaluate_ml_promotion(
         approved=True,
         reason="Promotion approved.",
     )
+
+
+def log_promotion_decision(
+    spark,
+    model_name: str,
+    model_version: str,
+    decision: PromotionDecision,
+    run_id: str,
+    source_env: str,
+    target_env: str | None,
+    accuracy: float | None,
+    f1: float | None,
+    auc: float | None,
+    tests_passed: bool,
+    manual_approval: bool,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> None:
+    ctx = get_context(project=project, use_catalog=use_catalog)
+
+    schema_name = ctx.naming.qualified_schema(ctx.naming.schema_mlops)
+    table_name = ctx.naming.qualified_table(ctx.naming.schema_mlops, "tb_model_promotion_decision")
+
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
+
+    row = Row(
+        event_timestamp=datetime.now(UTC).replace(tzinfo=None),
+        env=ctx.env,
+        project=ctx.project,
+        model_name=model_name,
+        model_version=model_version,
+        source_env=source_env,
+        target_env=target_env,
+        approved=bool(decision.approved),
+        reason=decision.reason,
+        accuracy=float(accuracy) if accuracy is not None else None,
+        f1=float(f1) if f1 is not None else None,
+        auc=float(auc) if auc is not None else None,
+        tests_passed=bool(tests_passed),
+        manual_approval=bool(manual_approval),
+        run_id=run_id,
+    )
+
+    df = spark.createDataFrame([row], schema=PROMOTION_DECISION_SCHEMA)
+
+    if spark.catalog.tableExists(table_name):
+        df.write.mode("append").saveAsTable(table_name)
+    else:
+        df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(table_name)

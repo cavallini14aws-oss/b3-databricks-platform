@@ -10,7 +10,12 @@ from pyspark.sql import types as T
 
 from b3_platform.core.config_loader import load_yaml_config
 from b3_platform.core.context import get_context
+from b3_platform.core.job_config import load_job_config
 from b3_platform.core.logger import PlatformLogger
+from b3_platform.governance.promotion import (
+    evaluate_ml_promotion,
+    log_promotion_decision,
+)
 from b3_platform.mlops.baseline import compute_majority_baseline_accuracy, log_baseline_metric
 from b3_platform.mlops.datasets import get_training_dataset_table
 from b3_platform.mlops.evaluation import log_confusion_matrix, log_model_metric
@@ -55,6 +60,7 @@ def run_evaluate_clientes_model(
 
     run_id = forced_run_id or base_logger.run_id
     config = load_yaml_config(config_path)
+    job_config = load_job_config(ctx.env)
 
     model_name = config["model"]["name"]
     feature_columns = config["dataset"]["feature_columns"]
@@ -92,6 +98,11 @@ def run_evaluate_clientes_model(
         logger.info(f"enable_baseline={generate_baseline}")
         logger.info(f"enable_confusion_matrix={generate_confusion_matrix}")
         logger.info(f"enable_predictions_logging={generate_predictions_logging}")
+        logger.info(f"job_environment={job_config.environment}")
+        logger.info(f"promotion_target_env={job_config.promotion.target_env}")
+        logger.info(
+            f"require_quality_gates={job_config.promotion.require_quality_gates}"
+        )
 
         df = spark.table(dataset_table)
         train_df = df.filter(F.col("dataset_split") == "train")
@@ -103,8 +114,9 @@ def run_evaluate_clientes_model(
         categorical_features = []
         numeric_features = []
 
+        dtype_map = dict(train_df.dtypes)
         for feature_name in feature_columns:
-            field_type = dict(train_df.dtypes).get(feature_name)
+            field_type = dtype_map.get(feature_name)
             if field_type in {"string"}:
                 categorical_features.append(feature_name)
             else:
@@ -186,6 +198,10 @@ def run_evaluate_clientes_model(
                 rawPredictionCol="rawPrediction",
                 metricName="areaUnderROC",
             ).evaluate(predictions)
+
+        accuracy = metric_values.get("accuracy")
+        f1_score = metric_values.get("f1")
+        auc = metric_values.get("auc")
 
         for metric_name, metric_value in metric_values.items():
             log_model_metric(
@@ -272,6 +288,45 @@ def run_evaluate_clientes_model(
                         "overwriteSchema",
                         "true",
                     ).saveAsTable(predictions_table)
+
+        promotion_decision = evaluate_ml_promotion(
+            job_config=job_config,
+            accuracy=accuracy,
+            f1=f1_score,
+            auc=auc,
+            tests_passed=True,
+            manual_approval=False,
+        )
+
+        log_promotion_decision(
+            spark=spark,
+            model_name=model_name,
+            model_version=model_version,
+            decision=promotion_decision,
+            run_id=run_id,
+            source_env=job_config.promotion.source_env,
+            target_env=job_config.promotion.target_env,
+            accuracy=accuracy,
+            f1=f1_score,
+            auc=auc,
+            tests_passed=True,
+            manual_approval=False,
+            project=project,
+            use_catalog=use_catalog,
+        )
+
+        logger.info(
+            f"promotion_decision_approved={promotion_decision.approved}"
+        )
+        logger.info(
+            f"promotion_decision_reason={promotion_decision.reason}"
+        )
+
+        if not promotion_decision.approved and ctx.env in {"hml", "prd"}:
+            raise RuntimeError(
+                f"Quality gate failed for environment {ctx.env}: "
+                f"{promotion_decision.reason}"
+            )
 
         logger.info("Avaliação do modelo concluída com sucesso")
 
