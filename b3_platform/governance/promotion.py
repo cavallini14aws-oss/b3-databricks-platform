@@ -1,8 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, UTC
-
-from pyspark.sql import Row
-from pyspark.sql import types as T
+from datetime import datetime, timezone
 
 from b3_platform.core.context import get_context
 from b3_platform.core.job_config import JobConfig
@@ -12,27 +9,6 @@ from b3_platform.core.job_config import JobConfig
 class PromotionDecision:
     approved: bool
     reason: str
-
-
-PROMOTION_DECISION_SCHEMA = T.StructType(
-    [
-        T.StructField("event_timestamp", T.TimestampType(), False),
-        T.StructField("env", T.StringType(), False),
-        T.StructField("project", T.StringType(), False),
-        T.StructField("model_name", T.StringType(), False),
-        T.StructField("model_version", T.StringType(), False),
-        T.StructField("source_env", T.StringType(), False),
-        T.StructField("target_env", T.StringType(), True),
-        T.StructField("approved", T.BooleanType(), False),
-        T.StructField("reason", T.StringType(), False),
-        T.StructField("accuracy", T.DoubleType(), True),
-        T.StructField("f1", T.DoubleType(), True),
-        T.StructField("auc", T.DoubleType(), True),
-        T.StructField("tests_passed", T.BooleanType(), False),
-        T.StructField("manual_approval", T.BooleanType(), False),
-        T.StructField("run_id", T.StringType(), False),
-    ]
-)
 
 
 def evaluate_ml_promotion(
@@ -105,15 +81,41 @@ def log_promotion_decision(
     project: str = "clientes",
     use_catalog: bool = False,
 ) -> None:
+    from pyspark.sql import Row
+    from pyspark.sql import types as T
+
+    PROMOTION_DECISION_SCHEMA = T.StructType(
+        [
+            T.StructField("event_timestamp", T.TimestampType(), False),
+            T.StructField("env", T.StringType(), False),
+            T.StructField("project", T.StringType(), False),
+            T.StructField("model_name", T.StringType(), False),
+            T.StructField("model_version", T.StringType(), False),
+            T.StructField("source_env", T.StringType(), False),
+            T.StructField("target_env", T.StringType(), True),
+            T.StructField("approved", T.BooleanType(), False),
+            T.StructField("reason", T.StringType(), False),
+            T.StructField("accuracy", T.DoubleType(), True),
+            T.StructField("f1", T.DoubleType(), True),
+            T.StructField("auc", T.DoubleType(), True),
+            T.StructField("tests_passed", T.BooleanType(), False),
+            T.StructField("manual_approval", T.BooleanType(), False),
+            T.StructField("run_id", T.StringType(), False),
+        ]
+    )
+
     ctx = get_context(project=project, use_catalog=use_catalog)
 
     schema_name = ctx.naming.qualified_schema(ctx.naming.schema_mlops)
-    table_name = ctx.naming.qualified_table(ctx.naming.schema_mlops, "tb_model_promotion_decision")
+    table_name = ctx.naming.qualified_table(
+        ctx.naming.schema_mlops,
+        "tb_model_promotion_decision",
+    )
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
 
     row = Row(
-        event_timestamp=datetime.now(UTC).replace(tzinfo=None),
+        event_timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
         env=ctx.env,
         project=ctx.project,
         model_name=model_name,
