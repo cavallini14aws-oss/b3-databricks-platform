@@ -1,0 +1,17 @@
+resources:
+  jobs:
+    clientes_ml_hml:
+      name: clientes-ml-hml
+      tasks:
+        - task_key: clientes_ml_pipeline_hml
+          spark_python_task:
+            python_file: ${workspace.root_path}/pipelines/examples/clientes/ml/run_clientes_ml_end_to_end.py
+            parameters:
+              - --project
+              - clientes
+              - --config-path
+              - config/clientes_ml_pipeline.yml
+          existing_cluster_id: ${var.hml_cluster_id}
+      tags:
+        environment: hml
+        project: clientes
