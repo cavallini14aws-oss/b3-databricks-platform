@@ -1,0 +1,41 @@
+image: python:3.12
+
+pipelines:
+  pull-requests:
+    "**":
+      - step:
+          name: Validate bundle artifacts
+          caches:
+            - pip
+          script:
+            - python -m compileall b3_platform config pipelines resources sql
+            - echo "Gerar artifacts da plataforma"
+            - echo "databricks bundle validate -t dev"
+
+  branches:
+    main:
+      - step:
+          name: Deploy DEV
+          deployment: development
+          caches:
+            - pip
+          script:
+            - echo "databricks bundle deploy -t dev"
+
+      - step:
+          name: Deploy HML
+          deployment: staging
+          trigger: manual
+          caches:
+            - pip
+          script:
+            - echo "databricks bundle deploy -t hml"
+
+      - step:
+          name: Deploy PRD
+          deployment: production
+          trigger: manual
+          caches:
+            - pip
+          script:
+            - echo "databricks bundle deploy -t prd"
