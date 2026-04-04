@@ -3,11 +3,13 @@ name: Databricks CI
 on:
   pull_request:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
@@ -36,7 +38,7 @@ jobs:
       - name: Set up Databricks CLI
         run: pip install databricks-cli
 
-      - name: Validate bundle (DEV)
+      - name: Validate bundle on DEV target
         env:
           DATABRICKS_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
@@ -47,6 +49,7 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     environment: dev
+
     steps:
       - uses: actions/checkout@v4
 
@@ -77,6 +80,7 @@ jobs:
     needs: deploy-dev
     runs-on: ubuntu-latest
     environment: hml
+
     steps:
       - uses: actions/checkout@v4
 
@@ -107,6 +111,7 @@ jobs:
     needs: deploy-hml
     runs-on: ubuntu-latest
     environment: prd
+
     steps:
       - uses: actions/checkout@v4
 
