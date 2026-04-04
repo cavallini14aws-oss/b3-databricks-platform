@@ -1,5 +1,5 @@
 # PROVIDER DISABLED
-# Este adapter está gerado, porém desligado por config.
+# Este adapter está gerado, porém não está ativo na configuração central.
 
 image: python:3.12
 
