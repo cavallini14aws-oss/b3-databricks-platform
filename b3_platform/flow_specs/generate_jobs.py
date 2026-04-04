@@ -2,37 +2,13 @@ import argparse
 import json
 from pathlib import Path
 
+from b3_platform.core.job_config import load_job_config
 from b3_platform.flow_specs.generate_registry import build_registry_payload
 
 
-ENVIRONMENT_JOB_CONFIG = {
-    "dev": {
-        "cluster_key": "clientes-dev-cluster",
-        "use_catalog": False,
-        "default_config_path": "config/clientes_ml_pipeline.yml",
-    },
-    "hml": {
-        "cluster_key": "clientes-hml-cluster",
-        "use_catalog": True,
-        "default_config_path": "config/clientes_ml_pipeline.yml",
-    },
-    "prd": {
-        "cluster_key": "clientes-prd-cluster",
-        "use_catalog": True,
-        "default_config_path": "config/clientes_ml_pipeline.yml",
-    },
-}
-
-
 def build_jobs_payload(environment: str) -> dict:
-    if environment not in ENVIRONMENT_JOB_CONFIG:
-        raise ValueError(
-            f"environment inválido: {environment}. "
-            f"Valores aceitos: {sorted(ENVIRONMENT_JOB_CONFIG.keys())}"
-        )
-
     registry = build_registry_payload()
-    env_cfg = ENVIRONMENT_JOB_CONFIG[environment]
+    env_cfg = load_job_config(environment)
 
     jobs = []
 
@@ -51,9 +27,9 @@ def build_jobs_payload(environment: str) -> dict:
                 "spec_module": flow["spec_module"],
                 "entrypoint": flow["entrypoint"],
                 "callable_name": flow["callable_name"],
-                "cluster_key": env_cfg["cluster_key"],
-                "use_catalog": env_cfg["use_catalog"],
-                "config_path": env_cfg["default_config_path"],
+                "cluster_key": env_cfg.cluster_key,
+                "use_catalog": env_cfg.use_catalog,
+                "config_path": env_cfg.default_config_path,
                 "tags": flow["tags"],
             }
         )

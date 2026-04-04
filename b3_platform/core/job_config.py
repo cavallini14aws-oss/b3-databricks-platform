@@ -28,6 +28,8 @@ class JobConfig:
     workspace_root: str
     default_timeout_seconds: int
     max_retries: int
+    use_catalog: bool
+    default_config_path: str | None
     promotion_rules: list[PromotionRule]
     ml_quality_gates: MlQualityGates
 
@@ -60,6 +62,8 @@ def load_job_config(env: str | None = None) -> JobConfig:
         workspace_root=job.get("workspace_root", "/Workspace/Repos"),
         default_timeout_seconds=int(job.get("default_timeout_seconds", 3600)),
         max_retries=int(job.get("max_retries", 0)),
+        use_catalog=bool(job.get("use_catalog", False)),
+        default_config_path=job.get("default_config_path"),
         promotion_rules=rules,
         ml_quality_gates=MlQualityGates(
             minimum_accuracy=float(ml.get("minimum_accuracy", 0.0)),

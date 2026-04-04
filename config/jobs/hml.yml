@@ -5,6 +5,8 @@ job:
   workspace_root: /Workspace/Repos/b3-databricks-platform/b3-databricks-platform
   default_timeout_seconds: 5400
   max_retries: 1
+  use_catalog: true
+  default_config_path: config/clientes_ml_pipeline.yml
 
 promotion:
   rules:
