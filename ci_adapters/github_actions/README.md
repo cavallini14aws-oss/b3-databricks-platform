@@ -45,12 +45,19 @@ Criar os seguintes environments no repositório:
 - PRD_DATABRICKS_TOKEN
 - PRD_CLUSTER_ID
 
+## Validação antecipada
+O workflow executa:
+- `python -m b3_platform.orchestration.validate_active_ci_provider`
+
+Esse comando valida o contrato central de secrets do provider ativo antes do validate/deploy do bundle.
+
 ## Fluxo de execução
 1. pull request roda validate
-2. merge em main libera deploy dev
-3. após dev, workflow segue para hml
-4. após hml, workflow segue para prd
-5. prd só executa se o environment prd liberar
+2. validate checa contrato de secrets do provider ativo
+3. merge em main libera deploy dev
+4. após dev, workflow segue para hml
+5. após hml, workflow segue para prd
+6. prd só executa se o environment prd liberar
 
 ## Governança recomendada
 - desenvolvedor não deve aprovar prd
