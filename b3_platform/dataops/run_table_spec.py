@@ -2,6 +2,8 @@ from uuid import uuid4
 
 from b3_platform.dataops.sql_runner import ensure_sql_history_table, log_sql_history
 from b3_platform.dataops.table_builder import (
+    build_catalog_name,
+    build_create_catalog_sql,
     build_create_schema_sql,
     build_create_table_sql,
     build_set_column_tags_sql_list,
@@ -22,6 +24,33 @@ def run_table_spec(
 
     validate_table_spec(table_spec)
     ensure_sql_history_table(spark, project=project, use_catalog=use_catalog)
+
+    create_catalog_sql = build_create_catalog_sql(
+        table_spec=table_spec,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    if create_catalog_sql:
+        spark.sql(create_catalog_sql)
+
+        catalog_name = build_catalog_name(
+            table_spec=table_spec,
+            project=project,
+            use_catalog=use_catalog,
+        )
+
+        log_sql_history(
+            spark=spark,
+            migration_type="table_spec_create_catalog",
+            file_name=table_spec.table_name,
+            file_path=f"table_spec::{catalog_name}",
+            status="SUCCESS",
+            message="CREATE CATALOG executado com sucesso.",
+            run_id=resolved_run_id,
+            project=project,
+            use_catalog=use_catalog,
+        )
 
     create_schema_sql = build_create_schema_sql(
         table_spec=table_spec,

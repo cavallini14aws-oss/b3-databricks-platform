@@ -6,15 +6,30 @@ def render_catalog_name(catalog_template: str, env: str) -> str:
     return catalog_template.replace("{env}", env)
 
 
+def build_catalog_name(
+    table_spec: TableSpec,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> str | None:
+    if not use_catalog:
+        return None
+
+    ctx = get_context(project=project, use_catalog=use_catalog)
+    return render_catalog_name(table_spec.catalog_template, ctx.env)
+
+
 def build_fully_qualified_schema_name(
     table_spec: TableSpec,
     project: str = "clientes",
     use_catalog: bool = False,
 ) -> str:
-    ctx = get_context(project=project, use_catalog=use_catalog)
-    catalog_name = render_catalog_name(table_spec.catalog_template, ctx.env)
+    catalog_name = build_catalog_name(
+        table_spec=table_spec,
+        project=project,
+        use_catalog=use_catalog,
+    )
 
-    if use_catalog:
+    if use_catalog and catalog_name:
         return f"{catalog_name}.{table_spec.schema_name}"
     return table_spec.schema_name
 
@@ -30,6 +45,23 @@ def build_fully_qualified_table_name(
         use_catalog=use_catalog,
     )
     return f"{schema_name}.{table_spec.table_name}"
+
+
+def build_create_catalog_sql(
+    table_spec: TableSpec,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> str | None:
+    catalog_name = build_catalog_name(
+        table_spec=table_spec,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    if not use_catalog or not catalog_name:
+        return None
+
+    return f"CREATE CATALOG IF NOT EXISTS {catalog_name}"
 
 
 def build_create_schema_sql(
