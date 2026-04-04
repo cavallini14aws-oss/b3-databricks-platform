@@ -1,0 +1,105 @@
+# PROVIDER DISABLED
+# Este adapter está gerado, porém desligado por config.
+
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - "*"
+
+stages:
+  - stage: Validate
+    jobs:
+      - job: validate_bundle
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+          - script: python -m compileall b3_platform config pipelines resources sql
+          - script: |
+              python -m b3_platform.flow_specs.generate_registry
+              python -m b3_platform.flow_specs.generate_jobs --environment dev
+              python -m b3_platform.flow_specs.generate_jobs --environment hml
+              python -m b3_platform.flow_specs.generate_jobs --environment prd
+              python -m b3_platform.flow_specs.generate_resources --environment dev
+              python -m b3_platform.flow_specs.generate_resources --environment hml
+              python -m b3_platform.flow_specs.generate_resources --environment prd
+              python -m b3_platform.flow_specs.generate_databricks_bundle_root
+              python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+              python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+              python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+          - script: pip install databricks-cli
+          - script: databricks bundle validate -t dev
+            env:
+              DATABRICKS_HOST: $(DEV_WORKSPACE_HOST)
+              DATABRICKS_TOKEN: $(DEV_DATABRICKS_TOKEN)
+
+  - stage: DeployDev
+    dependsOn: Validate
+    jobs:
+      - deployment: deploy_dev
+        environment: databricks-dev
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - script: pip install databricks-cli
+                - script: |
+                    python -m b3_platform.flow_specs.generate_databricks_bundle_root
+                    python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+                    python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+                    python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+                - script: databricks bundle deploy -t dev
+                  env:
+                    DATABRICKS_HOST: $(DEV_WORKSPACE_HOST)
+                    DATABRICKS_TOKEN: $(DEV_DATABRICKS_TOKEN)
+                    DEV_CLUSTER_ID: $(DEV_CLUSTER_ID)
+
+  - stage: DeployHml
+    dependsOn: DeployDev
+    jobs:
+      - deployment: deploy_hml
+        environment: databricks-hml
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - script: pip install databricks-cli
+                - script: |
+                    python -m b3_platform.flow_specs.generate_databricks_bundle_root
+                    python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+                    python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+                    python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+                - script: databricks bundle deploy -t hml
+                  env:
+                    DATABRICKS_HOST: $(HML_WORKSPACE_HOST)
+                    DATABRICKS_TOKEN: $(HML_DATABRICKS_TOKEN)
+                    HML_CLUSTER_ID: $(HML_CLUSTER_ID)
+
+  - stage: DeployPrd
+    dependsOn: DeployHml
+    jobs:
+      - deployment: deploy_prd
+        environment: databricks-prd
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - script: pip install databricks-cli
+                - script: |
+                    python -m b3_platform.flow_specs.generate_databricks_bundle_root
+                    python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+                    python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+                    python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+                - script: databricks bundle deploy -t prd
+                  env:
+                    DATABRICKS_HOST: $(PRD_WORKSPACE_HOST)
+                    DATABRICKS_TOKEN: $(PRD_DATABRICKS_TOKEN)
+                    PRD_CLUSTER_ID: $(PRD_CLUSTER_ID)

@@ -1,0 +1,30 @@
+# PROVIDER DISABLED
+# Este adapter está gerado, porém desligado por config.
+
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - pip install databricks-cli
+  pre_build:
+    commands:
+      - python -m compileall b3_platform config pipelines resources sql
+      - python -m b3_platform.flow_specs.generate_registry
+      - python -m b3_platform.flow_specs.generate_jobs --environment dev
+      - python -m b3_platform.flow_specs.generate_jobs --environment hml
+      - python -m b3_platform.flow_specs.generate_jobs --environment prd
+      - python -m b3_platform.flow_specs.generate_resources --environment dev
+      - python -m b3_platform.flow_specs.generate_resources --environment hml
+      - python -m b3_platform.flow_specs.generate_resources --environment prd
+      - python -m b3_platform.flow_specs.generate_databricks_bundle_root
+      - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+      - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+      - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+      - databricks bundle validate -t dev
+  build:
+    commands:
+      - echo "Use CodePipeline stages or manual approvals for hml/prd"
+      - databricks bundle deploy -t dev
+      - databricks bundle deploy -t hml
+      - databricks bundle deploy -t prd

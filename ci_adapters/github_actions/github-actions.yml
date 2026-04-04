@@ -1,0 +1,133 @@
+name: Databricks CI
+
+on:
+  pull_request:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile Python
+        run: python -m compileall b3_platform config pipelines resources sql
+
+      - name: Generate platform artifacts
+        run: |
+          python -m b3_platform.flow_specs.generate_registry
+          python -m b3_platform.flow_specs.generate_jobs --environment dev
+          python -m b3_platform.flow_specs.generate_jobs --environment hml
+          python -m b3_platform.flow_specs.generate_jobs --environment prd
+          python -m b3_platform.flow_specs.generate_resources --environment dev
+          python -m b3_platform.flow_specs.generate_resources --environment hml
+          python -m b3_platform.flow_specs.generate_resources --environment prd
+          python -m b3_platform.flow_specs.generate_databricks_bundle_root
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+
+      - name: Set up Databricks CLI
+        run: pip install databricks-cli
+
+      - name: Validate bundle (DEV)
+        env:
+          DATABRICKS_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
+        run: databricks bundle validate -t dev
+
+  deploy-dev:
+    if: github.ref == 'refs/heads/main'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Databricks CLI
+        run: pip install databricks-cli
+
+      - name: Generate bundle artifacts
+        run: |
+          python -m b3_platform.flow_specs.generate_databricks_bundle_root
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+
+      - name: Deploy DEV
+        env:
+          DATABRICKS_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
+          DEV_CLUSTER_ID: ${{ secrets.DEV_CLUSTER_ID }}
+        run: databricks bundle deploy -t dev
+
+  deploy-hml:
+    if: github.ref == 'refs/heads/main'
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    environment: hml
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Databricks CLI
+        run: pip install databricks-cli
+
+      - name: Generate bundle artifacts
+        run: |
+          python -m b3_platform.flow_specs.generate_databricks_bundle_root
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+
+      - name: Deploy HML
+        env:
+          DATABRICKS_HOST: ${{ secrets.HML_WORKSPACE_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.HML_DATABRICKS_TOKEN }}
+          HML_CLUSTER_ID: ${{ secrets.HML_CLUSTER_ID }}
+        run: databricks bundle deploy -t hml
+
+  deploy-prd:
+    if: github.ref == 'refs/heads/main'
+    needs: deploy-hml
+    runs-on: ubuntu-latest
+    environment: prd
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Databricks CLI
+        run: pip install databricks-cli
+
+      - name: Generate bundle artifacts
+        run: |
+          python -m b3_platform.flow_specs.generate_databricks_bundle_root
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+
+      - name: Deploy PRD
+        env:
+          DATABRICKS_HOST: ${{ secrets.PRD_WORKSPACE_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.PRD_DATABRICKS_TOKEN }}
+          PRD_CLUSTER_ID: ${{ secrets.PRD_CLUSTER_ID }}
+        run: databricks bundle deploy -t prd

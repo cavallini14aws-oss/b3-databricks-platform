@@ -1,5 +1,6 @@
-from b3_platform.orchestration.pipeline_runner import run_with_observability
+"""
+Pacote de orchestration.
 
-__all__ = [
-    "run_with_observability",
-]
+Importações pesadas e dependentes de pyspark devem ser feitas
+diretamente nos módulos consumidores, não no __init__.
+"""

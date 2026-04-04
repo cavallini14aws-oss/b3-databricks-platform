@@ -1,0 +1,70 @@
+# PROVIDER DISABLED
+# Este adapter está gerado, porém desligado por config.
+
+image: python:3.12
+
+pipelines:
+  pull-requests:
+    "**":
+      - step:
+          name: Validate bundle artifacts
+          caches:
+            - pip
+          script:
+            - python -m compileall b3_platform config pipelines resources sql
+            - python -m b3_platform.flow_specs.generate_registry
+            - python -m b3_platform.flow_specs.generate_jobs --environment dev
+            - python -m b3_platform.flow_specs.generate_jobs --environment hml
+            - python -m b3_platform.flow_specs.generate_jobs --environment prd
+            - python -m b3_platform.flow_specs.generate_resources --environment dev
+            - python -m b3_platform.flow_specs.generate_resources --environment hml
+            - python -m b3_platform.flow_specs.generate_resources --environment prd
+            - python -m b3_platform.flow_specs.generate_databricks_bundle_root
+            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+            - pip install databricks-cli
+            - databricks bundle validate -t dev
+
+  branches:
+    main:
+      - step:
+          name: Deploy DEV
+          deployment: development
+          caches:
+            - pip
+          script:
+            - python -m b3_platform.flow_specs.generate_databricks_bundle_root
+            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+            - pip install databricks-cli
+            - databricks bundle deploy -t dev
+
+      - step:
+          name: Deploy HML
+          deployment: staging
+          trigger: manual
+          caches:
+            - pip
+          script:
+            - python -m b3_platform.flow_specs.generate_databricks_bundle_root
+            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+            - pip install databricks-cli
+            - databricks bundle deploy -t hml
+
+      - step:
+          name: Deploy PRD
+          deployment: production
+          trigger: manual
+          caches:
+            - pip
+          script:
+            - python -m b3_platform.flow_specs.generate_databricks_bundle_root
+            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+            - pip install databricks-cli
+            - databricks bundle deploy -t prd
