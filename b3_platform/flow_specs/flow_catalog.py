@@ -33,5 +33,21 @@ def load_flow_callable(spec_module: str):
     return flow_spec, getattr(module, flow_spec.callable_name)
 
 
+def safe_load_flow_spec(spec_module: str) -> dict:
+    try:
+        flow_spec = load_flow_spec(spec_module)
+        payload = flow_spec_to_dict(flow_spec)
+        payload["spec_module"] = spec_module
+        payload["load_status"] = "SUCCESS"
+        payload["load_error"] = None
+        return payload
+    except Exception as exc:
+        return {
+            "spec_module": spec_module,
+            "load_status": "ERROR",
+            "load_error": f"{type(exc).__name__}: {exc}",
+        }
+
+
 def flow_spec_to_dict(flow_spec: FlowSpec) -> dict:
     return asdict(flow_spec)

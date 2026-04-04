@@ -8,28 +8,35 @@ from b3_platform.flow_specs.discovery import discover_flow_specs
 def build_registry_payload() -> dict:
     discovered = discover_flow_specs()
 
-    registry_items = []
+    valid_flows = []
+    invalid_flows = []
+
     for item in discovered:
-        registry_items.append(
-            {
-                "flow_name": item["flow_name"],
-                "flow_type": item["flow_type"],
-                "project": item["project"],
-                "domain": item["domain"],
-                "layer": item["layer"],
-                "description": item["description"],
-                "spec_module": item["spec_module"],
-                "entrypoint": item["entrypoint"],
-                "callable_name": item["callable_name"],
-                "enabled": item["enabled"],
-                "tags": item["tags"],
-            }
-        )
+        if item.get("load_status") == "SUCCESS":
+            valid_flows.append(
+                {
+                    "flow_name": item["flow_name"],
+                    "flow_type": item["flow_type"],
+                    "project": item["project"],
+                    "domain": item["domain"],
+                    "layer": item["layer"],
+                    "description": item["description"],
+                    "spec_module": item["spec_module"],
+                    "entrypoint": item["entrypoint"],
+                    "callable_name": item["callable_name"],
+                    "enabled": item["enabled"],
+                    "tags": item["tags"],
+                }
+            )
+        else:
+            invalid_flows.append(item)
 
     return {
         "registry_version": 1,
-        "flow_count": len(registry_items),
-        "flows": registry_items,
+        "flow_count": len(valid_flows),
+        "invalid_flow_count": len(invalid_flows),
+        "flows": valid_flows,
+        "invalid_flows": invalid_flows,
     }
 
 
