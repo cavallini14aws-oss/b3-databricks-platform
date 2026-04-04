@@ -1,5 +1,6 @@
 import argparse
 import json
+from typing import Any
 
 from b3_platform.governance.deploy_contract import (
     build_deployment_contract,
@@ -8,6 +9,17 @@ from b3_platform.governance.deploy_contract import (
 from b3_platform.governance.promote_ml import _str_to_bool
 from b3_platform.core.job_config import load_job_config
 from b3_platform.governance.promotion import evaluate_ml_promotion, log_promotion_decision
+
+
+def _resolve_spark_session(explicit_spark: Any = None):
+    if explicit_spark is not None:
+        return explicit_spark
+
+    try:
+        from pyspark.sql import SparkSession
+        return SparkSession.getActiveSession()
+    except Exception:
+        return None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -31,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(args: list[str] | None = None) -> None:
+def main(args: list[str] | None = None, spark_session=None) -> None:
     parser = build_parser()
     parsed = parser.parse_args(args=args)
 
@@ -71,18 +83,18 @@ def main(args: list[str] | None = None) -> None:
         "persist_contract": persist_contract,
     }
 
+    resolved_spark = None
     if persist_decision or persist_contract:
-        try:
-            spark  # type: ignore[name-defined]
-        except NameError as exc:
+        resolved_spark = _resolve_spark_session(explicit_spark=spark_session)
+        if resolved_spark is None:
             raise RuntimeError(
                 "Spark session não encontrada. Para persistir decisão/contrato em tabela técnica, "
-                "execute este CLI em ambiente Databricks com variável global 'spark'."
-            ) from exc
+                "execute este CLI em ambiente Databricks com Spark ativo ou passe spark_session explicitamente."
+            )
 
     if persist_decision:
         log_promotion_decision(
-            spark=spark,  # type: ignore[name-defined]
+            spark=resolved_spark,
             model_name=parsed.model_name,
             model_version=parsed.model_version,
             decision=decision,
@@ -107,7 +119,7 @@ def main(args: list[str] | None = None) -> None:
 
         if persist_contract:
             log_deployment_contract(
-                spark=spark,  # type: ignore[name-defined]
+                spark=resolved_spark,
                 model_name=parsed.model_name,
                 model_version=parsed.model_version,
                 deployment_contract=deployment_contract,
