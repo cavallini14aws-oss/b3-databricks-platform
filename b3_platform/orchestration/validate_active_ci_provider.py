@@ -2,6 +2,7 @@ import json
 
 from b3_platform.orchestration.ci_provider_config import get_active_ci_provider
 from b3_platform.orchestration.ci_secrets_contract import get_provider_all_secrets
+from b3_platform.orchestration.validate_ci_secrets import _validate_variable
 import os
 
 
@@ -16,22 +17,35 @@ def build_validation_payload(provider_name: str) -> dict:
 
     for env, secret_data in provider_data.items():
         missing = []
+        invalid = []
         present = []
 
         for variable in secret_data.required:
-            if os.getenv(variable):
+            value = os.getenv(variable)
+            is_valid, error = _validate_variable(variable, value)
+
+            if value is None or not str(value).strip():
+                missing.append(variable)
+            elif is_valid:
                 present.append(variable)
             else:
-                missing.append(variable)
+                invalid.append(
+                    {
+                        "name": variable,
+                        "reason": error,
+                    }
+                )
 
-        if missing:
+        env_valid = len(missing) == 0 and len(invalid) == 0
+        if not env_valid:
             result["valid"] = False
 
         result["environments"][env] = {
             "required": secret_data.required,
             "present": present,
             "missing": missing,
-            "valid": len(missing) == 0,
+            "invalid": invalid,
+            "valid": env_valid,
         }
 
     return result

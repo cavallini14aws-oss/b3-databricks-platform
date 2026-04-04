@@ -1,6 +1,5 @@
 import argparse
 import json
-import os
 from pathlib import Path
 
 from b3_platform.flow_specs.generate_registry import build_registry_payload
@@ -9,7 +8,7 @@ from b3_platform.flow_specs.generate_resources import build_resources_payload
 from b3_platform.flow_specs.generate_bundle_targets import build_bundle_targets_payload
 from b3_platform.flow_specs.generate_databricks_bundle_root import build_bundle_root_yaml
 from b3_platform.orchestration.ci_provider_config import get_active_ci_provider, load_ci_providers
-from b3_platform.orchestration.ci_secrets_contract import get_provider_all_secrets
+from b3_platform.orchestration.validate_active_ci_provider import build_validation_payload
 
 
 def _check_ci_provider() -> dict:
@@ -26,30 +25,6 @@ def _check_ci_provider() -> dict:
     }
 
 
-def _check_secrets(active_provider_name: str) -> dict:
-    data = get_provider_all_secrets(active_provider_name)
-    environments = {}
-    overall_valid = True
-
-    for env, secret_data in data.items():
-        missing = [item for item in secret_data.required if not os.getenv(item)]
-        valid = len(missing) == 0
-        if not valid:
-            overall_valid = False
-
-        environments[env] = {
-            "required": secret_data.required,
-            "missing": missing,
-            "valid": valid,
-        }
-
-    return {
-        "provider": active_provider_name,
-        "valid": overall_valid,
-        "environments": environments,
-    }
-
-
 def build_platform_readiness_report() -> dict:
     ci_provider_check = _check_ci_provider()
 
@@ -62,7 +37,7 @@ def build_platform_readiness_report() -> dict:
 
     if ci_provider_check["valid"]:
         active_provider = get_active_ci_provider()
-        secrets_check = _check_secrets(active_provider.name)
+        secrets_check = build_validation_payload(active_provider.name)
 
     registry = build_registry_payload()
     jobs_dev = build_jobs_payload("dev")
@@ -118,7 +93,7 @@ def build_platform_readiness_report() -> dict:
     if not checks["ci_provider"]["valid"]:
         blockers.append("CI provider inválido.")
     if not checks["secrets"]["valid"]:
-        blockers.append("Secrets obrigatórios ausentes.")
+        blockers.append("Secrets obrigatórios ausentes ou inválidos.")
     if not checks["registry"]["valid"]:
         blockers.append("Registry inválido ou com flows quebrados.")
     if not checks["jobs"]["valid"]:
