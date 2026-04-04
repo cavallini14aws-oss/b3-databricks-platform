@@ -1,6 +1,4 @@
 from pathlib import Path
-import importlib
-import pkgutil
 
 from b3_platform.flow_specs.flow_catalog import load_flow_spec, flow_spec_to_dict
 
@@ -9,22 +7,22 @@ FLOW_SPECS_PROJECTS_PACKAGE = "b3_platform.flow_specs.projects"
 
 
 def discover_flow_spec_modules(base_package: str = FLOW_SPECS_PROJECTS_PACKAGE) -> list[str]:
-    package = importlib.import_module(base_package)
-    package_path = Path(package.__file__).parent
+    projects_dir = Path("b3_platform/flow_specs/projects")
+
+    if not projects_dir.exists():
+        return []
 
     discovered_modules = []
 
-    for module_info in pkgutil.walk_packages(
-        path=[str(package_path)],
-        prefix=f"{base_package}.",
-    ):
-        if module_info.ispkg:
+    for py_file in sorted(projects_dir.rglob("*.py")):
+        if py_file.name == "__init__.py":
             continue
 
-        module_name = module_info.name
+        relative_path = py_file.with_suffix("")
+        module_name = ".".join(relative_path.parts)
         discovered_modules.append(module_name)
 
-    return sorted(discovered_modules)
+    return discovered_modules
 
 
 def discover_flow_specs(base_package: str = FLOW_SPECS_PROJECTS_PACKAGE) -> list[dict]:
