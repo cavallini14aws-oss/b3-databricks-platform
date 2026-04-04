@@ -41,6 +41,7 @@ def log_deployment_contract(
     use_catalog: bool = False,
 ) -> None:
     from pyspark.sql import Row
+    from pyspark.sql import functions as F
     from pyspark.sql import types as T
 
     DEPLOYMENT_CONTRACT_SCHEMA = T.StructType(
@@ -69,6 +70,21 @@ def log_deployment_contract(
     )
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
+
+    if spark.catalog.tableExists(table_name):
+        exists = (
+            spark.table(table_name)
+            .filter(F.col("run_id") == run_id)
+            .filter(F.col("model_name") == model_name)
+            .filter(F.col("model_version") == model_version)
+            .filter(F.col("source_env") == deployment_contract.source_env)
+            .filter(F.col("target_env") == deployment_contract.target_env)
+            .limit(1)
+            .count() > 0
+        )
+
+        if exists:
+            return
 
     row = Row(
         event_timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
