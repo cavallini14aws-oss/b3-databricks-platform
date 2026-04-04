@@ -6,6 +6,7 @@ from b3_platform.orchestration.ci_provider_config import (
     get_active_ci_provider,
     load_ci_providers,
 )
+from b3_platform.orchestration.ci_secrets_contract import get_provider_all_secrets
 
 
 GITHUB_ACTIONS_TEMPLATE = """name: Databricks CI
@@ -18,6 +19,17 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      DEV_WORKSPACE_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
+      DEV_DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
+      DEV_CLUSTER_ID: ${{ secrets.DEV_CLUSTER_ID }}
+      HML_WORKSPACE_HOST: ${{ secrets.HML_WORKSPACE_HOST }}
+      HML_DATABRICKS_TOKEN: ${{ secrets.HML_DATABRICKS_TOKEN }}
+      HML_CLUSTER_ID: ${{ secrets.HML_CLUSTER_ID }}
+      PRD_WORKSPACE_HOST: ${{ secrets.PRD_WORKSPACE_HOST }}
+      PRD_DATABRICKS_TOKEN: ${{ secrets.PRD_DATABRICKS_TOKEN }}
+      PRD_CLUSTER_ID: ${{ secrets.PRD_CLUSTER_ID }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -28,6 +40,9 @@ jobs:
 
       - name: Compile Python
         run: python -m compileall b3_platform config pipelines resources sql
+
+      - name: Validate active CI provider secrets contract
+        run: python -m b3_platform.orchestration.validate_active_ci_provider
 
       - name: Generate platform artifacts
         run: |
@@ -57,6 +72,7 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     environment: dev
+
     steps:
       - uses: actions/checkout@v4
 
@@ -87,6 +103,7 @@ jobs:
     needs: deploy-dev
     runs-on: ubuntu-latest
     environment: hml
+
     steps:
       - uses: actions/checkout@v4
 
@@ -117,6 +134,7 @@ jobs:
     needs: deploy-hml
     runs-on: ubuntu-latest
     environment: prd
+
     steps:
       - uses: actions/checkout@v4
 
@@ -346,6 +364,62 @@ phases:
 """
 
 
+PROVIDER_GUIDANCE = {
+    "github_actions": {
+        "environments": ["dev", "hml", "prd"],
+        "approval_model": {
+            "dev": "sem required reviewers",
+            "hml": "reviewer opcional ou gate simples",
+            "prd": "required reviewers obrigatório e impedir self-review",
+        },
+        "notes": [
+            "Usar GitHub Environments para dev, hml e prd.",
+            "Segregar secrets por environment.",
+            "PRD deve usar credencial isolada de produção.",
+        ],
+    },
+    "azure_devops": {
+        "environments": ["databricks-dev", "databricks-hml", "databricks-prd"],
+        "approval_model": {
+            "dev": "deploy automático ou semi-automático",
+            "hml": "approval opcional conforme cliente",
+            "prd": "Approvals and checks obrigatório no environment de PRD",
+        },
+        "notes": [
+            "Usar Environments no Azure DevOps.",
+            "Usar variable groups ou secret variables segregadas por ambiente.",
+            "PRD deve usar credencial isolada de produção.",
+        ],
+    },
+    "bitbucket": {
+        "environments": ["development", "staging", "production"],
+        "approval_model": {
+            "dev": "deploy controlado pela branch main",
+            "hml": "trigger manual recomendado",
+            "prd": "trigger manual + branch permissions + merge checks",
+        },
+        "notes": [
+            "Usar deployment environments do Bitbucket.",
+            "Usar secured variables por deployment.",
+            "PRD deve depender de merge controlado e permissão restrita.",
+        ],
+    },
+    "aws": {
+        "environments": ["dev", "hml", "prd"],
+        "approval_model": {
+            "dev": "deploy automático ou via stage inicial",
+            "hml": "approval opcional em stage intermediário",
+            "prd": "approval obrigatório no CodePipeline antes do deploy",
+        },
+        "notes": [
+            "Usar CodePipeline/CodeBuild como adaptador.",
+            "Usar Secrets Manager ou Parameter Store.",
+            "PRD deve usar credencial isolada de produção.",
+        ],
+    },
+}
+
+
 def _provider_output_path(provider_name: str) -> Path:
     mapping = {
         "github_actions": Path("ci_adapters/github_actions/github-actions.yml"),
@@ -366,11 +440,53 @@ def _provider_template(provider_name: str) -> str:
     return mapping[provider_name]
 
 
+def _build_contract_markdown(provider_name: str, enabled: bool) -> str:
+    secrets_by_env = get_provider_all_secrets(provider_name)
+    guidance = PROVIDER_GUIDANCE[provider_name]
+
+    lines = []
+    lines.append(f"# {provider_name}")
+    lines.append("")
+    lines.append(f"- enabled: {'true' if enabled else 'false'}")
+    lines.append("")
+    lines.append("## Environments esperados")
+    for env in guidance["environments"]:
+        lines.append(f"- {env}")
+    lines.append("")
+    lines.append("## Secrets obrigatórios por ambiente")
+    for env, data in secrets_by_env.items():
+        lines.append(f"### {env}")
+        for item in data.required:
+            lines.append(f"- {item}")
+        lines.append("")
+    lines.append("## Modelo de aprovação recomendado")
+    for env, rule in guidance["approval_model"].items():
+        lines.append(f"- {env}: {rule}")
+    lines.append("")
+    lines.append("## Fluxo recomendado")
+    lines.append("1. validate")
+    lines.append("2. deploy dev")
+    lines.append("3. deploy hml")
+    lines.append("4. deploy prd")
+    lines.append("")
+    lines.append("## Observações")
+    for note in guidance["notes"]:
+        lines.append(f"- {note}")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+def _provider_contract_path(provider_name: str) -> Path:
+    return Path(f"ci_adapters/{provider_name}/CONTRACT.md")
+
+
 def generate_ci_adapters(write_all: bool = False) -> dict:
     providers = load_ci_providers()
     active_provider = get_active_ci_provider()
 
-    written_files = []
+    generated_adapters = []
+    generated_contracts = []
     disabled_providers = []
 
     for provider in providers:
@@ -378,30 +494,44 @@ def generate_ci_adapters(write_all: bool = False) -> dict:
             disabled_providers.append(provider.name)
             continue
 
-        output_path = _provider_output_path(provider.name)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        adapter_path = _provider_output_path(provider.name)
+        adapter_path.parent.mkdir(parents=True, exist_ok=True)
 
-        content = _provider_template(provider.name)
+        adapter_content = _provider_template(provider.name)
         if provider.name != active_provider.name:
-            content = (
+            adapter_content = (
                 "# PROVIDER DISABLED\n"
                 "# Este adapter está gerado, porém não está ativo na configuração central.\n\n"
-                + content
+                + adapter_content
             )
 
-        output_path.write_text(content, encoding="utf-8")
-        written_files.append(str(output_path))
+        adapter_path.write_text(adapter_content, encoding="utf-8")
+        generated_adapters.append(str(adapter_path))
+
+        contract_path = _provider_contract_path(provider.name)
+        contract_path.parent.mkdir(parents=True, exist_ok=True)
+        contract_path.write_text(
+            _build_contract_markdown(provider.name, provider.enabled),
+            encoding="utf-8",
+        )
+        generated_contracts.append(str(contract_path))
+
+    if write_all:
+        disabled_providers = [
+            provider.name for provider in providers if provider.name != active_provider.name
+        ]
 
     return {
         "active_provider": active_provider.name,
         "disabled_providers": disabled_providers,
-        "generated_files": written_files,
+        "generated_adapters": generated_adapters,
+        "generated_contracts": generated_contracts,
     }
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Gera adaptadores de CI/CD a partir da configuração central de providers."
+        description="Gera adaptadores e contracts de CI/CD a partir da configuração central de providers."
     )
     parser.add_argument(
         "--write-all",
