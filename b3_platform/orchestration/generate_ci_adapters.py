@@ -1,7 +1,11 @@
 import argparse
+import json
 from pathlib import Path
 
-from b3_platform.orchestration.ci_provider_config import load_ci_providers
+from b3_platform.orchestration.ci_provider_config import (
+    get_active_ci_provider,
+    load_ci_providers,
+)
 
 
 GITHUB_ACTIONS_TEMPLATE = """name: Databricks CI
@@ -42,7 +46,7 @@ jobs:
       - name: Set up Databricks CLI
         run: pip install databricks-cli
 
-      - name: Validate bundle (DEV)
+      - name: Validate bundle on DEV target
         env:
           DATABRICKS_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
@@ -362,29 +366,37 @@ def _provider_template(provider_name: str) -> str:
     return mapping[provider_name]
 
 
-def generate_ci_adapters(write_all: bool = True) -> list[str]:
+def generate_ci_adapters(write_all: bool = False) -> dict:
     providers = load_ci_providers()
+    active_provider = get_active_ci_provider()
+
     written_files = []
+    disabled_providers = []
 
     for provider in providers:
-        if not write_all and not provider.enabled:
+        if not write_all and provider.name != active_provider.name:
+            disabled_providers.append(provider.name)
             continue
 
         output_path = _provider_output_path(provider.name)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         content = _provider_template(provider.name)
-        if not provider.enabled:
+        if provider.name != active_provider.name:
             content = (
                 "# PROVIDER DISABLED\n"
-                "# Este adapter está gerado, porém desligado por config.\n\n"
+                "# Este adapter está gerado, porém não está ativo na configuração central.\n\n"
                 + content
             )
 
         output_path.write_text(content, encoding="utf-8")
         written_files.append(str(output_path))
 
-    return written_files
+    return {
+        "active_provider": active_provider.name,
+        "disabled_providers": disabled_providers,
+        "generated_files": written_files,
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -393,7 +405,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--write-all",
-        default="true",
+        default="false",
         choices=["true", "false"],
     )
     return parser
@@ -404,11 +416,9 @@ def main(args: list[str] | None = None) -> None:
     parsed = parser.parse_args(args=args)
 
     write_all = parsed.write_all.lower() == "true"
-    files = generate_ci_adapters(write_all=write_all)
+    result = generate_ci_adapters(write_all=write_all)
 
-    print("Arquivos gerados:")
-    for file_path in files:
-        print(file_path)
+    print(json.dumps(result, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
