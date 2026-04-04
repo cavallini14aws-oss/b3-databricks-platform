@@ -16,21 +16,25 @@ def load_flow_spec(spec_module: str) -> FlowSpec:
     return flow_spec
 
 
-def load_flow_callable(spec_module: str):
-    module = importlib.import_module(spec_module)
+def _resolve_callable_from_entrypoint(entrypoint: str):
+    if "." not in entrypoint:
+        raise ValueError(f"Entrypoint inválido: {entrypoint}")
 
-    if not hasattr(module, "FLOW_SPEC"):
-        raise AttributeError(f"O módulo {spec_module} não possui FLOW_SPEC.")
+    module_name, callable_name = entrypoint.rsplit(".", 1)
+    module = importlib.import_module(module_name)
 
-    flow_spec = module.FLOW_SPEC
-    validate_flow_spec(flow_spec)
-
-    if not hasattr(module, flow_spec.callable_name):
+    if not hasattr(module, callable_name):
         raise AttributeError(
-            f"O módulo {spec_module} não possui callable {flow_spec.callable_name}."
+            f"O módulo {module_name} não possui callable {callable_name}."
         )
 
-    return flow_spec, getattr(module, flow_spec.callable_name)
+    return getattr(module, callable_name)
+
+
+def load_flow_callable(spec_module: str):
+    flow_spec = load_flow_spec(spec_module)
+    flow_callable = _resolve_callable_from_entrypoint(flow_spec.entrypoint)
+    return flow_spec, flow_callable
 
 
 def safe_load_flow_spec(spec_module: str) -> dict:

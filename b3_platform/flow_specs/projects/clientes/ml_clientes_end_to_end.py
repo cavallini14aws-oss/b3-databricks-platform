@@ -1,7 +1,4 @@
 from b3_platform.flow_specs.flow_spec import FlowSpec
-from pipelines.examples.clientes.ml.run_clientes_ml_end_to_end import (
-    run_clientes_ml_end_to_end,
-)
 
 
 FLOW_SPEC = FlowSpec(
@@ -12,7 +9,7 @@ FLOW_SPEC = FlowSpec(
     layer="ml",
     description="Fluxo ML end-to-end do domínio clientes",
     entrypoint=(
-        "b3_platform.flow_specs.projects.clientes.ml_clientes_end_to_end."
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end."
         "run_clientes_ml_end_to_end"
     ),
     callable_name="run_clientes_ml_end_to_end",
