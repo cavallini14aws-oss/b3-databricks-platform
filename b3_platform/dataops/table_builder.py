@@ -6,7 +6,7 @@ def render_catalog_name(catalog_template: str, env: str) -> str:
     return catalog_template.replace("{env}", env)
 
 
-def build_fully_qualified_table_name(
+def build_fully_qualified_schema_name(
     table_spec: TableSpec,
     project: str = "clientes",
     use_catalog: bool = False,
@@ -15,8 +15,34 @@ def build_fully_qualified_table_name(
     catalog_name = render_catalog_name(table_spec.catalog_template, ctx.env)
 
     if use_catalog:
-        return f"{catalog_name}.{table_spec.schema_name}.{table_spec.table_name}"
-    return f"{table_spec.schema_name}.{table_spec.table_name}"
+        return f"{catalog_name}.{table_spec.schema_name}"
+    return table_spec.schema_name
+
+
+def build_fully_qualified_table_name(
+    table_spec: TableSpec,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> str:
+    schema_name = build_fully_qualified_schema_name(
+        table_spec=table_spec,
+        project=project,
+        use_catalog=use_catalog,
+    )
+    return f"{schema_name}.{table_spec.table_name}"
+
+
+def build_create_schema_sql(
+    table_spec: TableSpec,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> str:
+    qualified_schema = build_fully_qualified_schema_name(
+        table_spec=table_spec,
+        project=project,
+        use_catalog=use_catalog,
+    )
+    return f"CREATE SCHEMA IF NOT EXISTS {qualified_schema}"
 
 
 def build_create_table_sql(

@@ -1,8 +1,8 @@
 from uuid import uuid4
 
-from b3_platform.core.context import get_context
-from b3_platform.dataops.sql_runner import log_sql_history
+from b3_platform.dataops.sql_runner import ensure_sql_history_table, log_sql_history
 from b3_platform.dataops.table_builder import (
+    build_create_schema_sql,
     build_create_table_sql,
     build_set_column_tags_sql_list,
     build_set_table_tags_sql,
@@ -18,18 +18,36 @@ def run_table_spec(
     use_catalog: bool = False,
     run_id: str | None = None,
 ) -> None:
-    ctx = get_context(project=project, use_catalog=use_catalog)
     resolved_run_id = run_id or str(uuid4())
 
     validate_table_spec(table_spec)
+    ensure_sql_history_table(spark, project=project, use_catalog=use_catalog)
 
-    create_sql = build_create_table_sql(
+    create_schema_sql = build_create_schema_sql(
         table_spec=table_spec,
         project=project,
         use_catalog=use_catalog,
     )
+    spark.sql(create_schema_sql)
 
-    spark.sql(create_sql)
+    log_sql_history(
+        spark=spark,
+        migration_type="table_spec_create_schema",
+        file_name=table_spec.table_name,
+        file_path=f"table_spec::{table_spec.schema_name}",
+        status="SUCCESS",
+        message="CREATE SCHEMA executado com sucesso.",
+        run_id=resolved_run_id,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    create_table_sql = build_create_table_sql(
+        table_spec=table_spec,
+        project=project,
+        use_catalog=use_catalog,
+    )
+    spark.sql(create_table_sql)
 
     log_sql_history(
         spark=spark,
