@@ -17,7 +17,7 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["b3_platform*", "pipelines*", "tables*"]
+include = ["b3_platform*", "pipelines*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.yml", "*.yaml", "*.sql"]
