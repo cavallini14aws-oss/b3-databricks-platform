@@ -2,9 +2,11 @@ from b3_platform.dataops.table_spec import ColumnSpec, TableSpec
 
 
 TABLE_SPEC = TableSpec(
-    catalog_template="clientes_{env}",
-    schema_name="slv",
+    catalog_name=None,
+    schema_name="meu_schema_exemplo",
     table_name="tb_exemplo_template",
+    table_description="Tabela de exemplo para template declarativo",
+    owner=None,
     columns=[
         ColumnSpec(
             name="id_registro",
@@ -66,4 +68,7 @@ TABLE_SPEC = TableSpec(
             "classificacao": "interno",
         },
     },
+    using_format="delta",
+    create_catalog_if_not_exists=False,
+    create_schema_if_not_exists=True,
 )

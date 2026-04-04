@@ -1,92 +1,30 @@
-from b3_platform.core.context import get_context
 from b3_platform.dataops.table_spec import TableSpec
 
 
-def render_catalog_name(catalog_template: str, env: str) -> str:
-    return catalog_template.replace("{env}", env)
-
-
-def build_catalog_name(
-    table_spec: TableSpec,
-    project: str = "clientes",
-    use_catalog: bool = False,
-) -> str | None:
-    if not use_catalog:
-        return None
-
-    ctx = get_context(project=project, use_catalog=use_catalog)
-    return render_catalog_name(table_spec.catalog_template, ctx.env)
-
-
-def build_fully_qualified_schema_name(
-    table_spec: TableSpec,
-    project: str = "clientes",
-    use_catalog: bool = False,
-) -> str:
-    catalog_name = build_catalog_name(
-        table_spec=table_spec,
-        project=project,
-        use_catalog=use_catalog,
-    )
-
-    if use_catalog and catalog_name:
-        return f"{catalog_name}.{table_spec.schema_name}"
+def build_fully_qualified_schema_name(table_spec: TableSpec) -> str:
+    if table_spec.catalog_name:
+        return f"{table_spec.catalog_name}.{table_spec.schema_name}"
     return table_spec.schema_name
 
 
-def build_fully_qualified_table_name(
-    table_spec: TableSpec,
-    project: str = "clientes",
-    use_catalog: bool = False,
-) -> str:
-    schema_name = build_fully_qualified_schema_name(
-        table_spec=table_spec,
-        project=project,
-        use_catalog=use_catalog,
-    )
-    return f"{schema_name}.{table_spec.table_name}"
+def build_fully_qualified_table_name(table_spec: TableSpec) -> str:
+    return f"{build_fully_qualified_schema_name(table_spec)}.{table_spec.table_name}"
 
 
-def build_create_catalog_sql(
-    table_spec: TableSpec,
-    project: str = "clientes",
-    use_catalog: bool = False,
-) -> str | None:
-    catalog_name = build_catalog_name(
-        table_spec=table_spec,
-        project=project,
-        use_catalog=use_catalog,
-    )
-
-    if not use_catalog or not catalog_name:
-        return None
-
-    return f"CREATE CATALOG IF NOT EXISTS {catalog_name}"
+def build_create_catalog_sql(table_spec: TableSpec) -> str | None:
+    if table_spec.catalog_name and table_spec.create_catalog_if_not_exists:
+        return f"CREATE CATALOG IF NOT EXISTS {table_spec.catalog_name}"
+    return None
 
 
-def build_create_schema_sql(
-    table_spec: TableSpec,
-    project: str = "clientes",
-    use_catalog: bool = False,
-) -> str:
-    qualified_schema = build_fully_qualified_schema_name(
-        table_spec=table_spec,
-        project=project,
-        use_catalog=use_catalog,
-    )
-    return f"CREATE SCHEMA IF NOT EXISTS {qualified_schema}"
+def build_create_schema_sql(table_spec: TableSpec) -> str | None:
+    if table_spec.create_schema_if_not_exists:
+        return f"CREATE SCHEMA IF NOT EXISTS {build_fully_qualified_schema_name(table_spec)}"
+    return None
 
 
-def build_create_table_sql(
-    table_spec: TableSpec,
-    project: str = "clientes",
-    use_catalog: bool = False,
-) -> str:
-    qualified_name = build_fully_qualified_table_name(
-        table_spec=table_spec,
-        project=project,
-        use_catalog=use_catalog,
-    )
+def build_create_table_sql(table_spec: TableSpec) -> str:
+    qualified_name = build_fully_qualified_table_name(table_spec)
 
     columns_sql = ",\n      ".join(
         f"{col.name} {col.data_type} COMMENT '{col.comment}'"
@@ -109,19 +47,19 @@ def build_create_table_sql(
     """.strip()
 
 
-def build_set_table_tags_sql(
-    table_spec: TableSpec,
-    project: str = "clientes",
-    use_catalog: bool = False,
-) -> str | None:
+def build_set_owner_sql(table_spec: TableSpec) -> str | None:
+    if not table_spec.owner:
+        return None
+
+    qualified_name = build_fully_qualified_table_name(table_spec)
+    return f"ALTER TABLE {qualified_name} OWNER TO `{table_spec.owner}`"
+
+
+def build_set_table_tags_sql(table_spec: TableSpec) -> str | None:
     if not table_spec.table_tags:
         return None
 
-    qualified_name = build_fully_qualified_table_name(
-        table_spec=table_spec,
-        project=project,
-        use_catalog=use_catalog,
-    )
+    qualified_name = build_fully_qualified_table_name(table_spec)
 
     tags_sql = ",\n      ".join(
         f"'{key}' = '{value}'"
@@ -136,16 +74,8 @@ def build_set_table_tags_sql(
     """.strip()
 
 
-def build_set_column_tags_sql_list(
-    table_spec: TableSpec,
-    project: str = "clientes",
-    use_catalog: bool = False,
-) -> list[tuple[str, str]]:
-    qualified_name = build_fully_qualified_table_name(
-        table_spec=table_spec,
-        project=project,
-        use_catalog=use_catalog,
-    )
+def build_set_column_tags_sql_list(table_spec: TableSpec) -> list[tuple[str, str]]:
+    qualified_name = build_fully_qualified_table_name(table_spec)
 
     statements = []
     for column_name, tags in table_spec.column_tags.items():
