@@ -7,11 +7,12 @@ job:
   max_retries: 0
 
 promotion:
-  source_env: dev
-  target_env: hml
-  requires_approval: false
-  require_tests_passed: true
-  require_quality_gates: false
+  rules:
+    - source_env: dev
+      target_env: hml
+      requires_approval: false
+      require_tests_passed: true
+      require_quality_gates: false
 
 quality_gates:
   ml:

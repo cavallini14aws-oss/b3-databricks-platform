@@ -34,11 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--manual-approval", default="false")
     parser.add_argument("--use-catalog", default="false")
     parser.add_argument("--run-id", default="promotion-cli")
-    parser.add_argument(
-        "--persist-decision",
-        default="false",
-        help="true/false. Se true e houver spark disponível, grava a decisão em tabela técnica.",
-    )
+    parser.add_argument("--persist-decision", default="false")
     return parser
 
 
@@ -51,10 +47,12 @@ def main(args: list[str] | None = None) -> None:
     use_catalog = _str_to_bool(parsed.use_catalog)
     persist_decision = _str_to_bool(parsed.persist_decision)
 
-    target_job_config = load_job_config(parsed.target_env)
+    source_job_config = load_job_config(parsed.source_env)
 
     decision = evaluate_ml_promotion(
-        job_config=target_job_config,
+        job_config=source_job_config,
+        source_env=parsed.source_env,
+        target_env=parsed.target_env,
         accuracy=parsed.accuracy,
         f1=parsed.f1,
         auc=parsed.auc,

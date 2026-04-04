@@ -99,10 +99,8 @@ def run_evaluate_clientes_model(
         logger.info(f"enable_confusion_matrix={generate_confusion_matrix}")
         logger.info(f"enable_predictions_logging={generate_predictions_logging}")
         logger.info(f"job_environment={job_config.environment}")
-        logger.info(f"promotion_target_env={job_config.promotion.target_env}")
-        logger.info(
-            f"require_quality_gates={job_config.promotion.require_quality_gates}"
-        )
+        promotion_target_env = job_config.promotion_rules[0].target_env if job_config.promotion_rules else None
+        logger.info(f"promotion_target_env={promotion_target_env}")
 
         df = spark.table(dataset_table)
         train_df = df.filter(F.col("dataset_split") == "train")
@@ -289,8 +287,11 @@ def run_evaluate_clientes_model(
                         "true",
                     ).saveAsTable(predictions_table)
 
+        promotion_target_env = job_config.promotion_rules[0].target_env if job_config.promotion_rules else None
         promotion_decision = evaluate_ml_promotion(
             job_config=job_config,
+            source_env=ctx.env,
+            target_env=promotion_target_env,
             accuracy=accuracy,
             f1=f1_score,
             auc=auc,
@@ -304,8 +305,8 @@ def run_evaluate_clientes_model(
             model_version=model_version,
             decision=promotion_decision,
             run_id=run_id,
-            source_env=job_config.promotion.source_env,
-            target_env=job_config.promotion.target_env,
+            source_env=ctx.env,
+            target_env=promotion_target_env,
             accuracy=accuracy,
             f1=f1_score,
             auc=auc,

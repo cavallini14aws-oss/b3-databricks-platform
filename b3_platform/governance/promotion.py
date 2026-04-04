@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from b3_platform.core.context import get_context
-from b3_platform.core.job_config import JobConfig
+from b3_platform.core.job_config import JobConfig, PromotionRule
 
 
 @dataclass(frozen=True)
@@ -11,27 +11,51 @@ class PromotionDecision:
     reason: str
 
 
+def _find_rule(
+    job_config: JobConfig,
+    source_env: str,
+    target_env: str,
+) -> PromotionRule | None:
+    for rule in job_config.promotion_rules:
+        if rule.source_env == source_env and rule.target_env == target_env:
+            return rule
+    return None
+
+
 def evaluate_ml_promotion(
     job_config: JobConfig,
+    source_env: str,
+    target_env: str,
     accuracy: float | None,
     f1: float | None,
     auc: float | None,
     tests_passed: bool = True,
     manual_approval: bool = False,
 ) -> PromotionDecision:
-    if job_config.promotion.require_tests_passed and not tests_passed:
+    rule = _find_rule(job_config, source_env=source_env, target_env=target_env)
+
+    if rule is None:
+        return PromotionDecision(
+            approved=False,
+            reason=(
+                f"Promotion blocked: no promotion rule configured for "
+                f"{source_env} -> {target_env}."
+            ),
+        )
+
+    if rule.require_tests_passed and not tests_passed:
         return PromotionDecision(
             approved=False,
             reason="Promotion blocked: automated tests did not pass.",
         )
 
-    if job_config.promotion.requires_approval and not manual_approval:
+    if rule.requires_approval and not manual_approval:
         return PromotionDecision(
             approved=False,
             reason="Promotion blocked: manual approval is required.",
         )
 
-    if job_config.promotion.require_quality_gates:
+    if rule.require_quality_gates:
         gates = job_config.ml_quality_gates
 
         if accuracy is None or accuracy < gates.minimum_accuracy:
