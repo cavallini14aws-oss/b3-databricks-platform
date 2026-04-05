@@ -1,0 +1,218 @@
+name: Databricks Platform CI/CD
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate-structural:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Compile Python
+        run: python -m compileall b3_platform config pipelines resources sql .github
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Generate platform artifacts
+        run: |
+          python -m b3_platform.flow_specs.generate_registry
+          python -m b3_platform.flow_specs.generate_jobs --environment dev
+          python -m b3_platform.flow_specs.generate_jobs --environment hml
+          python -m b3_platform.flow_specs.generate_jobs --environment prd
+          python -m b3_platform.flow_specs.generate_resources --environment dev
+          python -m b3_platform.flow_specs.generate_resources --environment hml
+          python -m b3_platform.flow_specs.generate_resources --environment prd
+          python -m b3_platform.flow_specs.generate_databricks_bundle_root
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+          python -m b3_platform.orchestration.generate_platform_operational_report
+          python -m b3_platform.orchestration.generate_platform_readiness_report
+
+      - name: Upload generated artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-artifacts
+          path: |
+            artifacts/**
+            resources/jobs/**
+            config/**
+            databricks.yml
+          if-no-files-found: error
+
+  validate-bundle-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate-structural
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      DEV_WORKSPACE_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
+      DEV_DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
+      DEV_CLUSTER_ID: ${{ secrets.DEV_CLUSTER_ID }}
+      HML_WORKSPACE_HOST: ${{ secrets.HML_WORKSPACE_HOST }}
+      HML_DATABRICKS_TOKEN: ${{ secrets.HML_DATABRICKS_TOKEN }}
+      HML_CLUSTER_ID: ${{ secrets.HML_CLUSTER_ID }}
+      PRD_WORKSPACE_HOST: ${{ secrets.PRD_WORKSPACE_HOST }}
+      PRD_DATABRICKS_TOKEN: ${{ secrets.PRD_DATABRICKS_TOKEN }}
+      PRD_CLUSTER_ID: ${{ secrets.PRD_CLUSTER_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Validate active CI provider secrets contract
+        run: python -m b3_platform.orchestration.validate_active_ci_provider
+
+      - name: Generate bundle artifacts
+        run: |
+          python -m b3_platform.flow_specs.generate_databricks_bundle_root
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+
+      - name: Validate bundle on DEV target
+        env:
+          DATABRICKS_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
+        run: databricks bundle validate -t dev
+
+  deploy-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate-bundle-dev
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Generate bundle artifacts
+        run: |
+          python -m b3_platform.flow_specs.generate_databricks_bundle_root
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+
+      - name: Deploy DEV
+        env:
+          DATABRICKS_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
+          DEV_CLUSTER_ID: ${{ secrets.DEV_CLUSTER_ID }}
+        run: databricks bundle deploy -t dev
+
+  deploy-hml:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    environment: hml
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Generate bundle artifacts
+        run: |
+          python -m b3_platform.flow_specs.generate_databricks_bundle_root
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+
+      - name: Deploy HML
+        env:
+          DATABRICKS_HOST: ${{ secrets.HML_WORKSPACE_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.HML_DATABRICKS_TOKEN }}
+          HML_CLUSTER_ID: ${{ secrets.HML_CLUSTER_ID }}
+        run: databricks bundle deploy -t hml
+
+  deploy-prd:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: deploy-hml
+    runs-on: ubuntu-latest
+    environment: prd
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Install Databricks CLI
+        uses: databricks/setup-cli@main
+
+      - name: Generate bundle artifacts
+        run: |
+          python -m b3_platform.flow_specs.generate_databricks_bundle_root
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+
+      - name: Deploy PRD
+        env:
+          DATABRICKS_HOST: ${{ secrets.PRD_WORKSPACE_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.PRD_DATABRICKS_TOKEN }}
+          PRD_CLUSTER_ID: ${{ secrets.PRD_CLUSTER_ID }}
+        run: databricks bundle deploy -t prd
