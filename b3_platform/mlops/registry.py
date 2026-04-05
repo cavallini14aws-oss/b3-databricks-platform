@@ -1,4 +1,4 @@
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from pyspark.sql import Row
 from pyspark.sql import functions as F
@@ -41,7 +41,7 @@ def register_model(
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
 
     row = Row(
-        event_timestamp=datetime.now(UTC).replace(tzinfo=None),
+        event_timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
         env=ctx.env,
         project=ctx.project,
         model_name=model_name,
