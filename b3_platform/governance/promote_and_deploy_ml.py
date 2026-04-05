@@ -1,153 +1,156 @@
 import argparse
-import json
-from typing import Any
+from dataclasses import dataclass
 
-from b3_platform.governance.deploy_contract import (
-    build_deployment_contract,
-    log_deployment_contract,
-)
-from b3_platform.governance.promote_ml import _str_to_bool
-from b3_platform.core.job_config import load_job_config
-from b3_platform.governance.promotion import evaluate_ml_promotion, log_promotion_decision
+from b3_platform.core.context import get_context
+from b3_platform.mlops.registry import get_latest_valid_model_entry
 
 
-def _resolve_spark_session(explicit_spark: Any = None):
-    if explicit_spark is not None:
-        return explicit_spark
+@dataclass
+class PromotionRequest:
+    model_name: str
+    source_env: str
+    target_env: str
+    model_version: str | None = None
+    project: str = "clientes"
+    use_catalog: bool = False
 
-    try:
-        from pyspark.sql import SparkSession
-        return SparkSession.getActiveSession()
-    except Exception:
-        return None
+
+def validate_promotion_path(source_env: str, target_env: str) -> None:
+    valid_paths = {
+        ("dev", "hml"),
+        ("hml", "prd"),
+    }
+
+    if (source_env, target_env) not in valid_paths:
+        raise ValueError(
+            f"Caminho de promocao invalido: {source_env} -> {target_env}. "
+            "Permitidos: dev->hml, hml->prd"
+        )
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Valida promoção ML e monta contrato de deploy para o próximo ambiente."
+def resolve_model_entry(
+    spark,
+    request: PromotionRequest,
+):
+    if request.model_version:
+        from b3_platform.mlops.registry import get_model_registry_entry
+
+        return get_model_registry_entry(
+            spark=spark,
+            model_name=request.model_name,
+            model_version=request.model_version,
+            project=request.project,
+            use_catalog=request.use_catalog,
+        )
+
+    return get_latest_valid_model_entry(
+        spark=spark,
+        model_name=request.model_name,
+        project=request.project,
+        use_catalog=request.use_catalog,
     )
-    parser.add_argument("--source-env", required=True)
-    parser.add_argument("--target-env", required=True)
-    parser.add_argument("--project", default="clientes")
+
+
+def promote_and_deploy_ml(
+    spark,
+    model_name: str,
+    source_env: str,
+    target_env: str,
+    model_version: str | None = None,
+    project: str = "clientes",
+    use_catalog: bool = False,
+):
+    validate_promotion_path(source_env, target_env)
+
+    request = PromotionRequest(
+        model_name=model_name,
+        source_env=source_env,
+        target_env=target_env,
+        model_version=model_version,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    entry = resolve_model_entry(
+        spark=spark,
+        request=request,
+    )
+
+    resolved_model_version = entry["model_version"]
+    artifact_path = entry["artifact_path"]
+    status = entry["status"]
+
+    if not artifact_path:
+        raise ValueError(
+            f"Modelo sem artifact_path valido: "
+            f"model_name={model_name}, model_version={resolved_model_version}"
+        )
+
+    if status != "TRAINED":
+        raise ValueError(
+            f"Status invalido para promocao: "
+            f"model_name={model_name}, model_version={resolved_model_version}, status={status}"
+        )
+
+    print(f"Promotion request accepted")
+    print(f"model_name={model_name}")
+    print(f"resolved_model_version={resolved_model_version}")
+    print(f"artifact_path={artifact_path}")
+    print(f"source_env={source_env}")
+    print(f"target_env={target_env}")
+
+    # Aqui fica o gancho para deploy/promocao real em ambiente futuro.
+    return {
+        "model_name": model_name,
+        "model_version": resolved_model_version,
+        "artifact_path": artifact_path,
+        "source_env": source_env,
+        "target_env": target_env,
+    }
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Promote and deploy ML model")
+
     parser.add_argument("--model-name", required=True)
-    parser.add_argument("--model-version", required=True)
-    parser.add_argument("--accuracy", type=float, default=None)
-    parser.add_argument("--f1", type=float, default=None)
-    parser.add_argument("--auc", type=float, default=None)
-    parser.add_argument("--tests-passed", default="true")
-    parser.add_argument("--manual-approval", default="false")
-    parser.add_argument("--use-catalog", default="false")
-    parser.add_argument("--run-id", default="promotion-deploy-cli")
-    parser.add_argument("--persist-decision", default="false")
-    parser.add_argument("--persist-contract", default="false")
+    parser.add_argument("--source-env", required=True, choices=["dev", "hml"])
+    parser.add_argument("--target-env", required=True, choices=["hml", "prd"])
+    parser.add_argument("--model-version", required=False, default=None)
+    parser.add_argument("--project", required=False, default="clientes")
+    parser.add_argument("--use-catalog", action="store_true")
+
     return parser
 
 
-def main(args: list[str] | None = None, spark_session=None) -> None:
-    parser = build_parser()
-    parsed = parser.parse_args(args=args)
+def main():
+    parser = build_arg_parser()
+    args = parser.parse_args()
 
-    tests_passed = _str_to_bool(parsed.tests_passed)
-    manual_approval = _str_to_bool(parsed.manual_approval)
-    use_catalog = _str_to_bool(parsed.use_catalog)
-    persist_decision = _str_to_bool(parsed.persist_decision)
-    persist_contract = _str_to_bool(parsed.persist_contract)
+    try:
+        from pyspark.sql import SparkSession
+    except Exception as e:
+        raise RuntimeError(
+            "PySpark indisponivel para promote_and_deploy_ml. "
+            "Execute este comando em ambiente com Spark/PySpark."
+        ) from e
 
-    source_job_config = load_job_config(parsed.source_env)
+    spark = SparkSession.getActiveSession()
+    if spark is None:
+        spark = SparkSession.builder.getOrCreate()
 
-    decision = evaluate_ml_promotion(
-        job_config=source_job_config,
-        source_env=parsed.source_env,
-        target_env=parsed.target_env,
-        accuracy=parsed.accuracy,
-        f1=parsed.f1,
-        auc=parsed.auc,
-        tests_passed=tests_passed,
-        manual_approval=manual_approval,
+    result = promote_and_deploy_ml(
+        spark=spark,
+        model_name=args.model_name,
+        source_env=args.source_env,
+        target_env=args.target_env,
+        model_version=args.model_version,
+        project=args.project,
+        use_catalog=args.use_catalog,
     )
 
-    result = {
-        "source_env": parsed.source_env,
-        "target_env": parsed.target_env,
-        "project": parsed.project,
-        "model_name": parsed.model_name,
-        "model_version": parsed.model_version,
-        "approved": decision.approved,
-        "reason": decision.reason,
-        "accuracy": parsed.accuracy,
-        "f1": parsed.f1,
-        "auc": parsed.auc,
-        "tests_passed": tests_passed,
-        "manual_approval": manual_approval,
-        "persist_decision": persist_decision,
-        "persist_contract": persist_contract,
-    }
-
-    resolved_spark = None
-    if persist_decision or persist_contract:
-        resolved_spark = _resolve_spark_session(explicit_spark=spark_session)
-        if resolved_spark is None:
-            raise RuntimeError(
-                "Spark session não encontrada. Para persistir decisão/contrato em tabela técnica, "
-                "execute este CLI em ambiente Databricks com Spark ativo ou passe spark_session explicitamente."
-            )
-
-    if persist_decision:
-        log_promotion_decision(
-            spark=resolved_spark,
-            model_name=parsed.model_name,
-            model_version=parsed.model_version,
-            decision=decision,
-            run_id=parsed.run_id,
-            source_env=parsed.source_env,
-            target_env=parsed.target_env,
-            accuracy=parsed.accuracy,
-            f1=parsed.f1,
-            auc=parsed.auc,
-            tests_passed=tests_passed,
-            manual_approval=manual_approval,
-            project=parsed.project,
-            use_catalog=use_catalog,
-        )
-
-    deployment_contract = None
-    if decision.approved:
-        deployment_contract = build_deployment_contract(
-            source_env=parsed.source_env,
-            target_env=parsed.target_env,
-        )
-
-        if persist_contract:
-            log_deployment_contract(
-                spark=resolved_spark,
-                model_name=parsed.model_name,
-                model_version=parsed.model_version,
-                deployment_contract=deployment_contract,
-                run_id=parsed.run_id,
-                project=parsed.project,
-                use_catalog=use_catalog,
-            )
-
-    output = {
-        "promotion": result,
-        "deployment_contract": (
-            {
-                "source_env": deployment_contract.source_env,
-                "target_env": deployment_contract.target_env,
-                "target_cluster_key": deployment_contract.target_cluster_key,
-                "target_workspace_root": deployment_contract.target_workspace_root,
-                "target_timeout_seconds": deployment_contract.target_timeout_seconds,
-                "target_max_retries": deployment_contract.target_max_retries,
-            }
-            if deployment_contract is not None
-            else None
-        ),
-    }
-
-    print(json.dumps(output, indent=2))
-
-    if not decision.approved:
-        raise SystemExit(2)
+    print("Promotion result:")
+    for k, v in result.items():
+        print(f"{k}={v}")
 
 
 if __name__ == "__main__":
