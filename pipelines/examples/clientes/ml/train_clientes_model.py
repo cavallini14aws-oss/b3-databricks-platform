@@ -8,6 +8,7 @@ from pyspark.sql import functions as F
 from data_platform.core.config_loader import load_yaml_config
 from data_platform.core.context import get_context
 from data_platform.core.logger import PlatformLogger
+from data_platform.mlops.artifacts import build_model_artifact_path, artifact_exists
 from data_platform.mlops.datasets import get_training_dataset_table
 from data_platform.mlops.registry import register_model
 from data_platform.orchestration.pipeline_runner import run_with_observability
