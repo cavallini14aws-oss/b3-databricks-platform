@@ -111,12 +111,15 @@ def run_train_clientes_model(
             artifact_path = (
                 f"{ctx.model_artifact_base_path}/{model_name}/{model_version}"
             )
-            logger.info(
-                f"Persistencia de artifact habilitada para ambiente: {artifact_path}"
-            )
+            logger.info(f"Persistindo artifact do modelo em: {artifact_path}")
+
+            model.write().overwrite().save(artifact_path)
+
+            logger.info("Artifact persistido com sucesso")
+        else:
             logger.warn(
-                "Artifact persistence esta preparada por ambiente, mas a gravacao real "
-                "do modelo ainda depende da estrategia final de storage do ambiente."
+                "Persistencia de artifact desabilitada para este ambiente. "
+                "Modelo nao sera salvo."
             )
 
         if ctx.flags.enable_registry:

@@ -1,6 +1,7 @@
 from datetime import datetime, UTC
 
 from pyspark.sql import Row
+from pyspark.sql import functions as F
 from pyspark.sql import types as T
 
 from b3_platform.core.context import get_context
@@ -57,3 +58,69 @@ def register_model(
         df.write.mode("append").saveAsTable(table_name)
     else:
         df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(table_name)
+
+
+def get_model_registry_entry(
+    spark,
+    model_name: str,
+    model_version: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+):
+    ctx = get_context(project=project, use_catalog=use_catalog)
+    table_name = ctx.naming.qualified_table(ctx.naming.schema_mlops, "tb_model_registry")
+
+    if not spark.catalog.tableExists(table_name):
+        raise ValueError(f"Tabela de registry nao encontrada: {table_name}")
+
+    rows = (
+        spark.table(table_name)
+        .filter(
+            (F.col("model_name") == model_name) &
+            (F.col("model_version") == model_version)
+        )
+        .orderBy(F.col("event_timestamp").desc())
+        .limit(1)
+        .collect()
+    )
+
+    if not rows:
+        raise ValueError(
+            f"Modelo nao encontrado no registry: "
+            f"model_name={model_name}, model_version={model_version}"
+        )
+
+    return rows[0]
+
+
+def get_model_artifact_path(
+    spark,
+    model_name: str,
+    model_version: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> str:
+    row = get_model_registry_entry(
+        spark=spark,
+        model_name=model_name,
+        model_version=model_version,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    artifact_path = row["artifact_path"]
+    status = row["status"]
+
+    if not artifact_path:
+        raise ValueError(
+            f"Artifact path ausente no registry para model_name={model_name}, "
+            f"model_version={model_version}"
+        )
+
+    if status != "TRAINED":
+        raise ValueError(
+            f"Status inesperado no registry para model_name={model_name}, "
+            f"model_version={model_version}: {status}"
+        )
+
+    return artifact_path

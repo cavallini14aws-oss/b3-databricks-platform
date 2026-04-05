@@ -5,7 +5,7 @@ environment:
 
 storage:
   model_artifact_base_path: "/tmp/local_models"
-  enable_model_artifact_persistence: false
+  enable_model_artifact_persistence: true
 
 flags:
   enable_data_pipeline: true
