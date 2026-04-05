@@ -1,5 +1,9 @@
 import argparse
+from datetime import datetime, timezone
 from dataclasses import dataclass
+
+from pyspark.sql import Row
+from pyspark.sql import types as T
 
 from b3_platform.core.context import get_context
 from b3_platform.mlops.registry import get_latest_valid_model_entry
@@ -92,6 +96,19 @@ def promote_and_deploy_ml(
             f"model_name={model_name}, model_version={resolved_model_version}, status={status}"
         )
 
+    log_ml_promotion_event(
+        spark=spark,
+        model_name=model_name,
+        model_version=resolved_model_version,
+        artifact_path=artifact_path,
+        source_env=source_env,
+        target_env=target_env,
+        status="PROMOTION_APPROVED",
+        reason="Promotion request accepted",
+        project=project,
+        use_catalog=use_catalog,
+    )
+
     print(f"Promotion request accepted")
     print(f"model_name={model_name}")
     print(f"resolved_model_version={resolved_model_version}")
@@ -99,13 +116,13 @@ def promote_and_deploy_ml(
     print(f"source_env={source_env}")
     print(f"target_env={target_env}")
 
-    # Aqui fica o gancho para deploy/promocao real em ambiente futuro.
     return {
         "model_name": model_name,
         "model_version": resolved_model_version,
         "artifact_path": artifact_path,
         "source_env": source_env,
         "target_env": target_env,
+        "status": "PROMOTION_APPROVED",
     }
 
 
@@ -155,3 +172,61 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def log_ml_promotion_event(
+    spark,
+    model_name: str,
+    model_version: str,
+    artifact_path: str,
+    source_env: str,
+    target_env: str,
+    status: str,
+    reason: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+):
+    ctx = get_context(project=project, use_catalog=use_catalog)
+    table_name = ctx.naming.qualified_table(
+        ctx.naming.schema_mlops,
+        "tb_ml_model_promotions",
+    )
+
+    schema_name = ctx.naming.qualified_schema(ctx.naming.schema_mlops)
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
+
+    schema = T.StructType(
+        [
+            T.StructField("event_timestamp", T.TimestampType(), False),
+            T.StructField("env", T.StringType(), False),
+            T.StructField("project", T.StringType(), False),
+            T.StructField("model_name", T.StringType(), False),
+            T.StructField("model_version", T.StringType(), False),
+            T.StructField("artifact_path", T.StringType(), False),
+            T.StructField("source_env", T.StringType(), False),
+            T.StructField("target_env", T.StringType(), False),
+            T.StructField("status", T.StringType(), False),
+            T.StructField("reason", T.StringType(), False),
+        ]
+    )
+
+    row = Row(
+        event_timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
+        env=ctx.env,
+        project=ctx.project,
+        model_name=model_name,
+        model_version=model_version,
+        artifact_path=artifact_path,
+        source_env=source_env,
+        target_env=target_env,
+        status=status,
+        reason=reason,
+    )
+
+    df = spark.createDataFrame([row], schema=schema)
+
+    if spark.catalog.tableExists(table_name):
+        df.write.mode("append").saveAsTable(table_name)
+    else:
+        df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(table_name)
+
