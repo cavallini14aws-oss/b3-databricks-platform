@@ -42,7 +42,7 @@ PREDICTIONS_SCHEMA = T.StructType(
 
 def run_evaluate_clientes_model(
     spark,
-    model_version: str | None,
+    model_version: str | None = None,
     project: str = "clientes",
     use_catalog: bool = False,
     config_path: str = "config/clientes_ml_pipeline.yml",
