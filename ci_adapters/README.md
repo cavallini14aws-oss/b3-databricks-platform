@@ -26,14 +26,14 @@ Permitir troca de provider de CI/CD sem reescrever a plataforma.
 
 ## Comandos úteis
 ### Mostrar contrato de secrets
-- `python -m b3_platform.orchestration.show_ci_secrets_contract --provider github_actions`
+- `python -m data_platform.orchestration.show_ci_secrets_contract --provider github_actions`
 
 ### Validar secrets do ambiente atual
-- `python -m b3_platform.orchestration.validate_ci_secrets --provider github_actions`
+- `python -m data_platform.orchestration.validate_ci_secrets --provider github_actions`
 
 ### Gerar adapters
-- `python -m b3_platform.orchestration.generate_ci_adapters`
-- `python -m b3_platform.orchestration.generate_ci_adapters --write-all true`
+- `python -m data_platform.orchestration.generate_ci_adapters`
+- `python -m data_platform.orchestration.generate_ci_adapters --write-all true`
 
 ## Governança recomendada
 - dev: deploy permitido

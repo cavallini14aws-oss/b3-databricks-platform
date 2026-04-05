@@ -1,8 +1,8 @@
 from pyspark.sql import Row
 from pyspark.sql import functions as F
 
-from b3_platform.core.context import get_context
-from b3_platform.core.logger import PlatformLogger
+from data_platform.core.context import get_context
+from data_platform.core.logger import PlatformLogger
 
 
 def run_bronze_clientes(spark, project: str = "clientes", use_catalog: bool = False) -> None:

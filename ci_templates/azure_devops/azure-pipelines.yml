@@ -17,7 +17,7 @@ stages:
           vmImage: ubuntu-latest
         steps:
           - checkout: self
-          - script: python -m compileall b3_platform config pipelines resources sql
+          - script: python -m compileall data_platform config pipelines resources sql
             displayName: Compile Python
           - script: echo "Gerar artifacts da plataforma"
             displayName: Generate platform artifacts

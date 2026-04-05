@@ -5,12 +5,12 @@ from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import OneHotEncoder, StringIndexer, VectorAssembler
 from pyspark.sql import functions as F
 
-from b3_platform.core.config_loader import load_yaml_config
-from b3_platform.core.context import get_context
-from b3_platform.core.logger import PlatformLogger
-from b3_platform.mlops.datasets import get_training_dataset_table
-from b3_platform.mlops.registry import register_model
-from b3_platform.orchestration.pipeline_runner import run_with_observability
+from data_platform.core.config_loader import load_yaml_config
+from data_platform.core.context import get_context
+from data_platform.core.logger import PlatformLogger
+from data_platform.mlops.datasets import get_training_dataset_table
+from data_platform.mlops.registry import register_model
+from data_platform.orchestration.pipeline_runner import run_with_observability
 
 
 def run_train_clientes_model(

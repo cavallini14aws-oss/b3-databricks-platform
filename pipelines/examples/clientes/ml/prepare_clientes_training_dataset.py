@@ -1,10 +1,10 @@
 from pyspark.sql import Window
 from pyspark.sql import functions as F
 
-from b3_platform.core.context import get_context
-from b3_platform.core.logger import PlatformLogger
-from b3_platform.mlops.datasets import get_training_dataset_table
-from b3_platform.orchestration.pipeline_runner import run_with_observability
+from data_platform.core.context import get_context
+from data_platform.core.logger import PlatformLogger
+from data_platform.mlops.datasets import get_training_dataset_table
+from data_platform.orchestration.pipeline_runner import run_with_observability
 
 
 def run_prepare_clientes_training_dataset(

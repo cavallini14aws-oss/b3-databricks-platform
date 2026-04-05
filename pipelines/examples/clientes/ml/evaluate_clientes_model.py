@@ -7,19 +7,19 @@ from pyspark.sql import Row
 from pyspark.sql import functions as F
 from pyspark.sql import types as T
 
-from b3_platform.core.config_loader import load_yaml_config
-from b3_platform.core.context import get_context
-from b3_platform.core.job_config import load_job_config
-from b3_platform.core.logger import PlatformLogger
-from b3_platform.governance.promotion import (
+from data_platform.core.config_loader import load_yaml_config
+from data_platform.core.context import get_context
+from data_platform.core.job_config import load_job_config
+from data_platform.core.logger import PlatformLogger
+from data_platform.governance.promotion import (
     evaluate_ml_promotion,
     log_promotion_decision,
 )
-from b3_platform.mlops.baseline import compute_majority_baseline_accuracy, log_baseline_metric
-from b3_platform.mlops.datasets import get_training_dataset_table
-from b3_platform.mlops.registry import get_latest_valid_model_version, get_model_artifact_path
-from b3_platform.mlops.evaluation import log_confusion_matrix, log_model_metric
-from b3_platform.orchestration.pipeline_runner import run_with_observability
+from data_platform.mlops.baseline import compute_majority_baseline_accuracy, log_baseline_metric
+from data_platform.mlops.datasets import get_training_dataset_table
+from data_platform.mlops.registry import get_latest_valid_model_version, get_model_artifact_path
+from data_platform.mlops.evaluation import log_confusion_matrix, log_model_metric
+from data_platform.orchestration.pipeline_runner import run_with_observability
 
 
 PREDICTIONS_SCHEMA = T.StructType(

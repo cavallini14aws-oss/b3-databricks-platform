@@ -1,9 +1,9 @@
 import argparse
 from uuid import uuid4
 
-from b3_platform.core.context import get_context
-from b3_platform.core.logger import PlatformLogger
-from b3_platform.orchestration.pipeline_runner import run_with_observability
+from data_platform.core.context import get_context
+from data_platform.core.logger import PlatformLogger
+from data_platform.orchestration.pipeline_runner import run_with_observability
 from pipelines.examples.clientes.ml.evaluate_clientes_model import run_evaluate_clientes_model
 from pipelines.examples.clientes.ml.prepare_clientes_training_dataset import run_prepare_clientes_training_dataset
 from pipelines.examples.clientes.ml.train_clientes_model import run_train_clientes_model

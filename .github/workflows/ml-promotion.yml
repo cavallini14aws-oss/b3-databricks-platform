@@ -78,7 +78,7 @@ jobs:
           MODEL_NAME: ${{ github.event.inputs.model_name }}
           MODEL_VERSION: ${{ github.event.inputs.model_version }}
         run: |
-          CMD=(python -m b3_platform.governance.promote_and_deploy_ml \
+          CMD=(python -m data_platform.governance.promote_and_deploy_ml \
             --model-name "$MODEL_NAME" \
             --source-env "$SOURCE_ENV" \
             --target-env "$TARGET_ENV")

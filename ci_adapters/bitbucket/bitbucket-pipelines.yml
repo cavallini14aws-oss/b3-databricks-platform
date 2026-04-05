@@ -11,18 +11,18 @@ pipelines:
           caches:
             - pip
           script:
-            - python -m compileall b3_platform config pipelines resources sql
-            - python -m b3_platform.flow_specs.generate_registry
-            - python -m b3_platform.flow_specs.generate_jobs --environment dev
-            - python -m b3_platform.flow_specs.generate_jobs --environment hml
-            - python -m b3_platform.flow_specs.generate_jobs --environment prd
-            - python -m b3_platform.flow_specs.generate_resources --environment dev
-            - python -m b3_platform.flow_specs.generate_resources --environment hml
-            - python -m b3_platform.flow_specs.generate_resources --environment prd
-            - python -m b3_platform.flow_specs.generate_databricks_bundle_root
-            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
-            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
-            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+            - python -m compileall data_platform config pipelines resources sql
+            - python -m data_platform.flow_specs.generate_registry
+            - python -m data_platform.flow_specs.generate_jobs --environment dev
+            - python -m data_platform.flow_specs.generate_jobs --environment hml
+            - python -m data_platform.flow_specs.generate_jobs --environment prd
+            - python -m data_platform.flow_specs.generate_resources --environment dev
+            - python -m data_platform.flow_specs.generate_resources --environment hml
+            - python -m data_platform.flow_specs.generate_resources --environment prd
+            - python -m data_platform.flow_specs.generate_databricks_bundle_root
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
             - pip install databricks-cli
             - databricks bundle validate -t dev
 
@@ -34,10 +34,10 @@ pipelines:
           caches:
             - pip
           script:
-            - python -m b3_platform.flow_specs.generate_databricks_bundle_root
-            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
-            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
-            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+            - python -m data_platform.flow_specs.generate_databricks_bundle_root
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
             - pip install databricks-cli
             - databricks bundle deploy -t dev
 
@@ -48,10 +48,10 @@ pipelines:
           caches:
             - pip
           script:
-            - python -m b3_platform.flow_specs.generate_databricks_bundle_root
-            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
-            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
-            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+            - python -m data_platform.flow_specs.generate_databricks_bundle_root
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
             - pip install databricks-cli
             - databricks bundle deploy -t hml
 
@@ -62,9 +62,9 @@ pipelines:
           caches:
             - pip
           script:
-            - python -m b3_platform.flow_specs.generate_databricks_bundle_root
-            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
-            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
-            - python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+            - python -m data_platform.flow_specs.generate_databricks_bundle_root
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
             - pip install databricks-cli
             - databricks bundle deploy -t prd

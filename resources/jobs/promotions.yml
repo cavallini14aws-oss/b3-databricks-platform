@@ -5,7 +5,7 @@ resources:
       tasks:
         - task_key: promote_dev_to_hml_task
           spark_python_task:
-            python_file: ${workspace.root_path}/b3_platform/governance/promote_and_deploy_ml.py
+            python_file: ${workspace.root_path}/data_platform/governance/promote_and_deploy_ml.py
             parameters:
               - --source-env
               - dev
@@ -38,7 +38,7 @@ resources:
       tasks:
         - task_key: promote_hml_to_prd_task
           spark_python_task:
-            python_file: ${workspace.root_path}/b3_platform/governance/promote_and_deploy_ml.py
+            python_file: ${workspace.root_path}/data_platform/governance/promote_and_deploy_ml.py
             parameters:
               - --source-env
               - hml

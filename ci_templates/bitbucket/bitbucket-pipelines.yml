@@ -8,7 +8,7 @@ pipelines:
           caches:
             - pip
           script:
-            - python -m compileall b3_platform config pipelines resources sql
+            - python -m compileall data_platform config pipelines resources sql
             - echo "Gerar artifacts da plataforma"
             - echo "databricks bundle validate -t dev"
 

@@ -1,6 +1,6 @@
 import argparse
 
-from b3_platform.orchestration.pipeline_registry import resolve_pipeline_callable
+from data_platform.orchestration.pipeline_registry import resolve_pipeline_callable
 
 
 def run_pipeline(

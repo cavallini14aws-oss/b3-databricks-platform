@@ -28,24 +28,24 @@ jobs:
           python-version: "3.12"
 
       - name: Compile Python
-        run: python -m compileall b3_platform config pipelines resources sql
+        run: python -m compileall data_platform config pipelines resources sql
 
       - name: Validate active CI provider secrets contract
-        run: python -m b3_platform.orchestration.validate_active_ci_provider
+        run: python -m data_platform.orchestration.validate_active_ci_provider
 
       - name: Generate platform artifacts
         run: |
-          python -m b3_platform.flow_specs.generate_registry
-          python -m b3_platform.flow_specs.generate_jobs --environment dev
-          python -m b3_platform.flow_specs.generate_jobs --environment hml
-          python -m b3_platform.flow_specs.generate_jobs --environment prd
-          python -m b3_platform.flow_specs.generate_resources --environment dev
-          python -m b3_platform.flow_specs.generate_resources --environment hml
-          python -m b3_platform.flow_specs.generate_resources --environment prd
-          python -m b3_platform.flow_specs.generate_databricks_bundle_root
-          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
-          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
-          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+          python -m data_platform.flow_specs.generate_registry
+          python -m data_platform.flow_specs.generate_jobs --environment dev
+          python -m data_platform.flow_specs.generate_jobs --environment hml
+          python -m data_platform.flow_specs.generate_jobs --environment prd
+          python -m data_platform.flow_specs.generate_resources --environment dev
+          python -m data_platform.flow_specs.generate_resources --environment hml
+          python -m data_platform.flow_specs.generate_resources --environment prd
+          python -m data_platform.flow_specs.generate_databricks_bundle_root
+          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
 
       - name: Set up Databricks CLI
         run: pip install databricks-cli
@@ -75,10 +75,10 @@ jobs:
 
       - name: Generate bundle artifacts
         run: |
-          python -m b3_platform.flow_specs.generate_databricks_bundle_root
-          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
-          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
-          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+          python -m data_platform.flow_specs.generate_databricks_bundle_root
+          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
 
       - name: Deploy DEV
         env:
@@ -106,10 +106,10 @@ jobs:
 
       - name: Generate bundle artifacts
         run: |
-          python -m b3_platform.flow_specs.generate_databricks_bundle_root
-          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
-          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
-          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+          python -m data_platform.flow_specs.generate_databricks_bundle_root
+          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
 
       - name: Deploy HML
         env:
@@ -137,10 +137,10 @@ jobs:
 
       - name: Generate bundle artifacts
         run: |
-          python -m b3_platform.flow_specs.generate_databricks_bundle_root
-          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment dev
-          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment hml
-          python -m b3_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+          python -m data_platform.flow_specs.generate_databricks_bundle_root
+          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
 
       - name: Deploy PRD
         env:

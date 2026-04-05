@@ -3,10 +3,10 @@ from uuid import uuid4
 
 import pandas as pd
 
-from b3_platform.core.context import get_context
-from b3_platform.core.logger import PlatformLogger
-from b3_platform.orchestration.pipeline_runner import run_with_observability
-from b3_platform.core.config_loader import load_yaml_config
+from data_platform.core.context import get_context
+from data_platform.core.logger import PlatformLogger
+from data_platform.orchestration.pipeline_runner import run_with_observability
+from data_platform.core.config_loader import load_yaml_config
 from pipelines.examples.clientes.bronze.ingest_file_clientes import run_ingest_file_clientes
 from pipelines.examples.clientes.bronze.ingest_table_clientes import run_ingest_table_clientes
 from pipelines.examples.clientes.silver.silver_consolidado_clientes import run_silver_consolidado_clientes

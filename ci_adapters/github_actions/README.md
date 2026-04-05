@@ -47,7 +47,7 @@ Criar os seguintes environments no repositório:
 
 ## Validação antecipada
 O workflow executa:
-- `python -m b3_platform.orchestration.validate_active_ci_provider`
+- `python -m data_platform.orchestration.validate_active_ci_provider`
 
 Esse comando valida o contrato central de secrets do provider ativo antes do validate/deploy do bundle.
 
