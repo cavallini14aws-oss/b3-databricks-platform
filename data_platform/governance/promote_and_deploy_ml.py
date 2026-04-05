@@ -6,7 +6,12 @@ from pyspark.sql import Row
 from pyspark.sql import types as T
 
 from data_platform.core.context import get_context
-from data_platform.mlops.registry import get_latest_valid_model_entry
+from data_platform.mlops.registry import get_latest_valid_model_entry, update_model_status
+from data_platform.mlops.model_states import (
+    PROMOTION_APPROVED,
+    PROMOTED_HML,
+    PROMOTED_PRD,
+)
 
 
 @dataclass
@@ -103,8 +108,28 @@ def promote_and_deploy_ml(
         artifact_path=artifact_path,
         source_env=source_env,
         target_env=target_env,
-        status="PROMOTION_APPROVED",
+        status=PROMOTION_APPROVED,
         reason="Promotion request accepted",
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    update_model_status(
+        spark=spark,
+        model_name=model_name,
+        model_version=resolved_model_version,
+        status=PROMOTION_APPROVED,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    promoted_status = PROMOTED_HML if target_env == "hml" else PROMOTED_PRD
+
+    update_model_status(
+        spark=spark,
+        model_name=model_name,
+        model_version=resolved_model_version,
+        status=promoted_status,
         project=project,
         use_catalog=use_catalog,
     )
@@ -115,6 +140,7 @@ def promote_and_deploy_ml(
     print(f"artifact_path={artifact_path}")
     print(f"source_env={source_env}")
     print(f"target_env={target_env}")
+    print(f"promoted_status={promoted_status}")
 
     return {
         "model_name": model_name,
@@ -122,7 +148,7 @@ def promote_and_deploy_ml(
         "artifact_path": artifact_path,
         "source_env": source_env,
         "target_env": target_env,
-        "status": "PROMOTION_APPROVED",
+        "status": promoted_status,
     }
 
 
@@ -229,4 +255,3 @@ def log_ml_promotion_event(
         df.write.mode("append").saveAsTable(table_name)
     else:
         df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(table_name)
-

@@ -1,4 +1,5 @@
-from data_platform.mlops.registry import get_latest_valid_model_entry
+from data_platform.mlops.registry import get_latest_valid_model_entry, update_model_status
+from data_platform.mlops.model_states import ROLLED_BACK
 
 
 def validate_rollback_target(target_env: str) -> None:
@@ -26,10 +27,20 @@ def prepare_rollback_request(
         use_catalog=use_catalog,
     )
 
+    update_model_status(
+        spark=spark,
+        model_name=model_name,
+        model_version=entry["model_version"],
+        status=ROLLED_BACK,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
     return {
         "action": "ROLLBACK_PREPARED",
         "model_name": model_name,
         "model_version": entry["model_version"],
         "artifact_path": entry["artifact_path"],
         "target_env": target_env,
+        "status": ROLLED_BACK,
     }

@@ -5,6 +5,7 @@ from pyspark.sql import functions as F
 from pyspark.sql import types as T
 
 from data_platform.core.context import get_context
+from data_platform.mlops.model_states import VALID_MODEL_STATES
 
 
 REGISTRY_SCHEMA = T.StructType(
@@ -22,6 +23,14 @@ REGISTRY_SCHEMA = T.StructType(
 )
 
 
+def validate_model_state(status: str) -> None:
+    if status not in VALID_MODEL_STATES:
+        raise ValueError(
+            f"Status de modelo invalido: {status}. "
+            f"Permitidos: {sorted(VALID_MODEL_STATES)}"
+        )
+
+
 def register_model(
     spark,
     model_name: str,
@@ -33,6 +42,8 @@ def register_model(
     project: str = "clientes",
     use_catalog: bool = False,
 ) -> None:
+    validate_model_state(status)
+
     ctx = get_context(project=project, use_catalog=use_catalog)
 
     schema_name = ctx.naming.qualified_schema(ctx.naming.schema_mlops)
@@ -174,3 +185,38 @@ def get_latest_valid_model_version(
         use_catalog=use_catalog,
     )
     return row["model_version"]
+
+
+def update_model_status(
+    spark,
+    model_name: str,
+    model_version: str,
+    status: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+):
+    validate_model_state(status)
+
+    entry = get_model_registry_entry(
+        spark=spark,
+        model_name=model_name,
+        model_version=model_version,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    artifact_path = entry["artifact_path"]
+    algorithm = entry["algorithm"]
+    run_id = entry["run_id"]
+
+    register_model(
+        spark=spark,
+        model_name=model_name,
+        model_version=model_version,
+        algorithm=algorithm,
+        run_id=run_id,
+        status=status,
+        artifact_path=artifact_path,
+        project=project,
+        use_catalog=use_catalog,
+    )
