@@ -4,7 +4,7 @@ environment:
   debug_mode: true
 
 storage:
-  model_artifact_base_path: "file:/tmp/local_models"
+  model_artifact_base_path: "/Volumes/workspace/customer_intelligence/vol_ml_artifacts"
   enable_model_artifact_persistence: true
 
 flags:
