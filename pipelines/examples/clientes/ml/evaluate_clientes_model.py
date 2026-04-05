@@ -1,9 +1,7 @@
 from datetime import datetime, UTC
 
-from pyspark.ml import Pipeline
-from pyspark.ml.classification import LogisticRegression
+from pyspark.ml import PipelineModel
 from pyspark.ml.evaluation import BinaryClassificationEvaluator, MulticlassClassificationEvaluator
-from pyspark.ml.feature import OneHotEncoder, StringIndexer, VectorAssembler
 from pyspark.sql import Row
 from pyspark.sql import functions as F
 from pyspark.sql import types as T
@@ -18,6 +16,7 @@ from b3_platform.governance.promotion import (
 )
 from b3_platform.mlops.baseline import compute_majority_baseline_accuracy, log_baseline_metric
 from b3_platform.mlops.datasets import get_training_dataset_table
+from b3_platform.mlops.registry import get_model_artifact_path
 from b3_platform.mlops.evaluation import log_confusion_matrix, log_model_metric
 from b3_platform.orchestration.pipeline_runner import run_with_observability
 
@@ -102,76 +101,22 @@ def run_evaluate_clientes_model(
         promotion_target_env = job_config.promotion_rules[0].target_env if job_config.promotion_rules else None
         logger.info(f"promotion_target_env={promotion_target_env}")
 
+        artifact_path = get_model_artifact_path(
+            spark=spark,
+            model_name=model_name,
+            model_version=model_version,
+            project=project,
+            use_catalog=use_catalog,
+        )
+
+        logger.info(f"artifact_path={artifact_path}")
+
         df = spark.table(dataset_table)
-        train_df = df.filter(F.col("dataset_split") == "train")
         test_df = df.filter(F.col("dataset_split") == "test")
 
-        logger.info(f"train_count={train_df.count()}")
         logger.info(f"test_count={test_df.count()}")
 
-        categorical_features = []
-        numeric_features = []
-
-        dtype_map = dict(train_df.dtypes)
-        for feature_name in feature_columns:
-            field_type = dtype_map.get(feature_name)
-            if field_type in {"string"}:
-                categorical_features.append(feature_name)
-            else:
-                numeric_features.append(feature_name)
-
-        indexers = []
-        encoder_inputs = []
-        encoder_outputs = []
-
-        for feature_name in categorical_features:
-            idx_col = f"{feature_name}_idx"
-            ohe_col = f"{feature_name}_ohe"
-
-            indexers.append(
-                StringIndexer(
-                    inputCol=feature_name,
-                    outputCol=idx_col,
-                    handleInvalid="keep",
-                )
-            )
-
-            encoder_inputs.append(idx_col)
-            encoder_outputs.append(ohe_col)
-
-        stages = []
-
-        if indexers:
-            stages.extend(indexers)
-
-        if encoder_inputs:
-            encoder = OneHotEncoder(
-                inputCols=encoder_inputs,
-                outputCols=encoder_outputs,
-            )
-            stages.append(encoder)
-
-        assembler_inputs = encoder_outputs + numeric_features
-
-        assembler = VectorAssembler(
-            inputCols=assembler_inputs,
-            outputCol="features",
-        )
-
-        classifier = LogisticRegression(
-            featuresCol="features",
-            labelCol="label",
-            predictionCol="prediction",
-            probabilityCol="probability",
-            rawPredictionCol="rawPrediction",
-            maxIter=10,
-        )
-
-        stages.extend([assembler, classifier])
-
-        pipeline = Pipeline(stages=stages)
-
-        model = pipeline.fit(train_df)
+        model = PipelineModel.load(artifact_path)
         predictions = model.transform(test_df)
 
         metric_values = {}
@@ -333,7 +278,6 @@ def run_evaluate_clientes_model(
 
         del predictions
         del model
-        del train_df
         del test_df
         del df
 
