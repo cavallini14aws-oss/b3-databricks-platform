@@ -11,6 +11,8 @@ from data_platform.mlops.model_states import (
     PROMOTION_APPROVED,
     PROMOTED_HML,
     PROMOTED_PRD,
+    DEPLOYED_HML,
+    DEPLOYED_PRD,
 )
 
 
@@ -134,6 +136,17 @@ def promote_and_deploy_ml(
         use_catalog=use_catalog,
     )
 
+    deployed_status = DEPLOYED_HML if target_env == "hml" else DEPLOYED_PRD
+
+    update_model_status(
+        spark=spark,
+        model_name=model_name,
+        model_version=resolved_model_version,
+        status=deployed_status,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
     print(f"Promotion request accepted")
     print(f"model_name={model_name}")
     print(f"resolved_model_version={resolved_model_version}")
@@ -141,6 +154,7 @@ def promote_and_deploy_ml(
     print(f"source_env={source_env}")
     print(f"target_env={target_env}")
     print(f"promoted_status={promoted_status}")
+    print(f"deployed_status={deployed_status}")
 
     return {
         "model_name": model_name,
@@ -148,7 +162,7 @@ def promote_and_deploy_ml(
         "artifact_path": artifact_path,
         "source_env": source_env,
         "target_env": target_env,
-        "status": promoted_status,
+        "status": deployed_status,
     }
 
 
