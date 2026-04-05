@@ -116,34 +116,47 @@ def run_train_clientes_model(
                 ) from e
             raise
 
-        artifact_path = None
-        if ctx.enable_model_artifact_persistence:
-            artifact_path = (
-                f"{ctx.model_artifact_base_path}/{model_name}/{model_version}"
-            )
-            logger.info(f"Persistindo artifact do modelo em: {artifact_path}")
+        artifact_path = build_model_artifact_path(
+            model_name=model_name,
+            model_version=model_version,
+            project=project,
+            use_catalog=use_catalog,
+        )
+        logger.info(f"Persistindo artifact do modelo em: {artifact_path}")
 
+        try:
             model.write().overwrite().save(artifact_path)
+        except Exception as e:
+            logger.exception(
+                "Falha ao persistir artifact do modelo. "
+                f"model_name={model_name} model_version={model_version} artifact_path={artifact_path}"
+            )
+            raise RuntimeError(
+                f"Falha ao persistir artifact do modelo em {artifact_path}"
+            ) from e
 
-            logger.info("Artifact persistido com sucesso")
-        else:
-            logger.warn(
-                "Persistencia de artifact desabilitada para este ambiente. "
-                "Modelo nao sera salvo."
+        if not artifact_exists(spark, artifact_path):
+            raise RuntimeError(
+                "Artifact persistido nao encontrado apos save. "
+                f"model_name={model_name} model_version={model_version} artifact_path={artifact_path}"
             )
 
-        if ctx.flags.enable_registry:
-            register_model(
-                spark=spark,
-                model_name=model_name,
-                model_version=model_version,
-                algorithm=algorithm,
-                run_id=run_id,
-                status="TRAINED",
-                artifact_path=artifact_path,
-                project=project,
-                use_catalog=use_catalog,
-            )
+        logger.info(
+            "Artifact persistido com sucesso. "
+            f"model_name={model_name} model_version={model_version} artifact_path={artifact_path}"
+        )
+
+        register_model(
+            spark=spark,
+            model_name=model_name,
+            model_version=model_version,
+            algorithm=algorithm,
+            run_id=run_id,
+            status=TRAINED,
+            artifact_path=artifact_path,
+            project=project,
+            use_catalog=use_catalog,
+        )
 
         logger.info(f"Modelo treinado com sucesso: version={model_version}")
 

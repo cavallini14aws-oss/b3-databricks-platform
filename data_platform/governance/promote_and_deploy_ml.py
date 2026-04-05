@@ -7,13 +7,27 @@ from pyspark.sql import types as T
 
 from data_platform.core.context import get_context
 from data_platform.mlops.registry import get_latest_valid_model_entry, update_model_status
+from data_platform.mlops.deployments import activate_model_deployment
 from data_platform.mlops.model_states import (
+    TRAINED,
+    EVALUATED,
     PROMOTION_APPROVED,
     PROMOTED_HML,
     PROMOTED_PRD,
     DEPLOYED_HML,
     DEPLOYED_PRD,
 )
+
+
+PROMOTABLE_SOURCE_STATES = {
+    TRAINED,
+    EVALUATED,
+    PROMOTION_APPROVED,
+    PROMOTED_HML,
+    PROMOTED_PRD,
+    DEPLOYED_HML,
+    DEPLOYED_PRD,
+}
 
 
 @dataclass
@@ -90,6 +104,7 @@ def promote_and_deploy_ml(
     resolved_model_version = entry["model_version"]
     artifact_path = entry["artifact_path"]
     status = entry["status"]
+    run_id = entry["run_id"]
 
     if not artifact_path:
         raise ValueError(
@@ -97,10 +112,11 @@ def promote_and_deploy_ml(
             f"model_name={model_name}, model_version={resolved_model_version}"
         )
 
-    if status != "TRAINED":
+    if status not in PROMOTABLE_SOURCE_STATES:
         raise ValueError(
             f"Status invalido para promocao: "
-            f"model_name={model_name}, model_version={resolved_model_version}, status={status}"
+            f"model_name={model_name}, model_version={resolved_model_version}, status={status}. "
+            f"Permitidos: {sorted(PROMOTABLE_SOURCE_STATES)}"
         )
 
     log_ml_promotion_event(
@@ -138,6 +154,20 @@ def promote_and_deploy_ml(
 
     deployed_status = DEPLOYED_HML if target_env == "hml" else DEPLOYED_PRD
 
+    previous_active = activate_model_deployment(
+        spark=spark,
+        model_name=model_name,
+        model_version=resolved_model_version,
+        artifact_path=artifact_path,
+        source_env=source_env,
+        target_env=target_env,
+        deployment_status=deployed_status,
+        run_id=run_id,
+        notes=f"Promocao {source_env}->{target_env}",
+        project=project,
+        use_catalog=use_catalog,
+    )
+
     update_model_status(
         spark=spark,
         model_name=model_name,
@@ -147,7 +177,7 @@ def promote_and_deploy_ml(
         use_catalog=use_catalog,
     )
 
-    print(f"Promotion request accepted")
+    print("Promotion request accepted")
     print(f"model_name={model_name}")
     print(f"resolved_model_version={resolved_model_version}")
     print(f"artifact_path={artifact_path}")
@@ -155,6 +185,11 @@ def promote_and_deploy_ml(
     print(f"target_env={target_env}")
     print(f"promoted_status={promoted_status}")
     print(f"deployed_status={deployed_status}")
+    if previous_active:
+        print(
+            "previous_active="
+            f"{previous_active['model_name']}:{previous_active['model_version']}:{previous_active['target_env']}"
+        )
 
     return {
         "model_name": model_name,
