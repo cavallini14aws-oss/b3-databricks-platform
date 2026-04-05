@@ -17,7 +17,7 @@ from b3_platform.governance.promotion import (
 )
 from b3_platform.mlops.baseline import compute_majority_baseline_accuracy, log_baseline_metric
 from b3_platform.mlops.datasets import get_training_dataset_table
-from b3_platform.mlops.registry import get_model_artifact_path
+from b3_platform.mlops.registry import get_latest_valid_model_version, get_model_artifact_path
 from b3_platform.mlops.evaluation import log_confusion_matrix, log_model_metric
 from b3_platform.orchestration.pipeline_runner import run_with_observability
 
@@ -42,7 +42,7 @@ PREDICTIONS_SCHEMA = T.StructType(
 
 def run_evaluate_clientes_model(
     spark,
-    model_version: str,
+    model_version: str | None,
     project: str = "clientes",
     use_catalog: bool = False,
     config_path: str = "config/clientes_ml_pipeline.yml",
@@ -91,6 +91,17 @@ def run_evaluate_clientes_model(
         spark.sql(f"CREATE SCHEMA IF NOT EXISTS {mlops_schema}")
 
         logger.info(f"dataset_table={dataset_table}")
+        if not model_version:
+            model_version = get_latest_valid_model_version(
+                spark=spark,
+                model_name=model_name,
+                project=project,
+                use_catalog=use_catalog,
+            )
+            logger.info(
+                f"model_version nao informada. Usando ultima versao valida: {model_version}"
+            )
+
         logger.info(f"model_version={model_version}")
         logger.info(f"dataset_version={dataset_version}")
         logger.info(f"predictions_table={predictions_table}")

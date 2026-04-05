@@ -126,3 +126,51 @@ def get_model_artifact_path(
         )
 
     return artifact_path
+
+
+def get_latest_valid_model_entry(
+    spark,
+    model_name: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+):
+    ctx = get_context(project=project, use_catalog=use_catalog)
+    table_name = ctx.naming.qualified_table(ctx.naming.schema_mlops, "tb_model_registry")
+
+    if not spark.catalog.tableExists(table_name):
+        raise ValueError(f"Tabela de registry nao encontrada: {table_name}")
+
+    rows = (
+        spark.table(table_name)
+        .filter(
+            (F.col("model_name") == model_name) &
+            (F.col("status") == "TRAINED") &
+            (F.col("artifact_path").isNotNull()) &
+            (F.length(F.trim(F.col("artifact_path"))) > 0)
+        )
+        .orderBy(F.col("event_timestamp").desc())
+        .limit(1)
+        .collect()
+    )
+
+    if not rows:
+        raise ValueError(
+            f"Nenhum modelo valido encontrado para model_name={model_name}"
+        )
+
+    return rows[0]
+
+
+def get_latest_valid_model_version(
+    spark,
+    model_name: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> str:
+    row = get_latest_valid_model_entry(
+        spark=spark,
+        model_name=model_name,
+        project=project,
+        use_catalog=use_catalog,
+    )
+    return row["model_version"]
