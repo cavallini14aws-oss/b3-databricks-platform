@@ -1,0 +1,121 @@
+name: ML Promotion Flow
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_env:
+        description: "Source environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - hml
+      target_env:
+        description: "Target environment"
+        required: true
+        default: "hml"
+        type: choice
+        options:
+          - hml
+          - prd
+      model_name:
+        description: "Model name"
+        required: true
+        default: "clientes_status_classifier"
+        type: string
+      model_version:
+        description: "Model version (optional; empty = resolve latest valid)"
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  validate-ml-promotion-input:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate source/target pair
+        run: |
+          SOURCE="${{ github.event.inputs.source_env }}"
+          TARGET="${{ github.event.inputs.target_env }}"
+
+          if [[ "$SOURCE" == "dev" && "$TARGET" == "hml" ]]; then
+            echo "valid promotion path: dev -> hml"
+            exit 0
+          fi
+
+          if [[ "$SOURCE" == "hml" && "$TARGET" == "prd" ]]; then
+            echo "valid promotion path: hml -> prd"
+            exit 0
+          fi
+
+          echo "invalid promotion path: $SOURCE -> $TARGET"
+          exit 1
+
+  promote-ml:
+    needs: validate-ml-promotion-input
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.target_env }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Resolve model_version argument
+        id: resolve_model_version
+        shell: bash
+        run: |
+          MODEL_VERSION_INPUT="${{ github.event.inputs.model_version }}"
+          if [[ -z "$MODEL_VERSION_INPUT" ]]; then
+            echo "model_version=" >> "$GITHUB_OUTPUT"
+            echo "No explicit model_version informed. Flow will resolve dynamically."
+          else
+            echo "model_version=$MODEL_VERSION_INPUT" >> "$GITHUB_OUTPUT"
+            echo "Using explicit model_version=$MODEL_VERSION_INPUT"
+          fi
+
+      - name: Run ML promotion script
+        env:
+          SOURCE_ENV: ${{ github.event.inputs.source_env }}
+          TARGET_ENV: ${{ github.event.inputs.target_env }}
+          MODEL_NAME: ${{ github.event.inputs.model_name }}
+          MODEL_VERSION: ${{ steps.resolve_model_version.outputs.model_version }}
+        run: |
+          python - <<'PY'
+          import os
+          import subprocess
+          import sys
+
+          model_name = os.environ["MODEL_NAME"]
+          model_version = os.environ.get("MODEL_VERSION", "").strip()
+          source_env = os.environ["SOURCE_ENV"]
+          target_env = os.environ["TARGET_ENV"]
+
+          cmd = [
+              sys.executable,
+              "-m",
+              "b3_platform.governance.promote_and_deploy_ml",
+              "--model-name",
+              model_name,
+              "--source-env",
+              source_env,
+              "--target-env",
+              target_env,
+          ]
+
+          if model_version:
+              cmd.extend(["--model-version", model_version])
+
+          print("Executing:", " ".join(cmd))
+          subprocess.run(cmd, check=True)
+          PY
