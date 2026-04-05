@@ -4,7 +4,7 @@ environment:
   debug_mode: true
 
 storage:
-  model_artifact_base_path: "/tmp/local_models"
+  model_artifact_base_path: "file:/tmp/local_models"
   enable_model_artifact_persistence: true
 
 flags:
