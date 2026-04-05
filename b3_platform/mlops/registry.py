@@ -114,7 +114,9 @@ def get_model_artifact_path(
     if not artifact_path:
         raise ValueError(
             f"Artifact path ausente no registry para model_name={model_name}, "
-            f"model_version={model_version}"
+            f"model_version={model_version}. "
+            "Essa versao pode ser antiga (antes do rollout de artifacts) "
+            "ou o treino pode ter falhado antes de persistir o modelo."
         )
 
     if status != "TRAINED":

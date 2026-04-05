@@ -104,7 +104,17 @@ def run_train_clientes_model(
             ]
         )
 
-        model = pipeline.fit(train_df)
+        try:
+            model = pipeline.fit(train_df)
+        except Exception as e:
+            error_message = str(e)
+            if "ML_CACHE_SIZE_OVERFLOW_EXCEPTION" in error_message:
+                raise RuntimeError(
+                    "Sessao Spark Connect/Serverless saturada por cache de modelos ML. "
+                    "Abra uma nova sessao Python/notebook e execute apenas um treino limpo. "
+                    "Nao reutilize model_version antiga sem artifact."
+                ) from e
+            raise
 
         artifact_path = None
         if ctx.enable_model_artifact_persistence:

@@ -1,4 +1,5 @@
 from datetime import datetime, UTC
+import gc
 
 from pyspark.ml import PipelineModel
 from pyspark.ml.evaluation import BinaryClassificationEvaluator, MulticlassClassificationEvaluator
@@ -280,6 +281,8 @@ def run_evaluate_clientes_model(
         del model
         del test_df
         del df
+        del artifact_path
+        gc.collect()
 
     run_with_observability(
         spark=spark,
