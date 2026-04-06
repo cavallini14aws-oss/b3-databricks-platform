@@ -16,3 +16,18 @@ def get_training_dataset_table(
         raise ValueError(f"Versão de dataset não suportada: {version}")
 
     return ctx.naming.qualified_table(ctx.naming.schema_feature, table_name)
+
+
+def get_scoring_dataset_table(
+    project: str = "clientes",
+    use_catalog: bool = False,
+    version: str = "v2",
+) -> str:
+    ctx = get_context(project=project, use_catalog=use_catalog)
+
+    if version == "v2":
+        table_name = "tb_clientes_scoring_dataset_v2"
+    else:
+        raise ValueError(f"Versão de scoring dataset não suportada: {version}")
+
+    return ctx.naming.qualified_table(ctx.naming.schema_feature, table_name)
