@@ -212,26 +212,33 @@ def run_evaluate_clientes_model(
                 use_catalog=use_catalog,
             )
 
-        approved, reason = evaluate_ml_promotion(
+        decision = evaluate_ml_promotion(
+            job_config=job_config,
+            source_env=job_config.environment,
+            target_env=promotion_target_env,
             accuracy=accuracy,
-            f1_score=f1_score,
+            f1=f1_score,
             auc=auc,
-            promotion_rules=job_config.promotion_rules,
+            tests_passed=True,
+            manual_approval=False,
         )
 
-        logger.info(f"promotion_decision_approved={approved}")
-        logger.info(f"promotion_decision_reason={reason}")
+        logger.info(f"promotion_decision_approved={decision.approved}")
+        logger.info(f"promotion_decision_reason={decision.reason}")
 
         log_promotion_decision(
             spark=spark,
             model_name=model_name,
             model_version=resolved_model_version,
+            decision=decision,
+            run_id=run_id,
             source_env=job_config.environment,
             target_env=promotion_target_env,
-            approved=approved,
-            reason=reason,
-            metrics=metric_values,
-            run_id=run_id,
+            accuracy=accuracy,
+            f1=f1_score,
+            auc=auc,
+            tests_passed=True,
+            manual_approval=False,
             project=project,
             use_catalog=use_catalog,
         )
