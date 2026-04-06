@@ -154,7 +154,7 @@ def run_train_clientes_model(
             model_version=model_version,
             algorithm=algorithm,
             run_id=run_id,
-            status=TRAINED,
+            status="TRAINED",
             artifact_path=artifact_path,
             project=project,
             use_catalog=use_catalog,
