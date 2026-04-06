@@ -24,37 +24,16 @@ def _ensure_workspace_parent_path(experiment_path: str) -> None:
     if not parent_path:
         return
 
-    dbutils_created = False
-    sdk_created = False
-    errors = []
-
     try:
-        from pyspark.sql import SparkSession
-        from pyspark.dbutils import DBUtils
+        from databricks.sdk import WorkspaceClient
 
-        spark = SparkSession.getActiveSession()
-        if spark is not None:
-            dbutils = DBUtils(spark)
-            dbutils.notebook.entry_point.getDbutils().workspace().mkdirs(parent_path)
-            dbutils_created = True
+        ws = WorkspaceClient()
+        ws.workspace.mkdirs(parent_path)
     except Exception as exc:
-        errors.append(f"dbutils workspace mkdirs falhou: {exc}")
-
-    if not dbutils_created:
-        try:
-            from databricks.sdk import WorkspaceClient
-
-            ws = WorkspaceClient()
-            ws.workspace.mkdirs(parent_path)
-            sdk_created = True
-        except Exception as exc:
-            errors.append(f"databricks sdk workspace mkdirs falhou: {exc}")
-
-    if not dbutils_created and not sdk_created:
         raise RuntimeError(
-            "Nao foi possivel criar o parent path do experimento MLflow no workspace. "
-            f"parent_path={parent_path}. Detalhes: {' | '.join(errors)}"
-        )
+            "Nao foi possivel criar o parent path do experimento MLflow no workspace "
+            f"via Databricks SDK. parent_path={parent_path}. Erro: {exc}"
+        ) from exc
 
 
 def set_mlflow_experiment_for_project(project: str, stage: str) -> str:
