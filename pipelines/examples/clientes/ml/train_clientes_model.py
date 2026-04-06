@@ -114,7 +114,7 @@ def run_train_clientes_model(
             use_catalog=use_catalog,
         )
 
-        experiment_name = f"/Shared/mlops/{project}/train"
+        experiment_name = f"/Shared/{project}_train"
         mlflow.set_experiment(experiment_name)
 
         with mlflow.start_run(run_name=f"{model_name}_train_{model_version}"):

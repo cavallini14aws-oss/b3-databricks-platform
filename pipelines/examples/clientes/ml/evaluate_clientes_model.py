@@ -139,7 +139,7 @@ def run_evaluate_clientes_model(
 
         logger.info(f"test_count={test_count}")
 
-        experiment_name = f"/Shared/mlops/{project}/evaluate"
+        experiment_name = f"/Shared/{project}_evaluate"
         mlflow.set_experiment(experiment_name)
 
         with mlflow.start_run(run_name=f"{model_name}_evaluate_{resolved_model_version}"):
