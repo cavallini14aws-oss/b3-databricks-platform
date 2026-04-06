@@ -7,6 +7,7 @@ from data_platform.mlops.registry import (
     get_latest_valid_model_version,
     get_model_artifact_path,
 )
+from data_platform.mlops.scoring_runs import log_scoring_run
 from data_platform.orchestration.pipeline_runner import run_with_observability
 
 
@@ -82,14 +83,31 @@ def run_batch_inference(
         logger.info(f"artifact_path={resolved_artifact_path}")
 
         df = spark.table(input_table)
-        logger.info(f"input_count={df.count()}")
+        input_count = df.count()
+        logger.info(f"input_count={input_count}")
 
         model = PipelineModel.load(resolved_artifact_path)
         predictions = model.transform(df)
 
-        logger.info(f"prediction_count={predictions.count()}")
+        prediction_count = predictions.count()
+        logger.info(f"prediction_count={prediction_count}")
 
         predictions.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(output_table)
+
+        log_scoring_run(
+            spark=spark,
+            model_name=model_name,
+            model_version=resolved_model_version,
+            target_env=resolved_target_env,
+            input_table=input_table,
+            output_table=output_table,
+            input_count=input_count,
+            prediction_count=prediction_count,
+            artifact_path=resolved_artifact_path,
+            run_id=run_id,
+            project=project,
+            use_catalog=use_catalog,
+        )
 
         logger.info(f"Batch inference concluido com sucesso: {output_table}")
 
