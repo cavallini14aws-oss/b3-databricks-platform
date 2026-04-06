@@ -12,6 +12,7 @@ from data_platform.core.context import get_context
 from data_platform.core.logger import PlatformLogger
 from data_platform.mlops.artifacts import build_model_artifact_path, artifact_exists
 from data_platform.mlops.datasets import get_training_dataset_table
+from data_platform.mlops.mlflow_utils import set_mlflow_experiment_for_project
 from data_platform.mlops.registry import register_model
 from data_platform.orchestration.pipeline_runner import run_with_observability
 
@@ -114,8 +115,7 @@ def run_train_clientes_model(
             use_catalog=use_catalog,
         )
 
-        experiment_name = f"/Shared/{project}_train"
-        mlflow.set_experiment(experiment_name)
+        experiment_name = set_mlflow_experiment_for_project(project=project, stage="train")
 
         with mlflow.start_run(run_name=f"{model_name}_train_{model_version}"):
             mlflow.set_tag("project", project)

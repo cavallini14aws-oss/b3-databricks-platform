@@ -19,6 +19,7 @@ from data_platform.governance.promotion import (
 )
 from data_platform.mlops.baseline import compute_majority_baseline_accuracy, log_baseline_metric
 from data_platform.mlops.datasets import get_training_dataset_table
+from data_platform.mlops.mlflow_utils import set_mlflow_experiment_for_project
 from data_platform.mlops.registry import get_latest_valid_model_version, get_model_artifact_path
 from data_platform.mlops.evaluation import log_confusion_matrix, log_model_metric
 from data_platform.orchestration.pipeline_runner import run_with_observability
@@ -139,8 +140,7 @@ def run_evaluate_clientes_model(
 
         logger.info(f"test_count={test_count}")
 
-        experiment_name = f"/Shared/{project}_evaluate"
-        mlflow.set_experiment(experiment_name)
+        experiment_name = set_mlflow_experiment_for_project(project=project, stage="evaluate")
 
         with mlflow.start_run(run_name=f"{model_name}_evaluate_{resolved_model_version}"):
             mlflow.set_tag("project", project)
