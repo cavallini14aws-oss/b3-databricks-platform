@@ -145,6 +145,11 @@ def run_evaluate_clientes_model(
 
         logger.info(f"test_count={test_count}")
 
+        if test_count == 0:
+            raise ValueError(
+                f"Nenhum registro encontrado para dataset_split='test' em {dataset_table}"
+            )
+
         experiment_name = set_mlflow_experiment_for_project(project=project, stage="evaluate")
 
         with mlflow.start_run(run_name=f"{model_name}_evaluate_{resolved_model_version}"):
@@ -207,7 +212,10 @@ def run_evaluate_clientes_model(
             )
 
         if generate_baseline:
+            logger.info("baseline_rico_iniciado=True")
+
             baseline_accuracy = compute_majority_baseline_accuracy(test_df)
+            logger.info(f"baseline_majority_accuracy={baseline_accuracy}")
 
             log_baseline_metric(
                 spark=spark,
@@ -220,6 +228,7 @@ def run_evaluate_clientes_model(
                 project=project,
                 use_catalog=use_catalog,
             )
+            logger.info("baseline_majority_metric_logged=True")
 
             log_prediction_baseline(
                 spark=spark,
@@ -231,6 +240,7 @@ def run_evaluate_clientes_model(
                 project=project,
                 use_catalog=use_catalog,
             )
+            logger.info("prediction_baseline_logged=True")
 
             log_feature_baseline(
                 spark=spark,
@@ -243,6 +253,10 @@ def run_evaluate_clientes_model(
                 project=project,
                 use_catalog=use_catalog,
             )
+            logger.info("feature_baseline_logged=True")
+            logger.info("baseline_rico_concluido=True")
+        else:
+            logger.info("baseline_rico_iniciado=False")
 
         if generate_confusion_matrix:
             confusion_rows = (
