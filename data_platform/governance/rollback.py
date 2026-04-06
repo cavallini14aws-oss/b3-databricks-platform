@@ -1,7 +1,6 @@
 from data_platform.mlops.deployments import (
     activate_model_deployment,
     get_active_model_deployment,
-    register_model_deployment,
 )
 from data_platform.mlops.registry import update_model_status
 from data_platform.mlops.model_states import ROLLED_BACK
@@ -93,20 +92,6 @@ def prepare_rollback_request(
         use_catalog=use_catalog,
     )
 
-    register_model_deployment(
-        spark=spark,
-        model_name=active["model_name"],
-        model_version=active["model_version"],
-        artifact_path=active["artifact_path"],
-        source_env=active["source_env"],
-        target_env=active["target_env"],
-        deployment_status="INACTIVE",
-        is_active=False,
-        run_id=active["run_id"],
-        notes=f"Rollback executado para versao {previous_candidate['model_version']}",
-        project=project,
-        use_catalog=use_catalog,
-    )
 
     activate_model_deployment(
         spark=spark,
