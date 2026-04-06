@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+import mlflow
+
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import LogisticRegression
 from pyspark.ml.feature import OneHotEncoder, StringIndexer, VectorAssembler
@@ -105,60 +107,83 @@ def run_train_clientes_model(
             ]
         )
 
-        try:
-            model = pipeline.fit(train_df)
-        except Exception as e:
-            error_message = str(e)
-            if "ML_CACHE_SIZE_OVERFLOW_EXCEPTION" in error_message:
-                raise RuntimeError(
-                    "Sessao Spark Connect/Serverless saturada por cache de modelos ML. "
-                    "Abra uma nova sessao Python/notebook e execute apenas um treino limpo. "
-                    "Nao reutilize model_version antiga sem artifact."
-                ) from e
-            raise
-
         artifact_path = build_model_artifact_path(
             model_name=model_name,
             model_version=model_version,
             project=project,
             use_catalog=use_catalog,
         )
-        logger.info(f"Persistindo artifact do modelo em: {artifact_path}")
 
-        try:
-            model.write().overwrite().save(artifact_path)
-        except Exception as e:
-            logger.exception(
-                "Falha ao persistir artifact do modelo. "
-                f"model_name={model_name} model_version={model_version} artifact_path={artifact_path}"
-            )
-            raise RuntimeError(
-                f"Falha ao persistir artifact do modelo em {artifact_path}"
-            ) from e
+        experiment_name = f"/Shared/mlops/{project}/train"
+        mlflow.set_experiment(experiment_name)
 
-        if not artifact_exists(spark, artifact_path):
-            logger.warn(
-                "Artifact nao confirmado imediatamente apos save. "
-                f"Prosseguindo com cautela. "
-                f"model_name={model_name} model_version={model_version} artifact_path={artifact_path}"
-            )
-        else:
-            logger.info(
-                "Artifact persistido com sucesso. "
-                f"model_name={model_name} model_version={model_version} artifact_path={artifact_path}"
-            )
+        with mlflow.start_run(run_name=f"{model_name}_train_{model_version}"):
+            mlflow.set_tag("project", project)
+            mlflow.set_tag("env", ctx.env)
+            mlflow.set_tag("component", "train_clientes_model")
+            mlflow.set_tag("model_name", model_name)
+            mlflow.set_tag("model_version", model_version)
+            mlflow.set_tag("run_id", run_id)
 
-        register_model(
-            spark=spark,
-            model_name=model_name,
-            model_version=model_version,
-            algorithm=algorithm,
-            run_id=run_id,
-            status="TRAINED",
-            artifact_path=artifact_path,
-            project=project,
-            use_catalog=use_catalog,
-        )
+            mlflow.log_param("algorithm", algorithm)
+            mlflow.log_param("dataset_table", dataset_table)
+            mlflow.log_param("feature_columns", ",".join(feature_columns))
+            mlflow.log_param("use_catalog", str(use_catalog))
+            mlflow.log_param("artifact_path", artifact_path)
+            mlflow.log_metric("train_count", float(train_df.count()))
+
+            try:
+                model = pipeline.fit(train_df)
+            except Exception as e:
+                error_message = str(e)
+                if "ML_CACHE_SIZE_OVERFLOW_EXCEPTION" in error_message:
+                    raise RuntimeError(
+                        "Sessao Spark Connect/Serverless saturada por cache de modelos ML. "
+                        "Abra uma nova sessao Python/notebook e execute apenas um treino limpo. "
+                        "Nao reutilize model_version antiga sem artifact."
+                    ) from e
+                raise
+
+            logger.info(f"Persistindo artifact do modelo em: {artifact_path}")
+
+            try:
+                model.write().overwrite().save(artifact_path)
+            except Exception as e:
+                logger.exception(
+                    "Falha ao persistir artifact do modelo. "
+                    f"model_name={model_name} model_version={model_version} artifact_path={artifact_path}"
+                )
+                raise RuntimeError(
+                    f"Falha ao persistir artifact do modelo em {artifact_path}"
+                ) from e
+
+            artifact_confirmed = artifact_exists(spark, artifact_path)
+
+            if not artifact_confirmed:
+                logger.warn(
+                    "Artifact nao confirmado imediatamente apos save. "
+                    f"Prosseguindo com cautela. "
+                    f"model_name={model_name} model_version={model_version} artifact_path={artifact_path}"
+                )
+            else:
+                logger.info(
+                    "Artifact persistido com sucesso. "
+                    f"model_name={model_name} model_version={model_version} artifact_path={artifact_path}"
+                )
+
+            mlflow.log_metric("artifact_confirmed", 1.0 if artifact_confirmed else 0.0)
+
+            register_model(
+                spark=spark,
+                model_name=model_name,
+                model_version=model_version,
+                algorithm=algorithm,
+                run_id=run_id,
+                status="TRAINED",
+                artifact_path=artifact_path,
+                project=project,
+                use_catalog=use_catalog,
+            )
 
         logger.info(f"Modelo treinado com sucesso: version={model_version}")
 

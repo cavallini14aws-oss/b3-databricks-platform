@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 import gc
 
+import mlflow
+
 from pyspark.ml import PipelineModel
 from pyspark.ml.evaluation import BinaryClassificationEvaluator, MulticlassClassificationEvaluator
 from pyspark.sql import Row
@@ -133,38 +135,59 @@ def run_evaluate_clientes_model(
 
         df = spark.table(dataset_table)
         test_df = df.filter(F.col("dataset_split") == "test")
+        test_count = test_df.count()
 
-        logger.info(f"test_count={test_df.count()}")
+        logger.info(f"test_count={test_count}")
 
-        model = PipelineModel.load(artifact_path)
-        predictions = model.transform(test_df)
+        experiment_name = f"/Shared/mlops/{project}/evaluate"
+        mlflow.set_experiment(experiment_name)
 
-        metric_values = {}
+        with mlflow.start_run(run_name=f"{model_name}_evaluate_{resolved_model_version}"):
+            mlflow.set_tag("project", project)
+            mlflow.set_tag("env", ctx.env)
+            mlflow.set_tag("component", "evaluate_clientes_model")
+            mlflow.set_tag("model_name", model_name)
+            mlflow.set_tag("model_version", resolved_model_version)
+            mlflow.set_tag("run_id", run_id)
 
-        if "accuracy" in metric_names:
-            metric_values["accuracy"] = MulticlassClassificationEvaluator(
-                labelCol="label",
-                predictionCol="prediction",
-                metricName="accuracy",
-            ).evaluate(predictions)
+            mlflow.log_param("dataset_table", dataset_table)
+            mlflow.log_param("dataset_version", dataset_version)
+            mlflow.log_param("artifact_path", artifact_path)
+            mlflow.log_param("feature_columns", ",".join(feature_columns))
+            mlflow.log_metric("test_count", float(test_count))
 
-        if "f1" in metric_names:
-            metric_values["f1"] = MulticlassClassificationEvaluator(
-                labelCol="label",
-                predictionCol="prediction",
-                metricName="f1",
-            ).evaluate(predictions)
+            model = PipelineModel.load(artifact_path)
+            predictions = model.transform(test_df)
 
-        if "auc" in metric_names:
-            metric_values["auc"] = BinaryClassificationEvaluator(
-                labelCol="label",
-                rawPredictionCol="rawPrediction",
-                metricName="areaUnderROC",
-            ).evaluate(predictions)
+            metric_values = {}
 
-        accuracy = metric_values.get("accuracy")
-        f1_score = metric_values.get("f1")
-        auc = metric_values.get("auc")
+            if "accuracy" in metric_names:
+                metric_values["accuracy"] = MulticlassClassificationEvaluator(
+                    labelCol="label",
+                    predictionCol="prediction",
+                    metricName="accuracy",
+                ).evaluate(predictions)
+
+            if "f1" in metric_names:
+                metric_values["f1"] = MulticlassClassificationEvaluator(
+                    labelCol="label",
+                    predictionCol="prediction",
+                    metricName="f1",
+                ).evaluate(predictions)
+
+            if "auc" in metric_names:
+                metric_values["auc"] = BinaryClassificationEvaluator(
+                    labelCol="label",
+                    rawPredictionCol="rawPrediction",
+                    metricName="areaUnderROC",
+                ).evaluate(predictions)
+
+            for metric_name, metric_value in metric_values.items():
+                mlflow.log_metric(metric_name, float(metric_value))
+
+            accuracy = metric_values.get("accuracy")
+            f1_score = metric_values.get("f1")
+            auc = metric_values.get("auc")
 
         for metric_name, metric_value in metric_values.items():
             log_model_metric(
