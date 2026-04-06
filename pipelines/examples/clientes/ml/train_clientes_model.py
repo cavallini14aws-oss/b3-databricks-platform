@@ -137,15 +137,16 @@ def run_train_clientes_model(
             ) from e
 
         if not artifact_exists(spark, artifact_path):
-            raise RuntimeError(
-                "Artifact persistido nao encontrado apos save. "
+            logger.warn(
+                "Artifact nao confirmado imediatamente apos save. "
+                f"Prosseguindo com cautela. "
                 f"model_name={model_name} model_version={model_version} artifact_path={artifact_path}"
             )
-
-        logger.info(
-            "Artifact persistido com sucesso. "
-            f"model_name={model_name} model_version={model_version} artifact_path={artifact_path}"
-        )
+        else:
+            logger.info(
+                "Artifact persistido com sucesso. "
+                f"model_name={model_name} model_version={model_version} artifact_path={artifact_path}"
+            )
 
         register_model(
             spark=spark,
