@@ -16,6 +16,7 @@ from data_platform.mlops.model_states import (
     PROMOTED_PRD,
     DEPLOYED_HML,
     DEPLOYED_PRD,
+    ROLLED_BACK,
 )
 
 
@@ -27,6 +28,7 @@ PROMOTABLE_SOURCE_STATES = {
     PROMOTED_PRD,
     DEPLOYED_HML,
     DEPLOYED_PRD,
+    ROLLED_BACK,
 }
 
 
