@@ -9,6 +9,7 @@ from data_platform.mlops.registry import (
 )
 from data_platform.mlops.scoring_runs import log_scoring_run
 from data_platform.mlops.monitoring import log_feature_monitoring, log_prediction_monitoring
+from data_platform.mlops.drift import compute_and_log_feature_drift, compute_and_log_prediction_drift
 from data_platform.orchestration.pipeline_runner import run_with_observability
 
 
@@ -122,6 +123,35 @@ def run_batch_inference(
         )
 
         log_feature_monitoring(
+            spark=spark,
+            feature_df=df,
+            feature_columns=[
+                "segmento_dominante",
+                "source_type_dominante",
+                "qtd_registros",
+                "tem_file",
+                "tem_table",
+            ],
+            model_name=model_name,
+            model_version=resolved_model_version,
+            target_env=resolved_target_env,
+            run_id=run_id,
+            project=project,
+            use_catalog=use_catalog,
+        )
+
+        compute_and_log_prediction_drift(
+            spark=spark,
+            predictions_df=predictions,
+            model_name=model_name,
+            model_version=resolved_model_version,
+            target_env=resolved_target_env,
+            run_id=run_id,
+            project=project,
+            use_catalog=use_catalog,
+        )
+
+        compute_and_log_feature_drift(
             spark=spark,
             feature_df=df,
             feature_columns=[
