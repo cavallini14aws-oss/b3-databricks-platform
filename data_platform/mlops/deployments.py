@@ -104,6 +104,37 @@ def get_active_model_deployment(
     return rows[0]
 
 
+
+def get_active_model_for_env(
+    spark,
+    model_name: str,
+    target_env: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+):
+    active = get_active_model_deployment(
+        spark=spark,
+        model_name=model_name,
+        target_env=target_env,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    if active is None:
+        return None
+
+    return {
+        "model_name": active["model_name"],
+        "model_version": active["model_version"],
+        "artifact_path": active["artifact_path"],
+        "source_env": active["source_env"],
+        "target_env": active["target_env"],
+        "deployment_status": active["deployment_status"],
+        "run_id": active["run_id"],
+        "event_timestamp": active["event_timestamp"],
+    }
+
+
 def deactivate_active_model_deployment(
     spark,
     model_name: str,
