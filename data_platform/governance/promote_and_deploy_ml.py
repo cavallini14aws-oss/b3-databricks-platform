@@ -7,7 +7,7 @@ from pyspark.sql import types as T
 
 from data_platform.core.context import get_context
 from data_platform.mlops.registry import get_latest_valid_model_entry, update_model_status
-from data_platform.mlops.deployments import activate_model_deployment
+from data_platform.mlops.deployments import activate_model_deployment, get_active_model_deployment
 from data_platform.mlops.model_states import (
     TRAINED,
     EVALUATED,
@@ -120,6 +120,29 @@ def promote_and_deploy_ml(
             f"model_name={model_name}, model_version={resolved_model_version}, status={status}. "
             f"Permitidos: {sorted(PROMOTABLE_SOURCE_STATES)}"
         )
+
+    current_active = get_active_model_deployment(
+        spark=spark,
+        model_name=model_name,
+        target_env=target_env,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    if (
+        current_active is not None
+        and current_active["model_version"] == resolved_model_version
+        and current_active["is_active"] is True
+    ):
+        return {
+            "model_name": model_name,
+            "model_version": resolved_model_version,
+            "artifact_path": artifact_path,
+            "source_env": source_env,
+            "target_env": target_env,
+            "status": current_active["deployment_status"],
+            "message": "model already active in target environment",
+        }
 
     log_ml_promotion_event(
         spark=spark,
