@@ -1,3 +1,4 @@
 PyYAML==6.0.3
 mlflow==3.10.1
 databricks-sdk>=0.57.0
+pyspark==4.1.1

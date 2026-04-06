@@ -17,7 +17,12 @@ from data_platform.governance.promotion import (
     evaluate_ml_promotion,
     log_promotion_decision,
 )
-from data_platform.mlops.baseline import compute_majority_baseline_accuracy, log_baseline_metric
+from data_platform.mlops.baseline import (
+    compute_majority_baseline_accuracy,
+    log_baseline_metric,
+    log_feature_baseline,
+    log_prediction_baseline,
+)
 from data_platform.mlops.datasets import get_training_dataset_table
 from data_platform.mlops.mlflow_utils import set_mlflow_experiment_for_project
 from data_platform.mlops.registry import get_latest_valid_model_version, get_model_artifact_path
@@ -211,6 +216,29 @@ def run_evaluate_clientes_model(
                 baseline_name="majority_class",
                 metric_name="accuracy",
                 metric_value=baseline_accuracy,
+                run_id=run_id,
+                project=project,
+                use_catalog=use_catalog,
+            )
+
+            log_prediction_baseline(
+                spark=spark,
+                predictions_df=predictions,
+                model_name=model_name,
+                model_version=resolved_model_version,
+                artifact_path=artifact_path,
+                run_id=run_id,
+                project=project,
+                use_catalog=use_catalog,
+            )
+
+            log_feature_baseline(
+                spark=spark,
+                dataset_df=test_df,
+                feature_columns=feature_columns,
+                model_name=model_name,
+                model_version=resolved_model_version,
+                artifact_path=artifact_path,
                 run_id=run_id,
                 project=project,
                 use_catalog=use_catalog,

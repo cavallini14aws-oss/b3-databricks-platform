@@ -10,7 +10,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "PyYAML==6.0.3",
-  "mlflow==3.10.1"
+  "mlflow==3.10.1",
+  "pyspark==4.1.1"
 ]
 
 [tool.setuptools]
