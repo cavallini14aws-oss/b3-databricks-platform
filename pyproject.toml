@@ -9,7 +9,8 @@ description = "Databricks platform template for data pipelines, MLOps and LLMOps
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-  "PyYAML==6.0.3"
+  "PyYAML==6.0.3",
+  "mlflow==3.10.1"
 ]
 
 [tool.setuptools]
