@@ -157,3 +157,131 @@ def test_prepare_rollback_request_fails_when_no_active_deployment(monkeypatch):
             project="clientes",
             use_catalog=False,
         )
+
+
+def test_promote_and_deploy_ml_blocks_invalid_status(monkeypatch):
+    entry = {
+        "model_version": "v999",
+        "artifact_path": "/tmp/model",
+        "status": "INVALID_STATUS",
+        "run_id": "run-x",
+    }
+
+    monkeypatch.setattr(
+        "data_platform.governance.promote_and_deploy_ml.resolve_model_entry",
+        lambda spark, request: entry,
+    )
+    monkeypatch.setattr(
+        "data_platform.governance.promote_and_deploy_ml.get_active_model_deployment",
+        lambda **kwargs: None,
+    )
+
+    with pytest.raises(ValueError, match="Status invalido para promocao"):
+        promote_and_deploy_ml(
+            spark=object(),
+            model_name="clientes_status_classifier",
+            source_env="hml",
+            target_env="prd",
+            model_version="v999",
+            project="clientes",
+            use_catalog=False,
+        )
+
+
+def test_promote_and_deploy_ml_idempotent_path_does_not_activate(monkeypatch):
+    entry = {
+        "model_version": "v123",
+        "artifact_path": "/tmp/model",
+        "status": "DEPLOYED_PRD",
+        "run_id": "run-1",
+    }
+
+    active = {
+        "model_version": "v123",
+        "is_active": True,
+        "deployment_status": "DEPLOYED_PRD",
+    }
+
+    activation_calls = {"count": 0}
+
+    monkeypatch.setattr(
+        "data_platform.governance.promote_and_deploy_ml.resolve_model_entry",
+        lambda spark, request: entry,
+    )
+    monkeypatch.setattr(
+        "data_platform.governance.promote_and_deploy_ml.get_active_model_deployment",
+        lambda **kwargs: active,
+    )
+    monkeypatch.setattr(
+        "data_platform.governance.promote_and_deploy_ml.activate_model_deployment",
+        lambda **kwargs: activation_calls.__setitem__("count", activation_calls["count"] + 1),
+    )
+
+    result = promote_and_deploy_ml(
+        spark=object(),
+        model_name="clientes_status_classifier",
+        source_env="hml",
+        target_env="prd",
+        model_version="v123",
+        project="clientes",
+        use_catalog=False,
+    )
+
+    assert result["message"] == "model already active in target environment"
+    assert activation_calls["count"] == 0
+
+
+def test_prepare_rollback_request_executes_when_previous_candidate_exists(monkeypatch):
+    active = {
+        "model_name": "clientes_status_classifier",
+        "model_version": "new-version",
+        "artifact_path": "/tmp/new-model",
+        "source_env": "hml",
+        "target_env": "prd",
+        "run_id": "run-new",
+    }
+
+    previous_candidate = {
+        "model_name": "clientes_status_classifier",
+        "model_version": "old-version",
+        "artifact_path": "/tmp/old-model",
+        "source_env": "hml",
+        "target_env": "prd",
+        "run_id": "run-old",
+    }
+
+    activation_calls = {"count": 0}
+    status_updates = []
+
+    monkeypatch.setattr(
+        "data_platform.governance.rollback.get_active_model_deployment",
+        lambda **kwargs: active,
+    )
+    monkeypatch.setattr(
+        "data_platform.governance.rollback._get_previous_candidate",
+        lambda **kwargs: previous_candidate,
+    )
+    monkeypatch.setattr(
+        "data_platform.governance.rollback.activate_model_deployment",
+        lambda **kwargs: activation_calls.__setitem__("count", activation_calls["count"] + 1),
+    )
+    monkeypatch.setattr(
+        "data_platform.governance.rollback.update_model_status",
+        lambda **kwargs: status_updates.append(kwargs),
+    )
+
+    result = prepare_rollback_request(
+        spark=object(),
+        model_name="clientes_status_classifier",
+        target_env="prd",
+        project="clientes",
+        use_catalog=False,
+    )
+
+    assert result["action"] == "ROLLBACK_EXECUTED"
+    assert result["rolled_back_from_version"] == "new-version"
+    assert result["rolled_back_to_version"] == "old-version"
+    assert result["artifact_path"] == "/tmp/old-model"
+    assert activation_calls["count"] == 1
+    assert len(status_updates) == 1
+    assert status_updates[0]["model_version"] == "new-version"
