@@ -28,7 +28,10 @@ DRIFT_MONITORING_SCHEMA = T.StructType(
 )
 
 
-def compute_relative_diff(baseline_value: float | None, current_value: float | None) -> tuple[float | None, float | None]:
+def compute_relative_diff(
+    baseline_value: float | None,
+    current_value: float | None,
+) -> tuple[float | None, float | None]:
     if baseline_value is None or current_value is None:
         return None, None
 
@@ -52,7 +55,19 @@ def classify_drift(relative_diff: float | None) -> str:
     return "CRITICAL"
 
 
-def _get_drift_table_name(project: str = "clientes", use_catalog: bool = False) -> tuple[str, str]:
+def resolve_drift_status(
+    baseline_value: float | None,
+    relative_diff: float | None,
+) -> str:
+    if baseline_value is None:
+        return "BASELINE_MISSING"
+    return classify_drift(relative_diff)
+
+
+def _get_drift_table_name(
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> tuple[str, str]:
     ctx = get_context(project=project, use_catalog=use_catalog)
     schema_name = ctx.naming.qualified_schema(ctx.naming.schema_mlops)
     table_name = ctx.naming.qualified_table(
@@ -60,6 +75,129 @@ def _get_drift_table_name(project: str = "clientes", use_catalog: bool = False) 
         "tb_model_drift_monitoring",
     )
     return schema_name, table_name
+
+
+def _get_prediction_baseline_table_name(
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> tuple[str, str]:
+    ctx = get_context(project=project, use_catalog=use_catalog)
+    schema_name = ctx.naming.qualified_schema(ctx.naming.schema_mlops)
+    table_name = ctx.naming.qualified_table(
+        ctx.naming.schema_mlops,
+        "tb_model_prediction_baseline",
+    )
+    return schema_name, table_name
+
+
+def _get_feature_baseline_table_name(
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> tuple[str, str]:
+    ctx = get_context(project=project, use_catalog=use_catalog)
+    schema_name = ctx.naming.qualified_schema(ctx.naming.schema_mlops)
+    table_name = ctx.naming.qualified_table(
+        ctx.naming.schema_mlops,
+        "tb_model_feature_baseline",
+    )
+    return schema_name, table_name
+
+
+def _to_float(value) -> float | None:
+    if value is None:
+        return None
+    return float(value)
+
+
+def _build_latest_prediction_baseline_map(rows) -> dict[str, float | None]:
+    baseline_map: dict[str, float | None] = {}
+
+    for row in rows:
+        key = str(row["prediction_value"])
+        if key not in baseline_map:
+            baseline_map[key] = _to_float(row["prediction_rate"])
+
+    return baseline_map
+
+
+def _build_latest_feature_baseline_map(rows) -> dict[str, dict[str, float | None]]:
+    baseline_map: dict[str, dict[str, float | None]] = {}
+
+    for row in rows:
+        feature_name = row["feature_name"]
+
+        if feature_name not in baseline_map:
+            baseline_map[feature_name] = {
+                "null_rate": _to_float(row["null_rate"]),
+                "distinct_count": _to_float(row["distinct_count"]),
+                "mean_value": _to_float(row["mean_value"]),
+            }
+
+    return baseline_map
+
+
+def _get_prediction_baseline_map(
+    spark,
+    model_name: str,
+    model_version: str | None,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> dict[str, float | None]:
+    if not model_version:
+        return {}
+
+    _, table_name = _get_prediction_baseline_table_name(
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    if not spark.catalog.tableExists(table_name):
+        return {}
+
+    rows = (
+        spark.table(table_name)
+        .filter(
+            (F.col("model_name") == model_name)
+            & (F.col("model_version") == model_version)
+        )
+        .orderBy(F.col("event_timestamp").desc())
+        .select("prediction_value", "prediction_rate")
+        .collect()
+    )
+
+    return _build_latest_prediction_baseline_map(rows)
+
+
+def _get_feature_baseline_map(
+    spark,
+    model_name: str,
+    model_version: str | None,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> dict[str, dict[str, float | None]]:
+    if not model_version:
+        return {}
+
+    _, table_name = _get_feature_baseline_table_name(
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    if not spark.catalog.tableExists(table_name):
+        return {}
+
+    rows = (
+        spark.table(table_name)
+        .filter(
+            (F.col("model_name") == model_name)
+            & (F.col("model_version") == model_version)
+        )
+        .orderBy(F.col("event_timestamp").desc())
+        .select("feature_name", "null_rate", "distinct_count", "mean_value")
+        .collect()
+    )
+
+    return _build_latest_feature_baseline_map(rows)
 
 
 def log_drift_records(
@@ -71,7 +209,10 @@ def log_drift_records(
     if not rows:
         return
 
-    schema_name, table_name = _get_drift_table_name(project=project, use_catalog=use_catalog)
+    schema_name, table_name = _get_drift_table_name(
+        project=project,
+        use_catalog=use_catalog,
+    )
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
 
     df = spark.createDataFrame(rows, schema=DRIFT_MONITORING_SCHEMA)
@@ -100,18 +241,38 @@ def compute_and_log_feature_drift(
     if row_count == 0:
         return
 
+    baseline_map = _get_feature_baseline_map(
+        spark=spark,
+        model_name=model_name,
+        model_version=model_version,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
     rows = []
-    numeric_types = {"int", "bigint", "float", "double", "decimal", "smallint", "tinyint", "long"}
+    numeric_prefixes = (
+        "int",
+        "bigint",
+        "float",
+        "double",
+        "decimal",
+        "smallint",
+        "tinyint",
+        "long",
+    )
 
     for field in feature_df.schema.fields:
         if field.name not in feature_columns:
             continue
 
         data_type = field.dataType.simpleString().lower()
+        feature_baseline = baseline_map.get(field.name, {})
 
         agg_row = (
             feature_df.agg(
-                F.sum(F.when(F.col(field.name).isNull(), F.lit(1)).otherwise(F.lit(0))).alias("null_count"),
+                F.sum(
+                    F.when(F.col(field.name).isNull(), F.lit(1)).otherwise(F.lit(0))
+                ).alias("null_count"),
                 F.countDistinct(F.col(field.name)).alias("distinct_count"),
             )
             .collect()[0]
@@ -121,9 +282,7 @@ def compute_and_log_feature_drift(
         distinct_count = int(agg_row["distinct_count"] or 0)
         null_rate = float(null_count) / float(row_count) if row_count else 0.0
 
-        baseline_null_rate = 0.0
-        baseline_distinct_count = float(distinct_count)
-
+        baseline_null_rate = feature_baseline.get("null_rate")
         abs_diff, rel_diff = compute_relative_diff(baseline_null_rate, null_rate)
         rows.append(
             Row(
@@ -137,15 +296,19 @@ def compute_and_log_feature_drift(
                 monitoring_type="feature",
                 entity_name=field.name,
                 metric_name="null_rate",
-                baseline_value=float(baseline_null_rate),
+                baseline_value=baseline_null_rate,
                 current_value=float(null_rate),
                 absolute_diff=abs_diff,
                 relative_diff=rel_diff,
-                drift_status=classify_drift(rel_diff),
+                drift_status=resolve_drift_status(baseline_null_rate, rel_diff),
             )
         )
 
-        abs_diff, rel_diff = compute_relative_diff(baseline_distinct_count, float(distinct_count))
+        baseline_distinct_count = feature_baseline.get("distinct_count")
+        abs_diff, rel_diff = compute_relative_diff(
+            baseline_distinct_count,
+            float(distinct_count),
+        )
         rows.append(
             Row(
                 event_timestamp=now,
@@ -158,41 +321,43 @@ def compute_and_log_feature_drift(
                 monitoring_type="feature",
                 entity_name=field.name,
                 metric_name="distinct_count",
-                baseline_value=float(baseline_distinct_count),
+                baseline_value=baseline_distinct_count,
                 current_value=float(distinct_count),
                 absolute_diff=abs_diff,
                 relative_diff=rel_diff,
-                drift_status=classify_drift(rel_diff),
+                drift_status=resolve_drift_status(baseline_distinct_count, rel_diff),
             )
         )
 
-        if data_type.startswith(("int", "bigint", "float", "double", "decimal", "smallint", "tinyint", "long")):
-            avg_row = feature_df.agg(F.avg(F.col(field.name)).alias("mean_value")).collect()[0]
+        if data_type.startswith(numeric_prefixes):
+            avg_row = feature_df.agg(
+                F.avg(F.col(field.name)).alias("mean_value")
+            ).collect()[0]
             mean_value = avg_row["mean_value"]
 
-            if mean_value is not None:
-                baseline_mean = float(mean_value)
-                abs_diff, rel_diff = compute_relative_diff(baseline_mean, float(mean_value))
+            baseline_mean = feature_baseline.get("mean_value")
+            current_mean = _to_float(mean_value)
+            abs_diff, rel_diff = compute_relative_diff(baseline_mean, current_mean)
 
-                rows.append(
-                    Row(
-                        event_timestamp=now,
-                        env=ctx.env,
-                        project=ctx.project,
-                        model_name=model_name,
-                        model_version=model_version,
-                        target_env=target_env,
-                        run_id=run_id,
-                        monitoring_type="feature",
-                        entity_name=field.name,
-                        metric_name="mean_value",
-                        baseline_value=float(baseline_mean),
-                        current_value=float(mean_value),
-                        absolute_diff=abs_diff,
-                        relative_diff=rel_diff,
-                        drift_status=classify_drift(rel_diff),
-                    )
+            rows.append(
+                Row(
+                    event_timestamp=now,
+                    env=ctx.env,
+                    project=ctx.project,
+                    model_name=model_name,
+                    model_version=model_version,
+                    target_env=target_env,
+                    run_id=run_id,
+                    monitoring_type="feature",
+                    entity_name=field.name,
+                    metric_name="mean_value",
+                    baseline_value=baseline_mean,
+                    current_value=current_mean,
+                    absolute_diff=abs_diff,
+                    relative_diff=rel_diff,
+                    drift_status=resolve_drift_status(baseline_mean, rel_diff),
                 )
+            )
 
     log_drift_records(
         spark=spark,
@@ -219,6 +384,14 @@ def compute_and_log_prediction_drift(
     if row_count == 0:
         return
 
+    baseline_map = _get_prediction_baseline_map(
+        spark=spark,
+        model_name=model_name,
+        model_version=model_version,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
     grouped = (
         predictions_df.groupBy("prediction")
         .agg(F.count(F.lit(1)).alias("prediction_count"))
@@ -232,7 +405,7 @@ def compute_and_log_prediction_drift(
         prediction_value = str(item["prediction"])
         prediction_rate = float(prediction_count) / float(row_count)
 
-        baseline_rate = float(prediction_rate)
+        baseline_rate = baseline_map.get(prediction_value)
         abs_diff, rel_diff = compute_relative_diff(baseline_rate, prediction_rate)
 
         rows.append(
@@ -247,11 +420,11 @@ def compute_and_log_prediction_drift(
                 monitoring_type="prediction",
                 entity_name=prediction_value,
                 metric_name="prediction_rate",
-                baseline_value=float(baseline_rate),
+                baseline_value=baseline_rate,
                 current_value=float(prediction_rate),
                 absolute_diff=abs_diff,
                 relative_diff=rel_diff,
-                drift_status=classify_drift(rel_diff),
+                drift_status=resolve_drift_status(baseline_rate, rel_diff),
             )
         )
 

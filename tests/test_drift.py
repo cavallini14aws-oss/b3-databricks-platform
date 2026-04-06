@@ -1,7 +1,10 @@
 from data_platform.mlops.drift import (
     DRIFT_MONITORING_SCHEMA,
+    _build_latest_feature_baseline_map,
+    _build_latest_prediction_baseline_map,
     classify_drift,
     compute_relative_diff,
+    resolve_drift_status,
 )
 
 
@@ -51,3 +54,64 @@ def test_classify_drift_warning():
 
 def test_classify_drift_critical():
     assert classify_drift(0.35) == "CRITICAL"
+
+
+def test_resolve_drift_status_with_missing_baseline():
+    assert resolve_drift_status(None, None) == "BASELINE_MISSING"
+
+
+def test_resolve_drift_status_with_real_baseline():
+    assert resolve_drift_status(1.0, 0.05) == "OK"
+
+
+def test_build_latest_prediction_baseline_map_keeps_first_latest_value():
+    rows = [
+        {"prediction_value": 1.0, "prediction_rate": 0.8},
+        {"prediction_value": 1.0, "prediction_rate": 0.7},
+        {"prediction_value": 0.0, "prediction_rate": 0.2},
+    ]
+
+    result = _build_latest_prediction_baseline_map(rows)
+
+    assert result == {
+        "1.0": 0.8,
+        "0.0": 0.2,
+    }
+
+
+def test_build_latest_feature_baseline_map_keeps_first_latest_value():
+    rows = [
+        {
+            "feature_name": "tem_file",
+            "null_rate": 0.0,
+            "distinct_count": 2.0,
+            "mean_value": 0.5,
+        },
+        {
+            "feature_name": "tem_file",
+            "null_rate": 0.1,
+            "distinct_count": 3.0,
+            "mean_value": 0.6,
+        },
+        {
+            "feature_name": "qtd_registros",
+            "null_rate": 0.0,
+            "distinct_count": 1.0,
+            "mean_value": 1.0,
+        },
+    ]
+
+    result = _build_latest_feature_baseline_map(rows)
+
+    assert result == {
+        "tem_file": {
+            "null_rate": 0.0,
+            "distinct_count": 2.0,
+            "mean_value": 0.5,
+        },
+        "qtd_registros": {
+            "null_rate": 0.0,
+            "distinct_count": 1.0,
+            "mean_value": 1.0,
+        },
+    }
