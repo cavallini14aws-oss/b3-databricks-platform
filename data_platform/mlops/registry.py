@@ -5,7 +5,7 @@ from pyspark.sql import functions as F
 from pyspark.sql import types as T
 
 from data_platform.core.context import get_context
-from data_platform.mlops.model_states import VALID_MODEL_STATES
+from data_platform.mlops.model_states import VALID_MODEL_STATES, ARTIFACT_VALID_STATES
 
 
 REGISTRY_SCHEMA = T.StructType(
@@ -126,14 +126,14 @@ def get_model_artifact_path(
         raise ValueError(
             f"Artifact path ausente no registry para model_name={model_name}, "
             f"model_version={model_version}. "
-            "Essa versao pode ser antiga (antes do rollout de artifacts) "
-            "ou o treino pode ter falhado antes de persistir o modelo."
+            "Essa versao pode ser antiga ou o treino pode ter falhado antes de persistir o modelo."
         )
 
-    if status != "TRAINED":
+    if status not in ARTIFACT_VALID_STATES:
         raise ValueError(
             f"Status inesperado no registry para model_name={model_name}, "
-            f"model_version={model_version}: {status}"
+            f"model_version={model_version}: {status}. "
+            f"Esperado um dos estados validos para artifact: {sorted(ARTIFACT_VALID_STATES)}"
         )
 
     return artifact_path
@@ -155,7 +155,7 @@ def get_latest_valid_model_entry(
         spark.table(table_name)
         .filter(
             (F.col("model_name") == model_name) &
-            (F.col("status") == "TRAINED") &
+            (F.col("status").isin(list(ARTIFACT_VALID_STATES))) &
             (F.col("artifact_path").isNotNull()) &
             (F.length(F.trim(F.col("artifact_path"))) > 0)
         )
@@ -185,6 +185,23 @@ def get_latest_valid_model_version(
         use_catalog=use_catalog,
     )
     return row["model_version"]
+
+
+def get_latest_model_status(
+    spark,
+    model_name: str,
+    model_version: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> str:
+    row = get_model_registry_entry(
+        spark=spark,
+        model_name=model_name,
+        model_version=model_version,
+        project=project,
+        use_catalog=use_catalog,
+    )
+    return row["status"]
 
 
 def update_model_status(
