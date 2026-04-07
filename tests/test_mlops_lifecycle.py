@@ -355,6 +355,13 @@ def test_run_clientes_ml_end_to_end_executes_observable_ml_flow(monkeypatch):
         captured["batch_output_table"] = kwargs["output_table"]
         captured["batch_target_env"] = kwargs["target_env"]
 
+    smoke_statuses = []
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.log_smoke_run",
+        lambda **kwargs: smoke_statuses.append(kwargs["status"]),
+    )
+
     monkeypatch.setattr(
         "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_batch_inference",
         fake_batch_inference,
@@ -380,3 +387,4 @@ def test_run_clientes_ml_end_to_end_executes_observable_ml_flow(monkeypatch):
     assert captured["batch_input_table"] == "clientes_feature.tb_clientes_scoring_dataset_v2"
     assert captured["batch_output_table"] == "clientes_mlops.tb_clientes_status_classifier_smoke_predictions_dev"
     assert captured["batch_target_env"] == "dev"
+    assert smoke_statuses == ["STARTED", "SUCCESS"]

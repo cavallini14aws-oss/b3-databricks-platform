@@ -5,6 +5,7 @@ from data_platform.core.config_loader import load_yaml_config
 from data_platform.core.context import get_context
 from data_platform.core.logger import PlatformLogger
 from data_platform.mlops.datasets import get_scoring_dataset_table
+from data_platform.mlops.smoke_runs import log_smoke_run
 from data_platform.orchestration.pipeline_runner import run_with_observability
 from pipelines.examples.clientes.ml.evaluate_clientes_model import run_evaluate_clientes_model
 from pipelines.examples.clientes.ml.prepare_clientes_scoring_dataset import run_prepare_clientes_scoring_dataset
@@ -112,6 +113,20 @@ def run_clientes_ml_end_to_end(
         logger.info(f"scoring_input_table={scoring_input_table}")
         logger.info(f"scoring_output_table={scoring_output_table}")
 
+        log_smoke_run(
+            spark=spark,
+            component="run_clientes_ml_end_to_end",
+            model_name=model_name,
+            model_version=model_version,
+            status="STARTED",
+            run_id=run_id,
+            input_table=scoring_input_table,
+            output_table=scoring_output_table,
+            message="Smoke ML observavel iniciado",
+            project=project,
+            use_catalog=ctx.naming.use_catalog,
+        )
+
         run_batch_inference(
             spark=spark,
             input_table=scoring_input_table,
@@ -124,6 +139,20 @@ def run_clientes_ml_end_to_end(
             parent_component="run_clientes_ml_end_to_end",
             parent_run_id=run_id,
             forced_run_id=str(uuid4()),
+        )
+
+        log_smoke_run(
+            spark=spark,
+            component="run_clientes_ml_end_to_end",
+            model_name=model_name,
+            model_version=model_version,
+            status="SUCCESS",
+            run_id=run_id,
+            input_table=scoring_input_table,
+            output_table=scoring_output_table,
+            message="Smoke ML observavel concluido com sucesso",
+            project=project,
+            use_catalog=ctx.naming.use_catalog,
         )
 
         logger.info("Pipeline ML end-to-end concluído com sucesso")
