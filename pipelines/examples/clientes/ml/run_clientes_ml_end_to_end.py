@@ -1,6 +1,7 @@
 import argparse
 from uuid import uuid4
 
+from data_platform.core.config_loader import load_yaml_config
 from data_platform.core.context import get_context
 from data_platform.core.logger import PlatformLogger
 from data_platform.mlops.datasets import get_scoring_dataset_table
@@ -43,6 +44,8 @@ def run_clientes_ml_end_to_end(
     )
 
     run_id = forced_run_id or base_logger.run_id
+    config = load_yaml_config(config_path)
+    model_name = config["model"]["name"]
 
     def _run(logger: PlatformLogger):
         logger.info("Executando preparação do dataset de treino")

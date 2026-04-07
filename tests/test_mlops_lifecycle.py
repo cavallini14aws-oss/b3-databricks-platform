@@ -285,3 +285,98 @@ def test_prepare_rollback_request_executes_when_previous_candidate_exists(monkey
     assert activation_calls["count"] == 1
     assert len(status_updates) == 1
     assert status_updates[0]["model_version"] == "new-version"
+
+
+def test_run_clientes_ml_end_to_end_executes_observable_ml_flow(monkeypatch):
+    from pipelines.examples.clientes.ml.run_clientes_ml_end_to_end import (
+        run_clientes_ml_end_to_end,
+    )
+
+    call_order = []
+    captured = {}
+
+    fake_ctx = SimpleNamespace(
+        env="dev",
+        project="clientes",
+        naming=SimpleNamespace(
+            use_catalog=False,
+            schema_mlops="clientes_mlops",
+            qualified_table=lambda schema, table: f"{schema}.{table}",
+        ),
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.get_context",
+        lambda project, use_catalog: fake_ctx,
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_with_observability",
+        lambda **kwargs: kwargs["fn"](SimpleNamespace(info=lambda *args, **kwargs: None)),
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_prepare_clientes_training_dataset",
+        lambda **kwargs: call_order.append("prepare_training"),
+    )
+
+    def fake_train(**kwargs):
+        call_order.append("train")
+        return "model-version-123"
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_train_clientes_model",
+        fake_train,
+    )
+
+    def fake_evaluate(**kwargs):
+        call_order.append("evaluate")
+        captured["evaluate_model_version"] = kwargs["model_version"]
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_evaluate_clientes_model",
+        fake_evaluate,
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_prepare_clientes_scoring_dataset",
+        lambda **kwargs: call_order.append("prepare_scoring"),
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.get_scoring_dataset_table",
+        lambda **kwargs: "clientes_feature.tb_clientes_scoring_dataset_v2",
+    )
+
+    def fake_batch_inference(**kwargs):
+        call_order.append("batch_inference")
+        captured["batch_model_version"] = kwargs["model_version"]
+        captured["batch_input_table"] = kwargs["input_table"]
+        captured["batch_output_table"] = kwargs["output_table"]
+        captured["batch_target_env"] = kwargs["target_env"]
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_batch_inference",
+        fake_batch_inference,
+    )
+
+    run_clientes_ml_end_to_end(
+        spark=object(),
+        project="clientes",
+        use_catalog=False,
+        config_path="config/clientes_ml_pipeline.yml",
+        forced_run_id="runner-test",
+    )
+
+    assert call_order == [
+        "prepare_training",
+        "train",
+        "evaluate",
+        "prepare_scoring",
+        "batch_inference",
+    ]
+    assert captured["evaluate_model_version"] == "model-version-123"
+    assert captured["batch_model_version"] == "model-version-123"
+    assert captured["batch_input_table"] == "clientes_feature.tb_clientes_scoring_dataset_v2"
+    assert captured["batch_output_table"] == "clientes_mlops.tb_clientes_status_classifier_smoke_predictions_dev"
+    assert captured["batch_target_env"] == "dev"

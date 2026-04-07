@@ -1,4 +1,4 @@
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from pyspark.sql import Row
 from pyspark.sql import types as T
@@ -52,7 +52,7 @@ def log_model_metric(
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
 
     row = Row(
-        event_timestamp=datetime.now(UTC).replace(tzinfo=None),
+        event_timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
         env=ctx.env,
         project=ctx.project,
         model_name=model_name,
@@ -86,7 +86,7 @@ def log_confusion_matrix(
 
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {schema_name}")
 
-    timestamp_value = datetime.now(UTC).replace(tzinfo=None)
+    timestamp_value = datetime.now(timezone.utc).replace(tzinfo=None)
 
     records = [
         Row(
