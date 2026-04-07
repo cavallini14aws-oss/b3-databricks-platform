@@ -3,10 +3,13 @@ from uuid import uuid4
 
 from data_platform.core.context import get_context
 from data_platform.core.logger import PlatformLogger
+from data_platform.mlops.datasets import get_scoring_dataset_table
 from data_platform.orchestration.pipeline_runner import run_with_observability
 from pipelines.examples.clientes.ml.evaluate_clientes_model import run_evaluate_clientes_model
+from pipelines.examples.clientes.ml.prepare_clientes_scoring_dataset import run_prepare_clientes_scoring_dataset
 from pipelines.examples.clientes.ml.prepare_clientes_training_dataset import run_prepare_clientes_training_dataset
 from pipelines.examples.clientes.ml.train_clientes_model import run_train_clientes_model
+from pipelines.template.ml.batch.batch_inference import run_batch_inference
 
 
 def _str_to_bool(value: str | bool | None) -> bool | None:
@@ -74,6 +77,47 @@ def run_clientes_ml_end_to_end(
             project=project,
             use_catalog=ctx.naming.use_catalog,
             config_path=config_path,
+            parent_component="run_clientes_ml_end_to_end",
+            parent_run_id=run_id,
+            forced_run_id=str(uuid4()),
+        )
+
+        logger.info("Executando preparação do scoring dataset")
+
+        run_prepare_clientes_scoring_dataset(
+            spark=spark,
+            project=project,
+            use_catalog=ctx.naming.use_catalog,
+            dataset_version="v2",
+            parent_component="run_clientes_ml_end_to_end",
+            parent_run_id=run_id,
+            forced_run_id=str(uuid4()),
+        )
+
+        scoring_input_table = get_scoring_dataset_table(
+            project=project,
+            use_catalog=ctx.naming.use_catalog,
+            version="v2",
+        )
+
+        scoring_output_table = ctx.naming.qualified_table(
+            ctx.naming.schema_mlops,
+            f"tb_{model_name}_smoke_predictions_{ctx.env}",
+        )
+
+        logger.info(f"Executando batch inference de smoke: {model_version}")
+        logger.info(f"scoring_input_table={scoring_input_table}")
+        logger.info(f"scoring_output_table={scoring_output_table}")
+
+        run_batch_inference(
+            spark=spark,
+            input_table=scoring_input_table,
+            output_table=scoring_output_table,
+            model_name=model_name,
+            model_version=model_version,
+            target_env=ctx.env,
+            project=project,
+            use_catalog=ctx.naming.use_catalog,
             parent_component="run_clientes_ml_end_to_end",
             parent_run_id=run_id,
             forced_run_id=str(uuid4()),
