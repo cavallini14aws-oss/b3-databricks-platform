@@ -3,7 +3,6 @@ project:
   owner: mlops
   criticality: high
   regulator_context: b3
-
 environments:
   dev:
     databricks:
@@ -14,15 +13,13 @@ environments:
       cluster_id_key: DEV_CLUSTER_ID
       secret_scope: keyvault-dev-datahub
       ready: false
-
     notifications:
       enabled: true
       severity_min: WARNING
-
       email:
         enabled: true
         recipients:
-          - mlops-dev@empresa.com
+        - mlops-dev@empresa.com
         smtp:
           scope: keyvault-dev-datahub
           host_key: SMTP_HOST
@@ -31,7 +28,6 @@ environments:
           password_key: SMTP_PASSWORD
           required: true
           ready: false
-
       slack:
         enabled: false
         webhook:
@@ -39,7 +35,6 @@ environments:
           key: SLACK_WEBHOOK_DEV
           required: false
           ready: false
-
       teams:
         enabled: false
         webhook:
@@ -47,24 +42,21 @@ environments:
           key: TEAMS_WEBHOOK_DEV
           required: false
           ready: false
-
     retraining:
       auto_open_from_drift_critical: true
       auto_open_from_postprod_critical: true
       auto_approve_drift_critical: false
       auto_approve_postprod_critical: false
-
     thresholds:
-      drift_warning_relative_diff: 0.10
-      drift_critical_relative_diff: 0.30
-      postprod_min_accuracy: 0.70
-      postprod_min_f1: 0.70
-      postprod_min_precision: 0.70
-      postprod_min_recall: 0.70
+      drift_warning_relative_diff: 0.1
+      drift_critical_relative_diff: 0.3
+      postprod_min_accuracy: 0.7
+      postprod_min_f1: 0.7
+      postprod_min_precision: 0.7
+      postprod_min_recall: 0.7
       suggest_rollback_on_postprod_critical: true
       require_smoke_after_rollback: true
       require_smoke_after_retraining: true
-
     retention:
       tb_model_predictions_days: 90
       tb_ml_alert_events_days: 180
@@ -72,29 +64,27 @@ environments:
       tb_model_retraining_requests_days: 365
       tb_ml_governance_runs_days: 365
       tb_ml_smoke_runs_days: 180
-
     jobs:
       drift_cycle:
         enabled: true
-        cron: "0 0 8 * * ?"
+        cron: 0 0 8,14 * * ?
         retries: 0
         timeout_seconds: 3600
       postprod_cycle:
         enabled: true
-        cron: "0 0 9 * * ?"
+        cron: 0 30 9 * * ?
         retries: 0
         timeout_seconds: 3600
       retraining_cycle:
         enabled: true
-        cron: "0 0 10 * * ?"
+        cron: 0 0 11 * * ?
         retries: 0
         timeout_seconds: 5400
       operational_cycle:
         enabled: true
-        cron: "0 0 11 * * ?"
+        cron: 0 30 11 * * ?
         retries: 0
         timeout_seconds: 1800
-
     cicd:
       github_actions:
         enabled: true
@@ -102,28 +92,25 @@ environments:
         enabled: false
       bitbucket:
         enabled: false
-
     access_control:
       promote_roles:
-        - mlops
-        - platform_admin
+      - mlops
+      - platform_admin
       rollback_roles:
-        - mlops
-        - platform_admin
+      - mlops
+      - platform_admin
       approve_retraining_roles:
-        - mlops
-        - model_owner
+      - mlops
+      - model_owner
       execute_retraining_roles:
-        - mlops
-        - platform_admin
+      - mlops
+      - platform_admin
       operate_mlops_cycles_roles:
-        - mlops
-        - platform_admin
-
+      - mlops
+      - platform_admin
     go_live:
       blockers: []
       ready: false
-
   hml:
     databricks:
       enabled: true
@@ -133,15 +120,13 @@ environments:
       cluster_id_key: HML_CLUSTER_ID
       secret_scope: keyvault-hml-datahub
       ready: false
-
     notifications:
       enabled: true
       severity_min: WARNING
-
       email:
         enabled: true
         recipients:
-          - mlops-hml@empresa.com
+        - mlops-hml@empresa.com
         smtp:
           scope: keyvault-hml-datahub
           host_key: SMTP_HOST
@@ -150,7 +135,6 @@ environments:
           password_key: SMTP_PASSWORD
           required: true
           ready: false
-
       slack:
         enabled: true
         webhook:
@@ -158,7 +142,6 @@ environments:
           key: SLACK_WEBHOOK_HML
           required: true
           ready: false
-
       teams:
         enabled: false
         webhook:
@@ -166,24 +149,21 @@ environments:
           key: TEAMS_WEBHOOK_HML
           required: false
           ready: false
-
     retraining:
       auto_open_from_drift_critical: true
       auto_open_from_postprod_critical: true
       auto_approve_drift_critical: false
       auto_approve_postprod_critical: false
-
     thresholds:
-      drift_warning_relative_diff: 0.10
-      drift_critical_relative_diff: 0.30
-      postprod_min_accuracy: 0.70
+      drift_warning_relative_diff: 0.1
+      drift_critical_relative_diff: 0.3
+      postprod_min_accuracy: 0.7
       postprod_min_f1: 0.65
       postprod_min_precision: 0.65
       postprod_min_recall: 0.65
       suggest_rollback_on_postprod_critical: true
       require_smoke_after_rollback: true
       require_smoke_after_retraining: true
-
     retention:
       tb_model_predictions_days: 90
       tb_ml_alert_events_days: 180
@@ -191,29 +171,27 @@ environments:
       tb_model_retraining_requests_days: 365
       tb_ml_governance_runs_days: 365
       tb_ml_smoke_runs_days: 180
-
     jobs:
       drift_cycle:
         enabled: true
-        cron: "0 0 7 * * ?"
+        cron: 0 0 7,13,19 * * ?
         retries: 1
         timeout_seconds: 3600
       postprod_cycle:
         enabled: true
-        cron: "0 30 7 * * ?"
+        cron: 0 30 7 * * ?
         retries: 1
         timeout_seconds: 3600
       retraining_cycle:
         enabled: true
-        cron: "0 0 8 * * ?"
+        cron: 0 0 8 * * ?
         retries: 1
         timeout_seconds: 5400
       operational_cycle:
         enabled: true
-        cron: "0 30 8 * * ?"
+        cron: 0 30 8 * * ?
         retries: 1
         timeout_seconds: 1800
-
     cicd:
       github_actions:
         enabled: true
@@ -221,30 +199,27 @@ environments:
         enabled: false
       bitbucket:
         enabled: false
-
     access_control:
       promote_roles:
-        - mlops
-        - platform_admin
+      - mlops
+      - platform_admin
       rollback_roles:
-        - mlops
-        - platform_admin
+      - mlops
+      - platform_admin
       approve_retraining_roles:
-        - mlops
-        - model_owner
+      - mlops
+      - model_owner
       execute_retraining_roles:
-        - mlops
-        - platform_admin
+      - mlops
+      - platform_admin
       operate_mlops_cycles_roles:
-        - mlops
-        - platform_admin
-
+      - mlops
+      - platform_admin
     go_live:
       blockers:
-        - "secrets_hml_pendentes"
-        - "rehearsal_hml_pendente"
+      - secrets_hml_pendentes
+      - rehearsal_hml_pendente
       ready: false
-
   prd:
     databricks:
       enabled: true
@@ -254,15 +229,13 @@ environments:
       cluster_id_key: PRD_CLUSTER_ID
       secret_scope: keyvault-prd-datahub
       ready: false
-
     notifications:
       enabled: true
       severity_min: WARNING
-
       email:
         enabled: true
         recipients:
-          - mlops-prd@empresa.com
+        - mlops-prd@empresa.com
         smtp:
           scope: keyvault-prd-datahub
           host_key: SMTP_HOST
@@ -271,7 +244,6 @@ environments:
           password_key: SMTP_PASSWORD
           required: true
           ready: false
-
       slack:
         enabled: true
         webhook:
@@ -279,7 +251,6 @@ environments:
           key: SLACK_WEBHOOK_PRD
           required: true
           ready: false
-
       teams:
         enabled: true
         webhook:
@@ -287,24 +258,21 @@ environments:
           key: TEAMS_WEBHOOK_PRD
           required: true
           ready: false
-
     retraining:
       auto_open_from_drift_critical: true
       auto_open_from_postprod_critical: true
       auto_approve_drift_critical: false
       auto_approve_postprod_critical: false
-
     thresholds:
-      drift_warning_relative_diff: 0.10
-      drift_critical_relative_diff: 0.30
+      drift_warning_relative_diff: 0.1
+      drift_critical_relative_diff: 0.3
       postprod_min_accuracy: 0.75
-      postprod_min_f1: 0.70
-      postprod_min_precision: 0.70
-      postprod_min_recall: 0.70
+      postprod_min_f1: 0.7
+      postprod_min_precision: 0.7
+      postprod_min_recall: 0.7
       suggest_rollback_on_postprod_critical: true
       require_smoke_after_rollback: true
       require_smoke_after_retraining: true
-
     retention:
       tb_model_predictions_days: 90
       tb_ml_alert_events_days: 180
@@ -312,29 +280,27 @@ environments:
       tb_model_retraining_requests_days: 365
       tb_ml_governance_runs_days: 365
       tb_ml_smoke_runs_days: 180
-
     jobs:
       drift_cycle:
         enabled: true
-        cron: "0 0 6 * * ?"
+        cron: 0 0 6,12,18 * * ?
         retries: 2
         timeout_seconds: 3600
       postprod_cycle:
         enabled: true
-        cron: "0 30 6 * * ?"
+        cron: 0 30 6 * * ?
         retries: 2
         timeout_seconds: 3600
       retraining_cycle:
         enabled: true
-        cron: "0 0 7 * * ?"
+        cron: 0 0 7 * * ?
         retries: 2
         timeout_seconds: 5400
       operational_cycle:
         enabled: true
-        cron: "0 30 7 * * ?"
+        cron: 0 30 7 * * ?
         retries: 2
         timeout_seconds: 1800
-
     cicd:
       github_actions:
         enabled: true
@@ -342,27 +308,25 @@ environments:
         enabled: false
       bitbucket:
         enabled: false
-
     access_control:
       promote_roles:
-        - mlops
-        - platform_admin
+      - mlops
+      - platform_admin
       rollback_roles:
-        - mlops
-        - platform_admin
+      - mlops
+      - platform_admin
       approve_retraining_roles:
-        - mlops
-        - model_owner
+      - mlops
+      - model_owner
       execute_retraining_roles:
-        - mlops
-        - platform_admin
+      - mlops
+      - platform_admin
       operate_mlops_cycles_roles:
-        - mlops
-        - platform_admin
-
+      - mlops
+      - platform_admin
     go_live:
       blockers:
-        - "secrets_prd_pendentes"
-        - "acl_prd_pendente"
-        - "hml_rehearsal_nao_aprovado"
+      - secrets_prd_pendentes
+      - acl_prd_pendente
+      - hml_rehearsal_nao_aprovado
       ready: false
