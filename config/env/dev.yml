@@ -40,3 +40,16 @@ retraining:
   auto_open_from_postprod_critical: true
   auto_approve_drift_critical: false
   auto_approve_postprod_critical: false
+
+mlops_thresholds:
+  drift_warning_relative_diff: 0.10
+  drift_critical_relative_diff: 0.30
+  postprod_min_accuracy: 0.70
+  postprod_min_f1: 0.70
+  postprod_min_precision: 0.70
+  postprod_min_recall: 0.70
+  auto_open_retraining_on_drift_critical: true
+  auto_open_retraining_on_postprod_critical: true
+  suggest_rollback_on_postprod_critical: true
+  require_smoke_after_rollback: true
+  require_smoke_after_retraining: true
