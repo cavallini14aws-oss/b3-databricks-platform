@@ -4,7 +4,11 @@ from pyspark.sql import Row
 from pyspark.sql import types as T
 
 from data_platform.core.context import get_context
-from data_platform.mlops.notifications import build_notification_plan, load_alerting_config
+from data_platform.mlops.notifications import (
+    build_notification_plan,
+    load_alerting_config,
+    send_notification_plan,
+)
 
 
 ALERT_CONFIG_SCHEMA = T.StructType(
@@ -291,3 +295,44 @@ def plan_notifications_for_alert_events(
         )
 
     return planned
+
+
+def dispatch_planned_alert_events(
+    pending_events: list[dict],
+    config_path: str,
+    secrets_resolver,
+) -> list[dict]:
+    alerting_config = load_alerting_config(config_path)
+    dispatched = []
+
+    for event in pending_events:
+        if event.get("notification_status") != "PLANNED":
+            dispatched.append({**event})
+            continue
+
+        plan = event.get("notification_plan", [])
+        delivery_results = send_notification_plan(
+            plan=plan,
+            alerting_config=alerting_config,
+            secrets_resolver=secrets_resolver,
+        )
+
+        statuses = [item["delivery_status"] for item in delivery_results]
+        final_status = "FAILED" if "FAILED" in statuses else "SENT"
+
+        delivery_errors = [
+            item.get("delivery_error")
+            for item in delivery_results
+            if item.get("delivery_error")
+        ]
+
+        dispatched.append(
+            {
+                **event,
+                "delivery_results": delivery_results,
+                "notification_status": final_status,
+                "notification_error": " | ".join(delivery_errors) if delivery_errors else None,
+            }
+        )
+
+    return dispatched

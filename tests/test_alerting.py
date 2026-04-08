@@ -5,6 +5,7 @@ from data_platform.mlops.alerting import (
     build_alert_message,
     classify_alert_severity,
     determine_notification_status,
+    dispatch_planned_alert_events,
     plan_notifications_for_alert_events,
     should_emit_alert,
 )
@@ -295,3 +296,140 @@ def test_plan_notifications_for_alert_events_marks_no_channel(monkeypatch):
     )
 
     assert planned[0]["notification_status"] == "NO_CHANNEL"
+
+
+def test_dispatch_planned_alert_events_marks_sent(monkeypatch):
+    monkeypatch.setattr(
+        "data_platform.mlops.alerting.load_alerting_config",
+        lambda config_path: {
+            "enable_alerting": True,
+            "email_enabled": True,
+            "recipients": "a@test.com",
+        },
+    )
+    monkeypatch.setattr(
+        "data_platform.mlops.alerting.send_notification_plan",
+        lambda **kwargs: [
+            {
+                "channel": "email",
+                "delivery_status": "SENT",
+            }
+        ],
+    )
+
+    events = [
+        {
+            "model_name": "clientes_status_classifier",
+            "model_version": "v123",
+            "run_id": "run-1",
+            "source_component": "drift_monitoring",
+            "metric_name": "prediction_rate",
+            "entity_name": "1.0",
+            "baseline_value": 0.2,
+            "current_value": 0.95,
+            "severity": "CRITICAL",
+            "message": "Drift critico",
+            "notification_status": "PLANNED",
+            "notification_plan": [
+                {
+                    "channel": "email",
+                    "recipients": ["a@test.com"],
+                    "subject": "Alerta",
+                    "body": "Mensagem",
+                }
+            ],
+        }
+    ]
+
+    dispatched = dispatch_planned_alert_events(
+        pending_events=events,
+        config_path="config/env/dev.yml",
+        secrets_resolver=lambda scope, key: "x",
+    )
+
+    assert len(dispatched) == 1
+    assert dispatched[0]["notification_status"] == "SENT"
+    assert dispatched[0]["notification_error"] is None
+
+
+def test_dispatch_planned_alert_events_marks_failed(monkeypatch):
+    monkeypatch.setattr(
+        "data_platform.mlops.alerting.load_alerting_config",
+        lambda config_path: {
+            "enable_alerting": True,
+            "email_enabled": True,
+            "recipients": "a@test.com",
+        },
+    )
+    monkeypatch.setattr(
+        "data_platform.mlops.alerting.send_notification_plan",
+        lambda **kwargs: [
+            {
+                "channel": "email",
+                "delivery_status": "FAILED",
+                "delivery_error": "SMTP error",
+            }
+        ],
+    )
+
+    events = [
+        {
+            "model_name": "clientes_status_classifier",
+            "model_version": "v123",
+            "run_id": "run-1",
+            "source_component": "drift_monitoring",
+            "metric_name": "prediction_rate",
+            "entity_name": "1.0",
+            "baseline_value": 0.2,
+            "current_value": 0.95,
+            "severity": "CRITICAL",
+            "message": "Drift critico",
+            "notification_status": "PLANNED",
+            "notification_plan": [
+                {
+                    "channel": "email",
+                    "recipients": ["a@test.com"],
+                    "subject": "Alerta",
+                    "body": "Mensagem",
+                }
+            ],
+        }
+    ]
+
+    dispatched = dispatch_planned_alert_events(
+        pending_events=events,
+        config_path="config/env/dev.yml",
+        secrets_resolver=lambda scope, key: "x",
+    )
+
+    assert len(dispatched) == 1
+    assert dispatched[0]["notification_status"] == "FAILED"
+    assert "SMTP error" in dispatched[0]["notification_error"]
+
+
+def test_dispatch_planned_alert_events_keeps_non_planned_status():
+    events = [
+        {
+            "model_name": "clientes_status_classifier",
+            "model_version": "v123",
+            "run_id": "run-1",
+            "source_component": "drift_monitoring",
+            "metric_name": "prediction_rate",
+            "entity_name": "1.0",
+            "baseline_value": 0.2,
+            "current_value": 0.95,
+            "severity": "CRITICAL",
+            "message": "Drift critico",
+            "notification_status": "NO_CHANNEL",
+            "notification_plan": [],
+        }
+    ]
+
+    dispatched = dispatch_planned_alert_events(
+        pending_events=events,
+        config_path="config/env/dev.yml",
+        secrets_resolver=lambda scope, key: "x",
+    )
+
+    assert len(dispatched) == 1
+    assert dispatched[0]["notification_status"] == "NO_CHANNEL"
