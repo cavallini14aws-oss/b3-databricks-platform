@@ -319,7 +319,7 @@ def test_send_notification_plan_marks_slack_as_failed(monkeypatch):
     assert "Slack webhook error" in results[0]["delivery_error"]
 
 
-def test_send_notification_plan_skips_non_email_non_slack_channels():
+def test_send_notification_plan_marks_teams_as_sent(monkeypatch):
     plan = [
         {
             "channel": "teams",
@@ -328,11 +328,53 @@ def test_send_notification_plan_skips_non_email_non_slack_channels():
         }
     ]
 
+    monkeypatch.setattr(
+        "data_platform.mlops.notifications.resolve_webhook_url",
+        lambda **kwargs: "https://hooks.teams.test",
+    )
+    monkeypatch.setattr(
+        "data_platform.mlops.notifications.send_teams_notification",
+        lambda **kwargs: "SENT",
+    )
+
     results = send_notification_plan(
         plan=plan,
-        alerting_config={},
+        alerting_config={"webhook_secret_scope": "scope-x", "teams_webhook_key": "teams-key"},
         secrets_resolver=lambda scope, key: "x",
     )
 
     assert len(results) == 1
-    assert results[0]["delivery_status"] == "SKIPPED"
+    assert results[0]["delivery_status"] == "SENT"
+
+
+def test_send_notification_plan_marks_teams_as_failed(monkeypatch):
+    plan = [
+        {
+            "channel": "teams",
+            "message": "Drift critico",
+            "webhook_key": "teams-key",
+        }
+    ]
+
+    monkeypatch.setattr(
+        "data_platform.mlops.notifications.resolve_webhook_url",
+        lambda **kwargs: "https://hooks.teams.test",
+    )
+
+    def fail_teams(**kwargs):
+        raise RuntimeError("Teams webhook error")
+
+    monkeypatch.setattr(
+        "data_platform.mlops.notifications.send_teams_notification",
+        fail_teams,
+    )
+
+    results = send_notification_plan(
+        plan=plan,
+        alerting_config={"webhook_secret_scope": "scope-x", "teams_webhook_key": "teams-key"},
+        secrets_resolver=lambda scope, key: "x",
+    )
+
+    assert len(results) == 1
+    assert results[0]["delivery_status"] == "FAILED"
+    assert "Teams webhook error" in results[0]["delivery_error"]

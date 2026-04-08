@@ -204,6 +204,27 @@ def send_slack_notification(
     return "SENT"
 
 
+def send_teams_notification(
+    *,
+    payload: dict,
+    webhook_url: str,
+) -> str:
+    body = json.dumps({"text": payload["message"]}).encode("utf-8")
+    request = urllib.request.Request(
+        webhook_url,
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    with urllib.request.urlopen(request) as response:
+        status_code = getattr(response, "status", 200)
+        if status_code >= 400:
+            raise RuntimeError(f"Teams webhook retornou status {status_code}")
+
+    return "SENT"
+
+
 def send_notification_plan(
     *,
     plan: list[dict],
@@ -235,6 +256,16 @@ def send_notification_plan(
                     secrets_resolver=secrets_resolver,
                 )
                 status = send_slack_notification(
+                    payload=item,
+                    webhook_url=webhook_url,
+                )
+            elif item["channel"] == "teams":
+                webhook_url = resolve_webhook_url(
+                    alerting_config=alerting_config,
+                    channel="teams",
+                    secrets_resolver=secrets_resolver,
+                )
+                status = send_teams_notification(
                     payload=item,
                     webhook_url=webhook_url,
                 )
