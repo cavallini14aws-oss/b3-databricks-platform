@@ -4,6 +4,7 @@ from pyspark.sql import Row
 from pyspark.sql import types as T
 
 from data_platform.core.context import get_context
+from data_platform.mlops.notifications import build_notification_plan, load_alerting_config
 
 
 ALERT_CONFIG_SCHEMA = T.StructType(
@@ -243,3 +244,50 @@ def emit_alert_events_from_drift(
     )
 
     return rows
+
+
+def determine_notification_status(
+    *,
+    alerting_enabled: bool,
+    plan: list[dict],
+) -> str:
+    if not alerting_enabled:
+        return "SKIPPED"
+    if not plan:
+        return "NO_CHANNEL"
+    email_plans = [item for item in plan if item["channel"] == "email"]
+    if email_plans and not email_plans[0].get("recipients"):
+        return "NO_RECIPIENTS"
+    return "PLANNED"
+
+
+def plan_notifications_for_alert_events(
+    alert_events: list[dict],
+    config_path: str,
+) -> list[dict]:
+    alerting_config = load_alerting_config(config_path)
+    alerting_enabled = bool(alerting_config.get("enable_alerting", True))
+
+    planned = []
+
+    for event in alert_events:
+        plan = build_notification_plan(
+            alerting_config=alerting_config,
+            subject=f"[{event['severity']}] {event['model_name']} - {event['metric_name']}",
+            message=event["message"],
+        )
+
+        status = determine_notification_status(
+            alerting_enabled=alerting_enabled,
+            plan=plan,
+        )
+
+        planned.append(
+            {
+                **event,
+                "notification_plan": plan,
+                "notification_status": status,
+            }
+        )
+
+    return planned

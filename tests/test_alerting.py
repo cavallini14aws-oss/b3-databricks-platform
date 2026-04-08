@@ -4,6 +4,8 @@ from data_platform.mlops.alerting import (
     build_alert_events_from_drift_rows,
     build_alert_message,
     classify_alert_severity,
+    determine_notification_status,
+    plan_notifications_for_alert_events,
     should_emit_alert,
 )
 
@@ -149,3 +151,147 @@ def test_build_alert_events_from_drift_rows_keeps_warning_and_critical():
     assert len(events) == 2
     assert events[0]["severity"] == "WARNING"
     assert events[1]["severity"] == "CRITICAL"
+
+
+def test_determine_notification_status_returns_skipped_when_alerting_disabled():
+    status = determine_notification_status(
+        alerting_enabled=False,
+        plan=[{"channel": "email", "recipients": ["a@test.com"]}],
+    )
+
+    assert status == "SKIPPED"
+
+
+def test_determine_notification_status_returns_no_channel_when_plan_empty():
+    status = determine_notification_status(
+        alerting_enabled=True,
+        plan=[],
+    )
+
+    assert status == "NO_CHANNEL"
+
+
+def test_determine_notification_status_returns_no_recipients_when_email_has_no_recipients():
+    status = determine_notification_status(
+        alerting_enabled=True,
+        plan=[{"channel": "email", "recipients": []}],
+    )
+
+    assert status == "NO_RECIPIENTS"
+
+
+def test_determine_notification_status_returns_planned_when_plan_is_valid():
+    status = determine_notification_status(
+        alerting_enabled=True,
+        plan=[{"channel": "slack", "message": "msg"}],
+    )
+
+    assert status == "PLANNED"
+
+
+def test_plan_notifications_for_alert_events_marks_planned(monkeypatch):
+    monkeypatch.setattr(
+        "data_platform.mlops.alerting.load_alerting_config",
+        lambda config_path: {
+            "enable_alerting": True,
+            "email_enabled": True,
+            "slack_enabled": False,
+            "teams_enabled": False,
+            "recipients": "a@test.com",
+        },
+    )
+
+    events = [
+        {
+            "model_name": "clientes_status_classifier",
+            "model_version": "v123",
+            "run_id": "run-1",
+            "source_component": "drift_monitoring",
+            "metric_name": "prediction_rate",
+            "entity_name": "1.0",
+            "baseline_value": 0.2,
+            "current_value": 0.95,
+            "severity": "CRITICAL",
+            "message": "Drift critico",
+            "notification_status": "PENDING",
+        }
+    ]
+
+    planned = plan_notifications_for_alert_events(
+        alert_events=events,
+        config_path="config/env/dev.yml",
+    )
+
+    assert len(planned) == 1
+    assert planned[0]["notification_status"] == "PLANNED"
+    assert planned[0]["notification_plan"][0]["channel"] == "email"
+
+
+def test_plan_notifications_for_alert_events_marks_skipped_when_alerting_disabled(monkeypatch):
+    monkeypatch.setattr(
+        "data_platform.mlops.alerting.load_alerting_config",
+        lambda config_path: {
+            "enable_alerting": False,
+            "email_enabled": True,
+            "recipients": "a@test.com",
+        },
+    )
+
+    events = [
+        {
+            "model_name": "clientes_status_classifier",
+            "model_version": "v123",
+            "run_id": "run-1",
+            "source_component": "drift_monitoring",
+            "metric_name": "prediction_rate",
+            "entity_name": "1.0",
+            "baseline_value": 0.2,
+            "current_value": 0.95,
+            "severity": "CRITICAL",
+            "message": "Drift critico",
+            "notification_status": "PENDING",
+        }
+    ]
+
+    planned = plan_notifications_for_alert_events(
+        alert_events=events,
+        config_path="config/env/dev.yml",
+    )
+
+    assert planned[0]["notification_status"] == "SKIPPED"
+
+
+def test_plan_notifications_for_alert_events_marks_no_channel(monkeypatch):
+    monkeypatch.setattr(
+        "data_platform.mlops.alerting.load_alerting_config",
+        lambda config_path: {
+            "enable_alerting": True,
+            "email_enabled": False,
+            "slack_enabled": False,
+            "teams_enabled": False,
+            "recipients": "",
+        },
+    )
+
+    events = [
+        {
+            "model_name": "clientes_status_classifier",
+            "model_version": "v123",
+            "run_id": "run-1",
+            "source_component": "drift_monitoring",
+            "metric_name": "prediction_rate",
+            "entity_name": "1.0",
+            "baseline_value": 0.2,
+            "current_value": 0.95,
+            "severity": "CRITICAL",
+            "message": "Drift critico",
+            "notification_status": "PENDING",
+        }
+    ]
+
+    planned = plan_notifications_for_alert_events(
+        alert_events=events,
+        config_path="config/env/dev.yml",
+    )
+
+    assert planned[0]["notification_status"] == "NO_CHANNEL"
