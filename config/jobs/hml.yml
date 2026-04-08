@@ -23,6 +23,6 @@ promotion:
 
 quality_gates:
   ml:
-    minimum_accuracy: 0.50
-    minimum_f1: 0.40
-    minimum_auc: 0.50
+    minimum_accuracy: 0.65
+    minimum_f1: 0.55
+    minimum_auc: 0.65
