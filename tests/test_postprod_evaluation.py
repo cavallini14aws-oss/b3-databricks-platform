@@ -65,3 +65,8 @@ def test_evaluate_postprod_from_tables_calls_reconciliation_and_evaluation(monke
     assert captured["run_id"] == "run-1"
     assert result["accuracy"] == 0.9
     assert result["support"] == 100.0
+
+
+def test_get_postprod_labels_table_imports():
+    from data_platform.mlops.datasets import get_postprod_labels_table
+    assert get_postprod_labels_table is not None

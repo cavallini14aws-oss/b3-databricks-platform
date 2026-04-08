@@ -31,3 +31,11 @@ def get_scoring_dataset_table(
         raise ValueError(f"Versão de scoring dataset não suportada: {version}")
 
     return ctx.naming.qualified_table(ctx.naming.schema_feature, table_name)
+
+
+def get_postprod_labels_table(
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> str:
+    ctx = get_context(project=project, use_catalog=use_catalog)
+    return ctx.naming.qualified_table(ctx.naming.schema_mlops, "tb_clientes_postprod_labels")
