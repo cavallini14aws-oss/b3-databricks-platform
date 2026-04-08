@@ -3,6 +3,7 @@ import smtplib
 import urllib.request
 from email.mime.text import MIMEText
 
+from data_platform.core.activation_control import get_activation_notifications_config
 from data_platform.core.config_loader import load_yaml_config
 
 
@@ -288,3 +289,41 @@ def send_notification_plan(
             )
 
     return results
+
+
+def load_alerting_config_from_activation_control(
+    env: str | None = None,
+    config_path: str = "config/activation/operational_control.yml",
+) -> dict:
+    notifications_cfg = get_activation_notifications_config(
+        env=env,
+        config_path=config_path,
+    )
+
+    email_cfg = notifications_cfg.get("email", {})
+    slack_cfg = notifications_cfg.get("slack", {})
+    teams_cfg = notifications_cfg.get("teams", {})
+
+    recipients = email_cfg.get("recipients", [])
+    recipients_str = ",".join(recipients)
+
+    smtp_cfg = email_cfg.get("smtp", {})
+    slack_webhook_cfg = slack_cfg.get("webhook", {})
+    teams_webhook_cfg = teams_cfg.get("webhook", {})
+
+    return {
+        "enable_alerting": bool(notifications_cfg.get("enabled", False)),
+        "severity_min": notifications_cfg.get("severity_min", "WARNING"),
+        "email_enabled": bool(email_cfg.get("enabled", False)),
+        "slack_enabled": bool(slack_cfg.get("enabled", False)),
+        "teams_enabled": bool(teams_cfg.get("enabled", False)),
+        "recipients": recipients_str,
+        "smtp_secret_scope": smtp_cfg.get("scope", ""),
+        "smtp_host_key": smtp_cfg.get("host_key", ""),
+        "smtp_port_key": smtp_cfg.get("port_key", ""),
+        "smtp_username_key": smtp_cfg.get("username_key", ""),
+        "smtp_password_key": smtp_cfg.get("password_key", ""),
+        "webhook_secret_scope": slack_webhook_cfg.get("scope", "") or teams_webhook_cfg.get("scope", ""),
+        "slack_webhook_key": slack_webhook_cfg.get("key", ""),
+        "teams_webhook_key": teams_webhook_cfg.get("key", ""),
+    }

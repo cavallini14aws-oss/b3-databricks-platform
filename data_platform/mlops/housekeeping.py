@@ -1,3 +1,4 @@
+from data_platform.core.activation_control import get_activation_retention_config
 from data_platform.core.config_loader import load_yaml_config
 
 
@@ -14,6 +15,13 @@ RETENTION_MAPPING = {
 def load_mlops_retention(config_path: str) -> dict:
     config = load_yaml_config(config_path)
     return config.get("mlops_retention", {})
+
+
+def load_mlops_retention_from_activation_control(
+    env: str | None = None,
+    config_path: str = "config/activation/operational_control.yml",
+) -> dict:
+    return get_activation_retention_config(env=env, config_path=config_path)
 
 
 def get_retention_days(

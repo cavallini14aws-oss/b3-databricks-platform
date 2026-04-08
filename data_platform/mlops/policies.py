@@ -1,3 +1,4 @@
+from data_platform.core.activation_control import get_activation_thresholds_config
 from data_platform.core.config_loader import load_yaml_config
 
 
@@ -6,12 +7,45 @@ def load_mlops_thresholds(config_path: str) -> dict:
     return config.get("mlops_thresholds", {})
 
 
+def load_mlops_thresholds_from_activation_control(
+    env: str | None = None,
+    config_path: str = "config/activation/operational_control.yml",
+) -> dict:
+    return get_activation_thresholds_config(env=env, config_path=config_path)
+
+
 def get_postprod_threshold(
     *,
     config_path: str,
     metric_name: str,
 ) -> float | None:
     thresholds = load_mlops_thresholds(config_path)
+
+    mapping = {
+        "accuracy": "postprod_min_accuracy",
+        "f1": "postprod_min_f1",
+        "precision": "postprod_min_precision",
+        "recall": "postprod_min_recall",
+    }
+
+    key = mapping.get(metric_name)
+    if key is None:
+        return None
+
+    value = thresholds.get(key)
+    return float(value) if value is not None else None
+
+
+def get_postprod_threshold_from_activation_control(
+    *,
+    env: str | None,
+    metric_name: str,
+    config_path: str = "config/activation/operational_control.yml",
+) -> float | None:
+    thresholds = load_mlops_thresholds_from_activation_control(
+        env=env,
+        config_path=config_path,
+    )
 
     mapping = {
         "accuracy": "postprod_min_accuracy",
