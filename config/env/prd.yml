@@ -53,3 +53,11 @@ mlops_thresholds:
   suggest_rollback_on_postprod_critical: true
   require_smoke_after_rollback: true
   require_smoke_after_retraining: true
+
+mlops_retention:
+  tb_model_predictions_days: 90
+  tb_ml_alert_events_days: 180
+  tb_model_postprod_metrics_days: 365
+  tb_model_retraining_requests_days: 365
+  tb_ml_governance_runs_days: 365
+  tb_ml_smoke_runs_days: 180
