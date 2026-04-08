@@ -1,3 +1,5 @@
+from pyspark.sql import Row
+
 from data_platform.mlops.drift import (
     DRIFT_MONITORING_SCHEMA,
     _build_latest_feature_baseline_map,
@@ -115,3 +117,177 @@ def test_build_latest_feature_baseline_map_keeps_first_latest_value():
             "mean_value": 1.0,
         },
     }
+
+
+def test_log_drift_records_emits_alert_events_when_enabled(monkeypatch):
+    from types import SimpleNamespace
+    from data_platform.mlops.drift import log_drift_records
+
+    emitted = []
+
+    class FakeWriter:
+        def mode(self, *args, **kwargs):
+            return self
+
+        def option(self, *args, **kwargs):
+            return self
+
+        def saveAsTable(self, *args, **kwargs):
+            return None
+
+    class FakeDataFrame:
+        @property
+        def write(self):
+            return FakeWriter()
+
+    class FakeCatalog:
+        @staticmethod
+        def tableExists(name):
+            return True
+
+    class FakeSpark:
+        catalog = FakeCatalog()
+
+        def sql(self, query):
+            return None
+
+        def createDataFrame(self, rows, schema=None):
+            return FakeDataFrame()
+
+    fake_ctx = SimpleNamespace(
+        env="dev",
+        project="clientes",
+        naming=SimpleNamespace(
+            schema_mlops="clientes_mlops",
+            qualified_schema=lambda schema: schema,
+            qualified_table=lambda schema, table: f"{schema}.{table}",
+        ),
+    )
+
+    monkeypatch.setattr(
+        "data_platform.mlops.drift.get_context",
+        lambda project, use_catalog: fake_ctx,
+    )
+    monkeypatch.setattr(
+        "data_platform.mlops.drift.emit_alert_events_from_drift",
+        lambda **kwargs: emitted.extend(kwargs["drift_rows"]),
+    )
+
+    rows = [
+        Row(
+            event_timestamp=None,
+            env="dev",
+            project="clientes",
+            model_name="clientes_status_classifier",
+            model_version="v123",
+            target_env="prd",
+            run_id="run-1",
+            monitoring_type="prediction",
+            entity_name="1.0",
+            metric_name="prediction_rate",
+            baseline_value=0.2,
+            current_value=0.95,
+            absolute_diff=0.75,
+            relative_diff=3.75,
+            drift_status="CRITICAL",
+        )
+    ]
+
+    log_drift_records(
+        spark=FakeSpark(),
+        rows=rows,
+        project="clientes",
+        use_catalog=False,
+        emit_alerts=True,
+        alert_severity_min="WARNING",
+    )
+
+    assert len(emitted) == 1
+    assert emitted[0]["drift_status"] == "CRITICAL"
+    assert emitted[0]["metric_name"] == "prediction_rate"
+
+
+def test_log_drift_records_does_not_emit_alerts_when_disabled(monkeypatch):
+    from types import SimpleNamespace
+    from data_platform.mlops.drift import log_drift_records
+
+    emitted = []
+
+    class FakeWriter:
+        def mode(self, *args, **kwargs):
+            return self
+
+        def option(self, *args, **kwargs):
+            return self
+
+        def saveAsTable(self, *args, **kwargs):
+            return None
+
+    class FakeDataFrame:
+        @property
+        def write(self):
+            return FakeWriter()
+
+    class FakeCatalog:
+        @staticmethod
+        def tableExists(name):
+            return True
+
+    class FakeSpark:
+        catalog = FakeCatalog()
+
+        def sql(self, query):
+            return None
+
+        def createDataFrame(self, rows, schema=None):
+            return FakeDataFrame()
+
+    fake_ctx = SimpleNamespace(
+        env="dev",
+        project="clientes",
+        naming=SimpleNamespace(
+            schema_mlops="clientes_mlops",
+            qualified_schema=lambda schema: schema,
+            qualified_table=lambda schema, table: f"{schema}.{table}",
+        ),
+    )
+
+    monkeypatch.setattr(
+        "data_platform.mlops.drift.get_context",
+        lambda project, use_catalog: fake_ctx,
+    )
+    monkeypatch.setattr(
+        "data_platform.mlops.drift.emit_alert_events_from_drift",
+        lambda **kwargs: emitted.extend(kwargs["drift_rows"]),
+    )
+
+    rows = [
+        Row(
+            event_timestamp=None,
+            env="dev",
+            project="clientes",
+            model_name="clientes_status_classifier",
+            model_version="v123",
+            target_env="prd",
+            run_id="run-1",
+            monitoring_type="prediction",
+            entity_name="1.0",
+            metric_name="prediction_rate",
+            baseline_value=0.2,
+            current_value=0.95,
+            absolute_diff=0.75,
+            relative_diff=3.75,
+            drift_status="CRITICAL",
+        )
+    ]
+
+    log_drift_records(
+        spark=FakeSpark(),
+        rows=rows,
+        project="clientes",
+        use_catalog=False,
+        emit_alerts=False,
+        alert_severity_min="WARNING",
+    )
+
+    assert emitted == []

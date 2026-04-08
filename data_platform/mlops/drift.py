@@ -5,6 +5,7 @@ from pyspark.sql import functions as F
 from pyspark.sql import types as T
 
 from data_platform.core.context import get_context
+from data_platform.mlops.alerting import emit_alert_events_from_drift
 
 
 DRIFT_MONITORING_SCHEMA = T.StructType(
@@ -205,6 +206,8 @@ def log_drift_records(
     rows: list[Row],
     project: str = "clientes",
     use_catalog: bool = False,
+    emit_alerts: bool = True,
+    alert_severity_min: str = "WARNING",
 ) -> None:
     if not rows:
         return
@@ -221,6 +224,16 @@ def log_drift_records(
         df.write.mode("append").saveAsTable(table_name)
     else:
         df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(table_name)
+
+    if emit_alerts:
+        drift_rows = [row.asDict() for row in rows]
+        emit_alert_events_from_drift(
+            spark=spark,
+            drift_rows=drift_rows,
+            severity_min=alert_severity_min,
+            project=project,
+            use_catalog=use_catalog,
+        )
 
 
 def compute_and_log_feature_drift(

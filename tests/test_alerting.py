@@ -115,3 +115,37 @@ def test_build_alert_events_from_drift_rows_filters_ok_status():
     assert events[0]["severity"] == "CRITICAL"
     assert events[0]["run_id"] == "run-1"
     assert events[0]["notification_status"] == "PENDING"
+
+
+def test_build_alert_events_from_drift_rows_keeps_warning_and_critical():
+    drift_rows = [
+        {
+            "model_name": "clientes_status_classifier",
+            "model_version": "v123",
+            "run_id": "run-warning",
+            "metric_name": "mean_value",
+            "entity_name": "qtd_registros",
+            "baseline_value": 1.0,
+            "current_value": 1.2,
+            "drift_status": "WARNING",
+        },
+        {
+            "model_name": "clientes_status_classifier",
+            "model_version": "v123",
+            "run_id": "run-critical",
+            "metric_name": "prediction_rate",
+            "entity_name": "1.0",
+            "baseline_value": 0.2,
+            "current_value": 0.95,
+            "drift_status": "CRITICAL",
+        },
+    ]
+
+    events = build_alert_events_from_drift_rows(
+        drift_rows=drift_rows,
+        severity_min="WARNING",
+    )
+
+    assert len(events) == 2
+    assert events[0]["severity"] == "WARNING"
+    assert events[1]["severity"] == "CRITICAL"
