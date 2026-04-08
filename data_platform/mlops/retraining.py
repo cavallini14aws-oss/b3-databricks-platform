@@ -314,3 +314,65 @@ def execute_retraining_request(
         project=project,
         use_catalog=use_catalog,
     )
+
+
+def maybe_open_retraining_request_from_drift(
+    spark,
+    *,
+    drift_event: dict,
+    requested_by: str | None,
+    run_id: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> dict | None:
+    severity = drift_event.get("severity")
+    if severity != "CRITICAL":
+        return None
+
+    return open_retraining_request(
+        spark=spark,
+        model_name=drift_event["model_name"],
+        model_version=drift_event.get("model_version"),
+        trigger_type="DRIFT",
+        trigger_source="drift_monitoring",
+        trigger_severity=severity,
+        reason=drift_event.get("message"),
+        requested_by=requested_by,
+        run_id=run_id,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+
+def maybe_open_retraining_request_from_postprod(
+    spark,
+    *,
+    model_name: str,
+    model_version: str | None,
+    metric_name: str,
+    metric_value: float,
+    threshold_value: float,
+    requested_by: str | None,
+    run_id: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> dict | None:
+    if metric_value >= threshold_value:
+        return None
+
+    return open_retraining_request(
+        spark=spark,
+        model_name=model_name,
+        model_version=model_version,
+        trigger_type="POSTPROD_DEGRADATION",
+        trigger_source="postprod_evaluation",
+        trigger_severity="CRITICAL",
+        reason=(
+            f"Postprod metric abaixo do threshold: "
+            f"{metric_name}={metric_value}, threshold={threshold_value}"
+        ),
+        requested_by=requested_by,
+        run_id=run_id,
+        project=project,
+        use_catalog=use_catalog,
+    )
