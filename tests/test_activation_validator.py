@@ -52,6 +52,13 @@ def test_validate_activation_environment_returns_warning_for_pending_ready_flags
             "jobs": {
                 "drift_cycle": {"enabled": True, "cron": "0 0 8 * * ?"},
             },
+            "access_control": {
+                "promote_roles": ["mlops"],
+                "rollback_roles": ["mlops"],
+                "approve_retraining_roles": ["mlops"],
+                "execute_retraining_roles": ["mlops"],
+                "operate_mlops_cycles_roles": ["mlops"],
+            },
             "go_live": {"blockers": ["secrets_pendentes"]},
         },
     )
