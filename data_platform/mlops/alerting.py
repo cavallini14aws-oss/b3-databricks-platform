@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from pyspark.sql import Row
+from pyspark.sql import functions as F
 from pyspark.sql import types as T
 
 from data_platform.core.context import get_context
@@ -47,6 +48,7 @@ ALERT_EVENT_SCHEMA = T.StructType(
         T.StructField("severity", T.StringType(), False),
         T.StructField("message", T.StringType(), True),
         T.StructField("notification_status", T.StringType(), False),
+        T.StructField("notification_error", T.StringType(), True),
     ]
 )
 
@@ -124,6 +126,7 @@ def build_alert_event_row(
     severity: str,
     message: str,
     notification_status: str = "PENDING",
+    notification_error: str | None = None,
 ):
     return Row(
         event_timestamp=datetime.now(timezone.utc).replace(tzinfo=None),
@@ -140,6 +143,7 @@ def build_alert_event_row(
         severity=severity,
         message=message,
         notification_status=notification_status,
+        notification_error=notification_error,
     )
 
 
@@ -177,6 +181,7 @@ def build_alert_events_from_drift_rows(
                 "severity": severity,
                 "message": message,
                 "notification_status": "PENDING",
+                "notification_error": None,
             }
         )
 
@@ -236,6 +241,7 @@ def emit_alert_events_from_drift(
             severity=event["severity"],
             message=event["message"],
             notification_status=event["notification_status"],
+            notification_error=event["notification_error"],
         )
         for event in events
     ]
@@ -336,3 +342,96 @@ def dispatch_planned_alert_events(
         )
 
     return dispatched
+
+
+def load_alert_events_by_status(
+    spark,
+    notification_status: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> list[dict]:
+    _, table_name = _get_alert_event_table_name(
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    if not spark.catalog.tableExists(table_name):
+        return []
+
+    rows = (
+        spark.table(table_name)
+        .filter(F.col("notification_status") == notification_status)
+        .orderBy(F.col("event_timestamp").asc())
+        .collect()
+    )
+
+    return [row.asDict() for row in rows]
+
+
+def persist_dispatched_alert_events(
+    spark,
+    dispatched_events: list[dict],
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> list[Row]:
+    ctx = get_context(project=project, use_catalog=use_catalog)
+
+    rows = [
+        build_alert_event_row(
+            env=ctx.env,
+            project=ctx.project,
+            model_name=event["model_name"],
+            model_version=event.get("model_version"),
+            run_id=event["run_id"],
+            source_component=event["source_component"],
+            metric_name=event["metric_name"],
+            entity_name=event.get("entity_name"),
+            baseline_value=event.get("baseline_value"),
+            current_value=event.get("current_value"),
+            severity=event["severity"],
+            message=event["message"],
+            notification_status=event["notification_status"],
+            notification_error=event.get("notification_error"),
+        )
+        for event in dispatched_events
+    ]
+
+    persist_alert_events(
+        spark=spark,
+        rows=rows,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    return rows
+
+
+def dispatch_pending_alert_events(
+    spark,
+    config_path: str,
+    secrets_resolver,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> list[Row]:
+    pending_events = load_alert_events_by_status(
+        spark=spark,
+        notification_status="PLANNED",
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    if not pending_events:
+        return []
+
+    dispatched = dispatch_planned_alert_events(
+        pending_events=pending_events,
+        config_path=config_path,
+        secrets_resolver=secrets_resolver,
+    )
+
+    return persist_dispatched_alert_events(
+        spark=spark,
+        dispatched_events=dispatched,
+        project=project,
+        use_catalog=use_catalog,
+    )

@@ -1,3 +1,5 @@
+from pyspark.sql import Row
+
 from data_platform.mlops.alerting import (
     ALERT_CONFIG_SCHEMA,
     ALERT_EVENT_SCHEMA,
@@ -5,7 +7,10 @@ from data_platform.mlops.alerting import (
     build_alert_message,
     classify_alert_severity,
     determine_notification_status,
+    dispatch_pending_alert_events,
     dispatch_planned_alert_events,
+    load_alert_events_by_status,
+    persist_dispatched_alert_events,
     plan_notifications_for_alert_events,
     should_emit_alert,
 )
@@ -50,6 +55,7 @@ def test_alert_event_schema_has_expected_fields():
         "severity",
         "message",
         "notification_status",
+        "notification_error",
     ]
 
 
@@ -433,3 +439,158 @@ def test_dispatch_planned_alert_events_keeps_non_planned_status():
 
     assert len(dispatched) == 1
     assert dispatched[0]["notification_status"] == "NO_CHANNEL"
+
+
+def test_load_alert_events_by_status_returns_empty_when_table_missing():
+    class FakeCatalog:
+        @staticmethod
+        def tableExists(name):
+            return False
+
+    class FakeSpark:
+        catalog = FakeCatalog()
+
+    result = load_alert_events_by_status(
+        spark=FakeSpark(),
+        notification_status="PLANNED",
+        project="clientes",
+        use_catalog=False,
+    )
+
+    assert result == []
+
+
+def test_persist_dispatched_alert_events_builds_rows(monkeypatch):
+    from types import SimpleNamespace
+
+    captured_rows = []
+
+    fake_ctx = SimpleNamespace(
+        env="dev",
+        project="clientes",
+        naming=SimpleNamespace(
+            schema_mlops="clientes_mlops",
+            qualified_schema=lambda schema: schema,
+            qualified_table=lambda schema, table: f"{schema}.{table}",
+        ),
+    )
+
+    monkeypatch.setattr(
+        "data_platform.mlops.alerting.get_context",
+        lambda project, use_catalog: fake_ctx,
+    )
+    monkeypatch.setattr(
+        "data_platform.mlops.alerting.persist_alert_events",
+        lambda **kwargs: captured_rows.extend(kwargs["rows"]),
+    )
+
+    dispatched = [
+        {
+            "model_name": "clientes_status_classifier",
+            "model_version": "v123",
+            "run_id": "run-1",
+            "source_component": "drift_monitoring",
+            "metric_name": "prediction_rate",
+            "entity_name": "1.0",
+            "baseline_value": 0.2,
+            "current_value": 0.95,
+            "severity": "CRITICAL",
+            "message": "Drift critico",
+            "notification_status": "SENT",
+            "notification_error": None,
+        }
+    ]
+
+    rows = persist_dispatched_alert_events(
+        spark=object(),
+        dispatched_events=dispatched,
+        project="clientes",
+        use_catalog=False,
+    )
+
+    assert len(rows) == 1
+    assert len(captured_rows) == 1
+    assert captured_rows[0]["notification_status"] == "SENT"
+
+
+def test_dispatch_pending_alert_events_runs_full_flow(monkeypatch):
+    from pyspark.sql import Row
+
+    monkeypatch.setattr(
+        "data_platform.mlops.alerting.load_alert_events_by_status",
+        lambda **kwargs: [
+            {
+                "model_name": "clientes_status_classifier",
+                "model_version": "v123",
+                "run_id": "run-1",
+                "source_component": "drift_monitoring",
+                "metric_name": "prediction_rate",
+                "entity_name": "1.0",
+                "baseline_value": 0.2,
+                "current_value": 0.95,
+                "severity": "CRITICAL",
+                "message": "Drift critico",
+                "notification_status": "PLANNED",
+                "notification_plan": [
+                    {
+                        "channel": "email",
+                        "recipients": ["a@test.com"],
+                        "subject": "Alerta",
+                        "body": "Mensagem",
+                    }
+                ],
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "data_platform.mlops.alerting.dispatch_planned_alert_events",
+        lambda **kwargs: [
+            {
+                "model_name": "clientes_status_classifier",
+                "model_version": "v123",
+                "run_id": "run-1",
+                "source_component": "drift_monitoring",
+                "metric_name": "prediction_rate",
+                "entity_name": "1.0",
+                "baseline_value": 0.2,
+                "current_value": 0.95,
+                "severity": "CRITICAL",
+                "message": "Drift critico",
+                "notification_status": "SENT",
+                "notification_error": None,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "data_platform.mlops.alerting.persist_dispatched_alert_events",
+        lambda **kwargs: [
+            Row(
+                event_timestamp=None,
+                env="dev",
+                project="clientes",
+                model_name="clientes_status_classifier",
+                model_version="v123",
+                run_id="run-1",
+                source_component="drift_monitoring",
+                metric_name="prediction_rate",
+                entity_name="1.0",
+                baseline_value=0.2,
+                current_value=0.95,
+                severity="CRITICAL",
+                message="Drift critico",
+                notification_status="SENT",
+                notification_error=None,
+            )
+        ],
+    )
+
+    rows = dispatch_pending_alert_events(
+        spark=object(),
+        config_path="config/env/dev.yml",
+        secrets_resolver=lambda scope, key: "x",
+        project="clientes",
+        use_catalog=False,
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["notification_status"] == "SENT"
