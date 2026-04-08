@@ -6,6 +6,7 @@ from pyspark.sql import functions as F
 from pyspark.sql import types as T
 
 from data_platform.core.context import get_context
+from data_platform.mlops.postprod_reconciliation import reconcile_postprod_from_tables
 
 
 POSTPROD_METRICS_SCHEMA = T.StructType(
@@ -169,3 +170,49 @@ def evaluate_postprod_predictions(
     )
 
     return metrics
+
+
+def evaluate_postprod_from_tables(
+    spark,
+    *,
+    predictions_table: str,
+    labels_table: str,
+    join_keys: list[str],
+    model_name: str,
+    model_version: str | None,
+    run_id: str,
+    prediction_col: str = "prediction",
+    label_col: str = "label",
+    prediction_timestamp_col: str | None = None,
+    label_timestamp_col: str | None = None,
+    window_start: str | None = None,
+    window_end: str | None = None,
+    metric_names: list[str] | None = None,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> dict[str, float]:
+    reconciled_df = reconcile_postprod_from_tables(
+        spark=spark,
+        predictions_table=predictions_table,
+        labels_table=labels_table,
+        join_keys=join_keys,
+        prediction_col=prediction_col,
+        label_col=label_col,
+        prediction_timestamp_col=prediction_timestamp_col,
+        label_timestamp_col=label_timestamp_col,
+        window_start=window_start,
+        window_end=window_end,
+    )
+
+    return evaluate_postprod_predictions(
+        spark=spark,
+        predictions_df=reconciled_df,
+        model_name=model_name,
+        model_version=model_version,
+        run_id=run_id,
+        window_start=window_start,
+        window_end=window_end,
+        metric_names=metric_names,
+        project=project,
+        use_catalog=use_catalog,
+    )
