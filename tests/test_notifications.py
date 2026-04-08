@@ -6,6 +6,7 @@ from data_platform.mlops.notifications import (
     build_teams_notification_payload,
     is_notification_channel_enabled,
     parse_recipients,
+    resolve_webhook_url,
     send_notification_plan,
 )
 
@@ -169,6 +170,21 @@ def test_build_smtp_settings_blocks_incomplete_config():
         assert "Configuracao SMTP incompleta" in str(exc)
 
 
+def test_resolve_webhook_url_returns_expected_value():
+    config = {
+        "webhook_secret_scope": "scope-webhook",
+        "slack_webhook_key": "slack-key",
+    }
+
+    webhook_url = resolve_webhook_url(
+        alerting_config=config,
+        channel="slack",
+        secrets_resolver=lambda scope, key: "https://hooks.slack.test",
+    )
+
+    assert webhook_url == "https://hooks.slack.test"
+
+
 def test_send_notification_plan_marks_email_as_sent(monkeypatch):
     plan = [
         {
@@ -242,12 +258,73 @@ def test_send_notification_plan_marks_email_as_failed(monkeypatch):
     assert "SMTP error" in results[0]["delivery_error"]
 
 
-def test_send_notification_plan_skips_non_email_channels():
+def test_send_notification_plan_marks_slack_as_sent(monkeypatch):
     plan = [
         {
             "channel": "slack",
             "message": "Drift critico",
             "webhook_key": "slack-key",
+        }
+    ]
+
+    monkeypatch.setattr(
+        "data_platform.mlops.notifications.resolve_webhook_url",
+        lambda **kwargs: "https://hooks.slack.test",
+    )
+    monkeypatch.setattr(
+        "data_platform.mlops.notifications.send_slack_notification",
+        lambda **kwargs: "SENT",
+    )
+
+    results = send_notification_plan(
+        plan=plan,
+        alerting_config={"webhook_secret_scope": "scope-x", "slack_webhook_key": "slack-key"},
+        secrets_resolver=lambda scope, key: "x",
+    )
+
+    assert len(results) == 1
+    assert results[0]["delivery_status"] == "SENT"
+
+
+def test_send_notification_plan_marks_slack_as_failed(monkeypatch):
+    plan = [
+        {
+            "channel": "slack",
+            "message": "Drift critico",
+            "webhook_key": "slack-key",
+        }
+    ]
+
+    monkeypatch.setattr(
+        "data_platform.mlops.notifications.resolve_webhook_url",
+        lambda **kwargs: "https://hooks.slack.test",
+    )
+
+    def fail_slack(**kwargs):
+        raise RuntimeError("Slack webhook error")
+
+    monkeypatch.setattr(
+        "data_platform.mlops.notifications.send_slack_notification",
+        fail_slack,
+    )
+
+    results = send_notification_plan(
+        plan=plan,
+        alerting_config={"webhook_secret_scope": "scope-x", "slack_webhook_key": "slack-key"},
+        secrets_resolver=lambda scope, key: "x",
+    )
+
+    assert len(results) == 1
+    assert results[0]["delivery_status"] == "FAILED"
+    assert "Slack webhook error" in results[0]["delivery_error"]
+
+
+def test_send_notification_plan_skips_non_email_non_slack_channels():
+    plan = [
+        {
+            "channel": "teams",
+            "message": "Drift critico",
+            "webhook_key": "teams-key",
         }
     ]
 

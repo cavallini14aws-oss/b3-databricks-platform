@@ -1,4 +1,6 @@
+import json
 import smtplib
+import urllib.request
 from email.mime.text import MIMEText
 
 from data_platform.core.config_loader import load_yaml_config
@@ -132,6 +134,27 @@ def build_smtp_settings(
     }
 
 
+def resolve_webhook_url(
+    *,
+    alerting_config: dict,
+    channel: str,
+    secrets_resolver,
+) -> str:
+    webhook_secret_scope = alerting_config.get("webhook_secret_scope", "")
+
+    if channel == "slack":
+        webhook_key_name = alerting_config.get("slack_webhook_key", "")
+    elif channel == "teams":
+        webhook_key_name = alerting_config.get("teams_webhook_key", "")
+    else:
+        raise ValueError(f"Canal webhook invalido: {channel}")
+
+    if not webhook_secret_scope or not webhook_key_name:
+        raise ValueError(f"Configuracao de webhook incompleta para canal {channel}")
+
+    return secrets_resolver(webhook_secret_scope, webhook_key_name)
+
+
 def send_email_notification(
     *,
     payload: dict,
@@ -160,6 +183,27 @@ def send_email_notification(
     return "SENT"
 
 
+def send_slack_notification(
+    *,
+    payload: dict,
+    webhook_url: str,
+) -> str:
+    body = json.dumps({"text": payload["message"]}).encode("utf-8")
+    request = urllib.request.Request(
+        webhook_url,
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    with urllib.request.urlopen(request) as response:
+        status_code = getattr(response, "status", 200)
+        if status_code >= 400:
+            raise RuntimeError(f"Slack webhook retornou status {status_code}")
+
+    return "SENT"
+
+
 def send_notification_plan(
     *,
     plan: list[dict],
@@ -183,6 +227,16 @@ def send_notification_plan(
                 status = send_email_notification(
                     payload=item,
                     smtp_settings=smtp_settings,
+                )
+            elif item["channel"] == "slack":
+                webhook_url = resolve_webhook_url(
+                    alerting_config=alerting_config,
+                    channel="slack",
+                    secrets_resolver=secrets_resolver,
+                )
+                status = send_slack_notification(
+                    payload=item,
+                    webhook_url=webhook_url,
                 )
             else:
                 status = "SKIPPED"

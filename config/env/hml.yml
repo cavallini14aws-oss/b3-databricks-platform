@@ -31,5 +31,6 @@ alerting:
   smtp_port_key: ""
   smtp_username_key: ""
   smtp_password_key: ""
+  webhook_secret_scope: ""
   slack_webhook_key: ""
   teams_webhook_key: ""
