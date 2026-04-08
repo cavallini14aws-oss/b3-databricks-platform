@@ -2,6 +2,7 @@ from data_platform.mlops.retraining import (
     RETRAINING_REQUEST_SCHEMA,
     approve_retraining_request,
     execute_retraining_request,
+    maybe_auto_approve_retraining_request,
     maybe_open_retraining_request_from_drift,
     maybe_open_retraining_request_from_postprod,
     reject_retraining_request,
@@ -231,6 +232,73 @@ def test_maybe_open_retraining_request_from_postprod_skips_when_metric_ok():
         threshold_value=0.70,
         requested_by="mlops",
         run_id="run-4",
+        project="clientes",
+        use_catalog=False,
+    )
+
+    assert result is None
+
+
+def test_maybe_auto_approve_retraining_request_approves_when_policy_enabled(monkeypatch):
+    monkeypatch.setattr(
+        "data_platform.mlops.retraining.load_yaml_config",
+        lambda config_path: {
+            "retraining": {
+                "auto_approve_drift_critical": True,
+                "auto_approve_postprod_critical": False,
+            }
+        },
+    )
+    monkeypatch.setattr(
+        "data_platform.mlops.retraining.approve_retraining_request",
+        lambda **kwargs: {"request_status": "APPROVED"},
+    )
+
+    result = maybe_auto_approve_retraining_request(
+        spark=object(),
+        request_payload={
+            "model_name": "clientes_status_classifier",
+            "model_version": "v123",
+            "trigger_type": "DRIFT",
+            "trigger_source": "drift_monitoring",
+            "trigger_severity": "CRITICAL",
+            "reason": "Drift critico",
+            "requested_by": "mlops",
+            "run_id": "run-5",
+        },
+        config_path="config/env/dev.yml",
+        project="clientes",
+        use_catalog=False,
+    )
+
+    assert result is not None
+    assert result["request_status"] == "APPROVED"
+
+
+def test_maybe_auto_approve_retraining_request_skips_when_policy_disabled(monkeypatch):
+    monkeypatch.setattr(
+        "data_platform.mlops.retraining.load_yaml_config",
+        lambda config_path: {
+            "retraining": {
+                "auto_approve_drift_critical": False,
+                "auto_approve_postprod_critical": False,
+            }
+        },
+    )
+
+    result = maybe_auto_approve_retraining_request(
+        spark=object(),
+        request_payload={
+            "model_name": "clientes_status_classifier",
+            "model_version": "v123",
+            "trigger_type": "DRIFT",
+            "trigger_source": "drift_monitoring",
+            "trigger_severity": "CRITICAL",
+            "reason": "Drift critico",
+            "requested_by": "mlops",
+            "run_id": "run-6",
+        },
+        config_path="config/env/dev.yml",
         project="clientes",
         use_catalog=False,
     )

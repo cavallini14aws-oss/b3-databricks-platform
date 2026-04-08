@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pyspark.sql import Row
 from pyspark.sql import types as T
 
+from data_platform.core.config_loader import load_yaml_config
 from data_platform.core.context import get_context
 
 
@@ -373,6 +374,45 @@ def maybe_open_retraining_request_from_postprod(
         ),
         requested_by=requested_by,
         run_id=run_id,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+
+def maybe_auto_approve_retraining_request(
+    spark,
+    *,
+    request_payload: dict,
+    config_path: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> dict | None:
+    config = load_yaml_config(config_path)
+    retraining_cfg = config.get("retraining", {})
+
+    trigger_type = request_payload["trigger_type"]
+    trigger_severity = request_payload.get("trigger_severity")
+
+    if trigger_type == "DRIFT":
+        enabled = bool(retraining_cfg.get("auto_approve_drift_critical", False))
+    elif trigger_type == "POSTPROD_DEGRADATION":
+        enabled = bool(retraining_cfg.get("auto_approve_postprod_critical", False))
+    else:
+        enabled = False
+
+    if not enabled or trigger_severity != "CRITICAL":
+        return None
+
+    return approve_retraining_request(
+        spark=spark,
+        model_name=request_payload["model_name"],
+        model_version=request_payload.get("model_version"),
+        trigger_type=request_payload["trigger_type"],
+        trigger_source=request_payload["trigger_source"],
+        trigger_severity=request_payload.get("trigger_severity"),
+        reason=request_payload.get("reason"),
+        requested_by=request_payload.get("requested_by"),
+        run_id=request_payload["run_id"],
         project=project,
         use_catalog=use_catalog,
     )

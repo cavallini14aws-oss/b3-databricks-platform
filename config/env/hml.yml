@@ -34,3 +34,9 @@ alerting:
   webhook_secret_scope: ""
   slack_webhook_key: ""
   teams_webhook_key: ""
+
+retraining:
+  auto_open_from_drift_critical: true
+  auto_open_from_postprod_critical: true
+  auto_approve_drift_critical: false
+  auto_approve_postprod_critical: false
