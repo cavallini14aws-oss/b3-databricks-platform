@@ -103,6 +103,23 @@ environments:
       bitbucket:
         enabled: false
 
+    access_control:
+      promote_roles:
+        - mlops
+        - platform_admin
+      rollback_roles:
+        - mlops
+        - platform_admin
+      approve_retraining_roles:
+        - mlops
+        - model_owner
+      execute_retraining_roles:
+        - mlops
+        - platform_admin
+      operate_mlops_cycles_roles:
+        - mlops
+        - platform_admin
+
     go_live:
       blockers: []
       ready: false
@@ -204,6 +221,23 @@ environments:
         enabled: false
       bitbucket:
         enabled: false
+
+    access_control:
+      promote_roles:
+        - mlops
+        - platform_admin
+      rollback_roles:
+        - mlops
+        - platform_admin
+      approve_retraining_roles:
+        - mlops
+        - model_owner
+      execute_retraining_roles:
+        - mlops
+        - platform_admin
+      operate_mlops_cycles_roles:
+        - mlops
+        - platform_admin
 
     go_live:
       blockers:
@@ -308,6 +342,23 @@ environments:
         enabled: false
       bitbucket:
         enabled: false
+
+    access_control:
+      promote_roles:
+        - mlops
+        - platform_admin
+      rollback_roles:
+        - mlops
+        - platform_admin
+      approve_retraining_roles:
+        - mlops
+        - model_owner
+      execute_retraining_roles:
+        - mlops
+        - platform_admin
+      operate_mlops_cycles_roles:
+        - mlops
+        - platform_admin
 
     go_live:
       blockers:

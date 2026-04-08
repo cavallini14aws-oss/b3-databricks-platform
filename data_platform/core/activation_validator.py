@@ -16,6 +16,7 @@ def validate_activation_environment(
     databricks_cfg = cfg.get("databricks", {})
     notifications_cfg = cfg.get("notifications", {})
     jobs_cfg = cfg.get("jobs", {})
+    access_control_cfg = cfg.get("access_control", {})
     go_live_cfg = cfg.get("go_live", {})
 
     if not databricks_cfg.get("workspace_host_key"):
@@ -66,6 +67,16 @@ def validate_activation_environment(
     for job_name, job_cfg in jobs_cfg.items():
         if job_cfg.get("enabled", False) and not job_cfg.get("cron"):
             errors.append(f"jobs.{job_name}.cron vazio")
+
+    for acl_key in [
+        "promote_roles",
+        "rollback_roles",
+        "approve_retraining_roles",
+        "execute_retraining_roles",
+        "operate_mlops_cycles_roles",
+    ]:
+        if not access_control_cfg.get(acl_key):
+            errors.append(f"access_control.{acl_key} vazio")
 
     blockers = go_live_cfg.get("blockers", [])
     if blockers:

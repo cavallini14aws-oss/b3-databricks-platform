@@ -70,3 +70,11 @@ def get_activation_databricks_config(
 ) -> dict:
     env_cfg = get_activation_environment_config(env=env, config_path=config_path)
     return env_cfg.get("databricks", {})
+
+
+def get_activation_access_control_config(
+    env: str | None = None,
+    config_path: str = DEFAULT_ACTIVATION_CONTROL_PATH,
+) -> dict:
+    env_cfg = get_activation_environment_config(env=env, config_path=config_path)
+    return env_cfg.get("access_control", {})
