@@ -1,0 +1,37 @@
+resources:
+  jobs:
+    mlops_drift_cycle:
+      name: mlops-drift-cycle-${bundle.target}
+      tasks:
+        - task_key: run_mlops_drift_cycle
+          spark_python_task:
+            python_file: ${workspace.file_path}/data_platform/mlops/run_mlops_drift_cycle.py
+          existing_cluster_id: ${var.cluster_id}
+      max_concurrent_runs: 1
+
+    mlops_postprod_cycle:
+      name: mlops-postprod-cycle-${bundle.target}
+      tasks:
+        - task_key: run_mlops_postprod_cycle
+          spark_python_task:
+            python_file: ${workspace.file_path}/data_platform/mlops/run_mlops_postprod_cycle.py
+          existing_cluster_id: ${var.cluster_id}
+      max_concurrent_runs: 1
+
+    mlops_retraining_cycle:
+      name: mlops-retraining-cycle-${bundle.target}
+      tasks:
+        - task_key: run_mlops_retraining_cycle
+          spark_python_task:
+            python_file: ${workspace.file_path}/data_platform/mlops/run_mlops_retraining_cycle.py
+          existing_cluster_id: ${var.cluster_id}
+      max_concurrent_runs: 1
+
+    mlops_operational_cycle:
+      name: mlops-operational-cycle-${bundle.target}
+      tasks:
+        - task_key: run_mlops_operational_cycle
+          spark_python_task:
+            python_file: ${workspace.file_path}/data_platform/mlops/run_mlops_operational_cycle.py
+          existing_cluster_id: ${var.cluster_id}
+      max_concurrent_runs: 1
