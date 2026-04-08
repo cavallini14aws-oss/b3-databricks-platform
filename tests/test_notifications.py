@@ -2,9 +2,11 @@ from data_platform.mlops.notifications import (
     build_email_notification_payload,
     build_notification_plan,
     build_slack_notification_payload,
+    build_smtp_settings,
     build_teams_notification_payload,
     is_notification_channel_enabled,
     parse_recipients,
+    send_notification_plan,
 )
 
 
@@ -120,3 +122,140 @@ def test_build_notification_plan_skips_email_without_recipients():
     )
 
     assert plan == []
+
+
+def test_build_smtp_settings_returns_expected_values():
+    config = {
+        "smtp_secret_scope": "scope-x",
+        "smtp_host_key": "host-key",
+        "smtp_port_key": "port-key",
+        "smtp_username_key": "user-key",
+        "smtp_password_key": "pass-key",
+    }
+
+    fake_secrets = {
+        ("scope-x", "host-key"): "smtp.test.com",
+        ("scope-x", "port-key"): "587",
+        ("scope-x", "user-key"): "user@test.com",
+        ("scope-x", "pass-key"): "secret-pass",
+    }
+
+    settings = build_smtp_settings(
+        alerting_config=config,
+        secrets_resolver=lambda scope, key: fake_secrets[(scope, key)],
+    )
+
+    assert settings == {
+        "host": "smtp.test.com",
+        "port": 587,
+        "username": "user@test.com",
+        "password": "secret-pass",
+    }
+
+
+def test_build_smtp_settings_blocks_incomplete_config():
+    config = {
+        "smtp_secret_scope": "",
+        "smtp_host_key": "",
+    }
+
+    try:
+        build_smtp_settings(
+            alerting_config=config,
+            secrets_resolver=lambda scope, key: "x",
+        )
+        assert False, "Era esperado ValueError"
+    except ValueError as exc:
+        assert "Configuracao SMTP incompleta" in str(exc)
+
+
+def test_send_notification_plan_marks_email_as_sent(monkeypatch):
+    plan = [
+        {
+            "channel": "email",
+            "recipients": ["a@test.com"],
+            "subject": "Alerta",
+            "body": "Mensagem",
+        }
+    ]
+
+    monkeypatch.setattr(
+        "data_platform.mlops.notifications.build_smtp_settings",
+        lambda **kwargs: {
+            "host": "smtp.test.com",
+            "port": 587,
+            "username": "user@test.com",
+            "password": "secret-pass",
+        },
+    )
+    monkeypatch.setattr(
+        "data_platform.mlops.notifications.send_email_notification",
+        lambda **kwargs: "SENT",
+    )
+
+    results = send_notification_plan(
+        plan=plan,
+        alerting_config={},
+        secrets_resolver=lambda scope, key: "x",
+    )
+
+    assert len(results) == 1
+    assert results[0]["delivery_status"] == "SENT"
+
+
+def test_send_notification_plan_marks_email_as_failed(monkeypatch):
+    plan = [
+        {
+            "channel": "email",
+            "recipients": ["a@test.com"],
+            "subject": "Alerta",
+            "body": "Mensagem",
+        }
+    ]
+
+    monkeypatch.setattr(
+        "data_platform.mlops.notifications.build_smtp_settings",
+        lambda **kwargs: {
+            "host": "smtp.test.com",
+            "port": 587,
+            "username": "user@test.com",
+            "password": "secret-pass",
+        },
+    )
+
+    def fail_email(**kwargs):
+        raise RuntimeError("SMTP error")
+
+    monkeypatch.setattr(
+        "data_platform.mlops.notifications.send_email_notification",
+        fail_email,
+    )
+
+    results = send_notification_plan(
+        plan=plan,
+        alerting_config={},
+        secrets_resolver=lambda scope, key: "x",
+    )
+
+    assert len(results) == 1
+    assert results[0]["delivery_status"] == "FAILED"
+    assert "SMTP error" in results[0]["delivery_error"]
+
+
+def test_send_notification_plan_skips_non_email_channels():
+    plan = [
+        {
+            "channel": "slack",
+            "message": "Drift critico",
+            "webhook_key": "slack-key",
+        }
+    ]
+
+    results = send_notification_plan(
+        plan=plan,
+        alerting_config={},
+        secrets_resolver=lambda scope, key: "x",
+    )
+
+    assert len(results) == 1
+    assert results[0]["delivery_status"] == "SKIPPED"

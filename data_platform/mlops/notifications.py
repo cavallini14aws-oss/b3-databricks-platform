@@ -1,3 +1,6 @@
+import smtplib
+from email.mime.text import MIMEText
+
 from data_platform.core.config_loader import load_yaml_config
 
 
@@ -105,3 +108,98 @@ def build_notification_plan(
         )
 
     return plan
+
+
+def build_smtp_settings(
+    *,
+    alerting_config: dict,
+    secrets_resolver,
+) -> dict:
+    smtp_secret_scope = alerting_config.get("smtp_secret_scope", "")
+    smtp_host_key = alerting_config.get("smtp_host_key", "")
+    smtp_port_key = alerting_config.get("smtp_port_key", "")
+    smtp_username_key = alerting_config.get("smtp_username_key", "")
+    smtp_password_key = alerting_config.get("smtp_password_key", "")
+
+    if not all([smtp_secret_scope, smtp_host_key, smtp_port_key, smtp_username_key, smtp_password_key]):
+        raise ValueError("Configuracao SMTP incompleta para notificacao por email")
+
+    return {
+        "host": secrets_resolver(smtp_secret_scope, smtp_host_key),
+        "port": int(secrets_resolver(smtp_secret_scope, smtp_port_key)),
+        "username": secrets_resolver(smtp_secret_scope, smtp_username_key),
+        "password": secrets_resolver(smtp_secret_scope, smtp_password_key),
+    }
+
+
+def send_email_notification(
+    *,
+    payload: dict,
+    smtp_settings: dict,
+    sender_email: str | None = None,
+) -> str:
+    recipients = payload.get("recipients", [])
+    subject = payload.get("subject", "")
+    body = payload.get("body", "")
+
+    if not recipients:
+        raise ValueError("Payload de email sem recipients")
+
+    from_email = sender_email or smtp_settings["username"]
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = from_email
+    msg["To"] = ", ".join(recipients)
+
+    with smtplib.SMTP(smtp_settings["host"], smtp_settings["port"]) as server:
+        server.starttls()
+        server.login(smtp_settings["username"], smtp_settings["password"])
+        server.sendmail(from_email, recipients, msg.as_string())
+
+    return "SENT"
+
+
+def send_notification_plan(
+    *,
+    plan: list[dict],
+    alerting_config: dict,
+    secrets_resolver,
+) -> list[dict]:
+    results = []
+
+    smtp_settings = None
+    email_needed = any(item["channel"] == "email" for item in plan)
+
+    if email_needed:
+        smtp_settings = build_smtp_settings(
+            alerting_config=alerting_config,
+            secrets_resolver=secrets_resolver,
+        )
+
+    for item in plan:
+        try:
+            if item["channel"] == "email":
+                status = send_email_notification(
+                    payload=item,
+                    smtp_settings=smtp_settings,
+                )
+            else:
+                status = "SKIPPED"
+
+            results.append(
+                {
+                    **item,
+                    "delivery_status": status,
+                }
+            )
+        except Exception as exc:
+            results.append(
+                {
+                    **item,
+                    "delivery_status": "FAILED",
+                    "delivery_error": f"{type(exc).__name__}: {str(exc)}",
+                }
+            )
+
+    return results
