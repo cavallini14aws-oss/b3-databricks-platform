@@ -17,3 +17,19 @@ flags:
   enable_registry: true
   enable_feature_store: false
   enable_strict_quality_gates: false
+
+alerting:
+  enable_alerting: true
+  severity_min: "WARNING"
+  email_enabled: true
+  slack_enabled: false
+  teams_enabled: false
+  recipients: ""
+  owner_group: "mlops"
+  smtp_secret_scope: ""
+  smtp_host_key: ""
+  smtp_port_key: ""
+  smtp_username_key: ""
+  smtp_password_key: ""
+  slack_webhook_key: ""
+  teams_webhook_key: ""
