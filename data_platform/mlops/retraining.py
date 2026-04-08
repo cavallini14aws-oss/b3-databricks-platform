@@ -154,3 +154,163 @@ def open_retraining_request(
         "requested_by": requested_by,
         "run_id": run_id,
     }
+
+
+VALID_RETRAINING_TRANSITIONS = {
+    ("OPEN", "APPROVED"),
+    ("OPEN", "REJECTED"),
+    ("APPROVED", "EXECUTED"),
+}
+
+
+def validate_retraining_transition(
+    current_status: str,
+    new_status: str,
+) -> None:
+    validate_retraining_request_status(current_status)
+    validate_retraining_request_status(new_status)
+
+    if (current_status, new_status) not in VALID_RETRAINING_TRANSITIONS:
+        raise ValueError(
+            f"Transicao invalida de retraining request: {current_status} -> {new_status}"
+        )
+
+
+def transition_retraining_request(
+    spark,
+    *,
+    model_name: str,
+    model_version: str | None,
+    trigger_type: str,
+    trigger_source: str,
+    trigger_severity: str | None,
+    reason: str | None,
+    current_status: str,
+    new_status: str,
+    requested_by: str | None,
+    run_id: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> dict:
+    validate_retraining_transition(current_status, new_status)
+
+    persist_retraining_request(
+        spark=spark,
+        model_name=model_name,
+        model_version=model_version,
+        trigger_type=trigger_type,
+        trigger_source=trigger_source,
+        trigger_severity=trigger_severity,
+        reason=reason,
+        request_status=new_status,
+        requested_by=requested_by,
+        run_id=run_id,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+    return {
+        "model_name": model_name,
+        "model_version": model_version,
+        "trigger_type": trigger_type,
+        "trigger_source": trigger_source,
+        "trigger_severity": trigger_severity,
+        "reason": reason,
+        "previous_status": current_status,
+        "request_status": new_status,
+        "requested_by": requested_by,
+        "run_id": run_id,
+    }
+
+
+def approve_retraining_request(
+    spark,
+    *,
+    model_name: str,
+    model_version: str | None,
+    trigger_type: str,
+    trigger_source: str,
+    trigger_severity: str | None,
+    reason: str | None,
+    requested_by: str | None,
+    run_id: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> dict:
+    return transition_retraining_request(
+        spark=spark,
+        model_name=model_name,
+        model_version=model_version,
+        trigger_type=trigger_type,
+        trigger_source=trigger_source,
+        trigger_severity=trigger_severity,
+        reason=reason,
+        current_status="OPEN",
+        new_status="APPROVED",
+        requested_by=requested_by,
+        run_id=run_id,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+
+def reject_retraining_request(
+    spark,
+    *,
+    model_name: str,
+    model_version: str | None,
+    trigger_type: str,
+    trigger_source: str,
+    trigger_severity: str | None,
+    reason: str | None,
+    requested_by: str | None,
+    run_id: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> dict:
+    return transition_retraining_request(
+        spark=spark,
+        model_name=model_name,
+        model_version=model_version,
+        trigger_type=trigger_type,
+        trigger_source=trigger_source,
+        trigger_severity=trigger_severity,
+        reason=reason,
+        current_status="OPEN",
+        new_status="REJECTED",
+        requested_by=requested_by,
+        run_id=run_id,
+        project=project,
+        use_catalog=use_catalog,
+    )
+
+
+def execute_retraining_request(
+    spark,
+    *,
+    model_name: str,
+    model_version: str | None,
+    trigger_type: str,
+    trigger_source: str,
+    trigger_severity: str | None,
+    reason: str | None,
+    requested_by: str | None,
+    run_id: str,
+    project: str = "clientes",
+    use_catalog: bool = False,
+) -> dict:
+    return transition_retraining_request(
+        spark=spark,
+        model_name=model_name,
+        model_version=model_version,
+        trigger_type=trigger_type,
+        trigger_source=trigger_source,
+        trigger_severity=trigger_severity,
+        reason=reason,
+        current_status="APPROVED",
+        new_status="EXECUTED",
+        requested_by=requested_by,
+        run_id=run_id,
+        project=project,
+        use_catalog=use_catalog,
+    )
