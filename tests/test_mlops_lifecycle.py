@@ -118,6 +118,12 @@ def test_promote_and_deploy_ml_returns_early_when_model_already_active(monkeypat
         "deployment_status": "DEPLOYED_PRD",
     }
 
+    governance_statuses = []
+
+    monkeypatch.setattr(
+        "data_platform.governance.promote_and_deploy_ml.log_governance_run",
+        lambda **kwargs: governance_statuses.append(kwargs["status"]),
+    )
     monkeypatch.setattr(
         "data_platform.governance.promote_and_deploy_ml.resolve_model_entry",
         lambda spark, request: entry,
@@ -141,9 +147,16 @@ def test_promote_and_deploy_ml_returns_early_when_model_already_active(monkeypat
     assert result["target_env"] == "prd"
     assert result["status"] == "DEPLOYED_PRD"
     assert result["message"] == "model already active in target environment"
+    assert governance_statuses == ["STARTED", "SUCCESS"]
 
 
 def test_prepare_rollback_request_fails_when_no_active_deployment(monkeypatch):
+    governance_statuses = []
+
+    monkeypatch.setattr(
+        "data_platform.governance.rollback.log_governance_run",
+        lambda **kwargs: governance_statuses.append(kwargs["status"]),
+    )
     monkeypatch.setattr(
         "data_platform.governance.rollback.get_active_model_deployment",
         lambda **kwargs: None,
@@ -158,6 +171,8 @@ def test_prepare_rollback_request_fails_when_no_active_deployment(monkeypatch):
             use_catalog=False,
         )
 
+    assert governance_statuses == ["STARTED", "ERROR"]
+
 
 def test_promote_and_deploy_ml_blocks_invalid_status(monkeypatch):
     entry = {
@@ -167,6 +182,12 @@ def test_promote_and_deploy_ml_blocks_invalid_status(monkeypatch):
         "run_id": "run-x",
     }
 
+    governance_statuses = []
+
+    monkeypatch.setattr(
+        "data_platform.governance.promote_and_deploy_ml.log_governance_run",
+        lambda **kwargs: governance_statuses.append(kwargs["status"]),
+    )
     monkeypatch.setattr(
         "data_platform.governance.promote_and_deploy_ml.resolve_model_entry",
         lambda spark, request: entry,
@@ -187,6 +208,8 @@ def test_promote_and_deploy_ml_blocks_invalid_status(monkeypatch):
             use_catalog=False,
         )
 
+    assert governance_statuses == ["STARTED", "ERROR"]
+
 
 def test_promote_and_deploy_ml_idempotent_path_does_not_activate(monkeypatch):
     entry = {
@@ -203,7 +226,12 @@ def test_promote_and_deploy_ml_idempotent_path_does_not_activate(monkeypatch):
     }
 
     activation_calls = {"count": 0}
+    governance_statuses = []
 
+    monkeypatch.setattr(
+        "data_platform.governance.promote_and_deploy_ml.log_governance_run",
+        lambda **kwargs: governance_statuses.append(kwargs["status"]),
+    )
     monkeypatch.setattr(
         "data_platform.governance.promote_and_deploy_ml.resolve_model_entry",
         lambda spark, request: entry,
@@ -229,6 +257,7 @@ def test_promote_and_deploy_ml_idempotent_path_does_not_activate(monkeypatch):
 
     assert result["message"] == "model already active in target environment"
     assert activation_calls["count"] == 0
+    assert governance_statuses == ["STARTED", "SUCCESS"]
 
 
 def test_prepare_rollback_request_executes_when_previous_candidate_exists(monkeypatch):
@@ -253,6 +282,12 @@ def test_prepare_rollback_request_executes_when_previous_candidate_exists(monkey
     activation_calls = {"count": 0}
     status_updates = []
 
+    governance_statuses = []
+
+    monkeypatch.setattr(
+        "data_platform.governance.rollback.log_governance_run",
+        lambda **kwargs: governance_statuses.append(kwargs["status"]),
+    )
     monkeypatch.setattr(
         "data_platform.governance.rollback.get_active_model_deployment",
         lambda **kwargs: active,
@@ -285,6 +320,7 @@ def test_prepare_rollback_request_executes_when_previous_candidate_exists(monkey
     assert activation_calls["count"] == 1
     assert len(status_updates) == 1
     assert status_updates[0]["model_version"] == "new-version"
+    assert governance_statuses == ["STARTED", "SUCCESS"]
 
 
 def test_run_clientes_ml_end_to_end_executes_observable_ml_flow(monkeypatch):

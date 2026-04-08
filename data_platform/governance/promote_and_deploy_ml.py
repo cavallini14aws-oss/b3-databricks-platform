@@ -1,22 +1,30 @@
 import argparse
-from datetime import datetime, timezone
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from uuid import uuid4
 
 from pyspark.sql import Row
 from pyspark.sql import types as T
 
 from data_platform.core.context import get_context
-from data_platform.mlops.registry import get_latest_valid_model_entry, update_model_status
-from data_platform.mlops.deployments import activate_model_deployment, get_active_model_deployment
+from data_platform.governance.governance_runs import log_governance_run
+from data_platform.mlops.deployments import (
+    activate_model_deployment,
+    get_active_model_deployment,
+)
 from data_platform.mlops.model_states import (
-    TRAINED,
-    EVALUATED,
-    PROMOTION_APPROVED,
-    PROMOTED_HML,
-    PROMOTED_PRD,
     DEPLOYED_HML,
     DEPLOYED_PRD,
+    EVALUATED,
+    PROMOTED_HML,
+    PROMOTED_PRD,
+    PROMOTION_APPROVED,
     ROLLED_BACK,
+    TRAINED,
+)
+from data_platform.mlops.registry import (
+    get_latest_valid_model_entry,
+    update_model_status,
 )
 
 
@@ -86,8 +94,26 @@ def promote_and_deploy_ml(
     model_version: str | None = None,
     project: str = "clientes",
     use_catalog: bool = False,
+    forced_run_id: str | None = None,
 ):
     validate_promotion_path(source_env, target_env)
+
+    governance_run_id = forced_run_id or str(uuid4())
+
+    log_governance_run(
+        spark=spark,
+        component="promote_and_deploy_ml",
+        model_name=model_name,
+        model_version=model_version,
+        source_env=source_env,
+        target_env=target_env,
+        artifact_path=None,
+        status="STARTED",
+        run_id=governance_run_id,
+        message="Promotion iniciada",
+        project=project,
+        use_catalog=use_catalog,
+    )
 
     request = PromotionRequest(
         model_name=model_name,
@@ -98,132 +124,164 @@ def promote_and_deploy_ml(
         use_catalog=use_catalog,
     )
 
-    entry = resolve_model_entry(
-        spark=spark,
-        request=request,
-    )
-
-    resolved_model_version = entry["model_version"]
-    artifact_path = entry["artifact_path"]
-    status = entry["status"]
-    run_id = entry["run_id"]
-
-    if not artifact_path:
-        raise ValueError(
-            f"Modelo sem artifact_path valido: "
-            f"model_name={model_name}, model_version={resolved_model_version}"
+    try:
+        entry = resolve_model_entry(
+            spark=spark,
+            request=request,
         )
 
-    if status not in PROMOTABLE_SOURCE_STATES:
-        raise ValueError(
-            f"Status invalido para promocao: "
-            f"model_name={model_name}, model_version={resolved_model_version}, status={status}. "
-            f"Permitidos: {sorted(PROMOTABLE_SOURCE_STATES)}"
+        resolved_model_version = entry["model_version"]
+        artifact_path = entry["artifact_path"]
+        deployment_run_id = entry["run_id"]
+        status = entry["status"]
+
+        if not artifact_path:
+            raise ValueError(
+                "Modelo sem artifact_path valido: "
+                f"model_name={model_name}, model_version={resolved_model_version}"
+            )
+
+        if status not in PROMOTABLE_SOURCE_STATES:
+            raise ValueError(
+                "Status invalido para promocao: "
+                f"model_name={model_name}, model_version={resolved_model_version}, status={status}. "
+                f"Permitidos: {sorted(PROMOTABLE_SOURCE_STATES)}"
+            )
+
+        current_active = get_active_model_deployment(
+            spark=spark,
+            model_name=model_name,
+            target_env=target_env,
+            project=project,
+            use_catalog=use_catalog,
         )
 
-    current_active = get_active_model_deployment(
-        spark=spark,
-        model_name=model_name,
-        target_env=target_env,
-        project=project,
-        use_catalog=use_catalog,
-    )
+        if (
+            current_active is not None
+            and current_active["model_version"] == resolved_model_version
+            and current_active["is_active"] is True
+        ):
+            log_governance_run(
+                spark=spark,
+                component="promote_and_deploy_ml",
+                model_name=model_name,
+                model_version=resolved_model_version,
+                source_env=source_env,
+                target_env=target_env,
+                artifact_path=artifact_path,
+                status="SUCCESS",
+                run_id=governance_run_id,
+                message="Model already active in target environment",
+                project=project,
+                use_catalog=use_catalog,
+            )
+            return {
+                "model_name": model_name,
+                "model_version": resolved_model_version,
+                "artifact_path": artifact_path,
+                "source_env": source_env,
+                "target_env": target_env,
+                "status": current_active["deployment_status"],
+                "message": "model already active in target environment",
+            }
 
-    if (
-        current_active is not None
-        and current_active["model_version"] == resolved_model_version
-        and current_active["is_active"] is True
-    ):
+        log_ml_promotion_event(
+            spark=spark,
+            model_name=model_name,
+            model_version=resolved_model_version,
+            artifact_path=artifact_path,
+            source_env=source_env,
+            target_env=target_env,
+            status=PROMOTION_APPROVED,
+            reason="Promotion request accepted",
+            project=project,
+            use_catalog=use_catalog,
+        )
+
+        update_model_status(
+            spark=spark,
+            model_name=model_name,
+            model_version=resolved_model_version,
+            status=PROMOTION_APPROVED,
+            project=project,
+            use_catalog=use_catalog,
+        )
+
+        promoted_status = PROMOTED_HML if target_env == "hml" else PROMOTED_PRD
+        update_model_status(
+            spark=spark,
+            model_name=model_name,
+            model_version=resolved_model_version,
+            status=promoted_status,
+            project=project,
+            use_catalog=use_catalog,
+        )
+
+        deployed_status = DEPLOYED_HML if target_env == "hml" else DEPLOYED_PRD
+
+        activate_model_deployment(
+            spark=spark,
+            model_name=model_name,
+            model_version=resolved_model_version,
+            artifact_path=artifact_path,
+            source_env=source_env,
+            target_env=target_env,
+            deployment_status=deployed_status,
+            run_id=deployment_run_id,
+            notes=f"Promocao {source_env}->{target_env}",
+            project=project,
+            use_catalog=use_catalog,
+        )
+
+        update_model_status(
+            spark=spark,
+            model_name=model_name,
+            model_version=resolved_model_version,
+            status=deployed_status,
+            project=project,
+            use_catalog=use_catalog,
+        )
+
+        log_governance_run(
+            spark=spark,
+            component="promote_and_deploy_ml",
+            model_name=model_name,
+            model_version=resolved_model_version,
+            source_env=source_env,
+            target_env=target_env,
+            artifact_path=artifact_path,
+            status="SUCCESS",
+            run_id=governance_run_id,
+            message=f"Promotion concluida com status {deployed_status}",
+            project=project,
+            use_catalog=use_catalog,
+        )
+
         return {
             "model_name": model_name,
             "model_version": resolved_model_version,
             "artifact_path": artifact_path,
             "source_env": source_env,
             "target_env": target_env,
-            "status": current_active["deployment_status"],
-            "message": "model already active in target environment",
+            "status": deployed_status,
         }
 
-    log_ml_promotion_event(
-        spark=spark,
-        model_name=model_name,
-        model_version=resolved_model_version,
-        artifact_path=artifact_path,
-        source_env=source_env,
-        target_env=target_env,
-        status=PROMOTION_APPROVED,
-        reason="Promotion request accepted",
-        project=project,
-        use_catalog=use_catalog,
-    )
-
-    update_model_status(
-        spark=spark,
-        model_name=model_name,
-        model_version=resolved_model_version,
-        status=PROMOTION_APPROVED,
-        project=project,
-        use_catalog=use_catalog,
-    )
-
-    promoted_status = PROMOTED_HML if target_env == "hml" else PROMOTED_PRD
-
-    update_model_status(
-        spark=spark,
-        model_name=model_name,
-        model_version=resolved_model_version,
-        status=promoted_status,
-        project=project,
-        use_catalog=use_catalog,
-    )
-
-    deployed_status = DEPLOYED_HML if target_env == "hml" else DEPLOYED_PRD
-
-    previous_active = activate_model_deployment(
-        spark=spark,
-        model_name=model_name,
-        model_version=resolved_model_version,
-        artifact_path=artifact_path,
-        source_env=source_env,
-        target_env=target_env,
-        deployment_status=deployed_status,
-        run_id=run_id,
-        notes=f"Promocao {source_env}->{target_env}",
-        project=project,
-        use_catalog=use_catalog,
-    )
-
-    update_model_status(
-        spark=spark,
-        model_name=model_name,
-        model_version=resolved_model_version,
-        status=deployed_status,
-        project=project,
-        use_catalog=use_catalog,
-    )
-
-    print("Promotion request accepted")
-    print(f"model_name={model_name}")
-    print(f"resolved_model_version={resolved_model_version}")
-    print(f"artifact_path={artifact_path}")
-    print(f"source_env={source_env}")
-    print(f"target_env={target_env}")
-    print(f"promoted_status={promoted_status}")
-    print(f"deployed_status={deployed_status}")
-    if previous_active:
-        print(
-            "previous_active="
-            f"{previous_active['model_name']}:{previous_active['model_version']}:{previous_active['target_env']}"
+    except Exception as exc:
+        log_governance_run(
+            spark=spark,
+            component="promote_and_deploy_ml",
+            model_name=model_name,
+            model_version=model_version,
+            source_env=source_env,
+            target_env=target_env,
+            artifact_path=None,
+            status="ERROR",
+            run_id=governance_run_id,
+            message=f"{type(exc).__name__}: {str(exc)}",
+            project=project,
+            use_catalog=use_catalog,
         )
-
-    return {
-        "model_name": model_name,
-        "model_version": resolved_model_version,
-        "artifact_path": artifact_path,
-        "source_env": source_env,
-        "target_env": target_env,
-        "status": deployed_status,
-    }
+        raise
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
