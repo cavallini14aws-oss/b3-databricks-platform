@@ -348,12 +348,18 @@ def test_run_clientes_ml_end_to_end_executes_observable_ml_flow(monkeypatch):
         lambda **kwargs: "clientes_feature.tb_clientes_scoring_dataset_v2",
     )
 
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.get_model_artifact_path",
+        lambda **kwargs: "/Volumes/workspace/customer_intelligence/vol_ml_artifacts/clientes_status_classifier/model-version-123",
+    )
+
     def fake_batch_inference(**kwargs):
         call_order.append("batch_inference")
         captured["batch_model_version"] = kwargs["model_version"]
         captured["batch_input_table"] = kwargs["input_table"]
         captured["batch_output_table"] = kwargs["output_table"]
         captured["batch_target_env"] = kwargs["target_env"]
+        captured["batch_artifact_path"] = kwargs["artifact_path"]
 
     smoke_statuses = []
 
@@ -387,4 +393,5 @@ def test_run_clientes_ml_end_to_end_executes_observable_ml_flow(monkeypatch):
     assert captured["batch_input_table"] == "clientes_feature.tb_clientes_scoring_dataset_v2"
     assert captured["batch_output_table"] == "clientes_mlops.tb_clientes_status_classifier_smoke_predictions_dev"
     assert captured["batch_target_env"] == "dev"
+    assert captured["batch_artifact_path"] == "/Volumes/workspace/customer_intelligence/vol_ml_artifacts/clientes_status_classifier/model-version-123"
     assert smoke_statuses == ["STARTED", "SUCCESS"]
