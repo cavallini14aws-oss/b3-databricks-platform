@@ -395,3 +395,150 @@ def test_run_clientes_ml_end_to_end_executes_observable_ml_flow(monkeypatch):
     assert captured["batch_target_env"] == "dev"
     assert captured["batch_artifact_path"] == "/Volumes/workspace/customer_intelligence/vol_ml_artifacts/clientes_status_classifier/model-version-123"
     assert smoke_statuses == ["STARTED", "SUCCESS"]
+
+
+def test_run_clientes_ml_end_to_end_skip_train_requires_existing_model_version(monkeypatch):
+    from pipelines.examples.clientes.ml.run_clientes_ml_end_to_end import (
+        run_clientes_ml_end_to_end,
+    )
+
+    fake_ctx = SimpleNamespace(
+        env="dev",
+        project="clientes",
+        naming=SimpleNamespace(
+            use_catalog=False,
+            schema_mlops="clientes_mlops",
+            qualified_table=lambda schema, table: f"{schema}.{table}",
+        ),
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.get_context",
+        lambda project, use_catalog: fake_ctx,
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_with_observability",
+        lambda **kwargs: kwargs["fn"](SimpleNamespace(info=lambda *args, **kwargs: None)),
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_prepare_clientes_training_dataset",
+        lambda **kwargs: None,
+    )
+
+    with pytest.raises(ValueError, match="existing_model_version deve ser informado"):
+        run_clientes_ml_end_to_end(
+            spark=object(),
+            project="clientes",
+            use_catalog=False,
+            config_path="config/clientes_ml_pipeline.yml",
+            skip_train=True,
+            existing_model_version=None,
+            forced_run_id="runner-test-skip-train-missing-version",
+        )
+
+
+def test_run_clientes_ml_end_to_end_skip_train_reuses_existing_model_version(monkeypatch):
+    from pipelines.examples.clientes.ml.run_clientes_ml_end_to_end import (
+        run_clientes_ml_end_to_end,
+    )
+
+    call_order = []
+    captured = {}
+
+    fake_ctx = SimpleNamespace(
+        env="dev",
+        project="clientes",
+        naming=SimpleNamespace(
+            use_catalog=False,
+            schema_mlops="clientes_mlops",
+            qualified_table=lambda schema, table: f"{schema}.{table}",
+        ),
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.get_context",
+        lambda project, use_catalog: fake_ctx,
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_with_observability",
+        lambda **kwargs: kwargs["fn"](SimpleNamespace(info=lambda *args, **kwargs: None)),
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_prepare_clientes_training_dataset",
+        lambda **kwargs: call_order.append("prepare_training"),
+    )
+
+    def fake_train(**kwargs):
+        call_order.append("train")
+        return "should-not-be-used"
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_train_clientes_model",
+        fake_train,
+    )
+
+    def fake_evaluate(**kwargs):
+        call_order.append("evaluate")
+        captured["evaluate_model_version"] = kwargs["model_version"]
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_evaluate_clientes_model",
+        fake_evaluate,
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_prepare_clientes_scoring_dataset",
+        lambda **kwargs: call_order.append("prepare_scoring"),
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.get_scoring_dataset_table",
+        lambda **kwargs: "clientes_feature.tb_clientes_scoring_dataset_v2",
+    )
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.get_model_artifact_path",
+        lambda **kwargs: "/Volumes/workspace/customer_intelligence/vol_ml_artifacts/clientes_status_classifier/model-version-existing",
+    )
+
+    smoke_statuses = []
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.log_smoke_run",
+        lambda **kwargs: smoke_statuses.append(kwargs["status"]),
+    )
+
+    def fake_batch_inference(**kwargs):
+        call_order.append("batch_inference")
+        captured["batch_model_version"] = kwargs["model_version"]
+        captured["batch_artifact_path"] = kwargs["artifact_path"]
+
+    monkeypatch.setattr(
+        "pipelines.examples.clientes.ml.run_clientes_ml_end_to_end.run_batch_inference",
+        fake_batch_inference,
+    )
+
+    run_clientes_ml_end_to_end(
+        spark=object(),
+        project="clientes",
+        use_catalog=False,
+        config_path="config/clientes_ml_pipeline.yml",
+        skip_train=True,
+        existing_model_version="model-version-existing",
+        forced_run_id="runner-test-skip-train",
+    )
+
+    assert call_order == [
+        "prepare_training",
+        "evaluate",
+        "prepare_scoring",
+        "batch_inference",
+    ]
+    assert captured["evaluate_model_version"] == "model-version-existing"
+    assert captured["batch_model_version"] == "model-version-existing"
+    assert captured["batch_artifact_path"] == "/Volumes/workspace/customer_intelligence/vol_ml_artifacts/clientes_status_classifier/model-version-existing"
+    assert smoke_statuses == ["STARTED", "SUCCESS"]

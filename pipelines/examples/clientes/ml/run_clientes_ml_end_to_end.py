@@ -33,6 +33,8 @@ def run_clientes_ml_end_to_end(
     project: str = "clientes",
     use_catalog: bool | None = None,
     config_path: str = "config/clientes_ml_pipeline.yml",
+    skip_train: bool = False,
+    existing_model_version: str | None = None,
     parent_component: str | None = None,
     parent_run_id: str | None = None,
     forced_run_id: str | None = None,
@@ -50,6 +52,9 @@ def run_clientes_ml_end_to_end(
     model_name = config["model"]["name"]
 
     def _run(logger: PlatformLogger):
+        logger.info(f"skip_train={skip_train}")
+        logger.info(f"existing_model_version={existing_model_version}")
+
         logger.info("Executando preparação do dataset de treino")
 
         run_prepare_clientes_training_dataset(
@@ -62,17 +67,28 @@ def run_clientes_ml_end_to_end(
             forced_run_id=str(uuid4()),
         )
 
-        logger.info("Executando treino do modelo")
+        if skip_train:
+            if not existing_model_version:
+                raise ValueError(
+                    "existing_model_version deve ser informado quando skip_train=True"
+                )
 
-        model_version = run_train_clientes_model(
-            spark=spark,
-            project=project,
-            use_catalog=ctx.naming.use_catalog,
-            config_path=config_path,
-            parent_component="run_clientes_ml_end_to_end",
-            parent_run_id=run_id,
-            forced_run_id=str(uuid4()),
-        )
+            model_version = existing_model_version
+            logger.info(
+                f"Pulando treino e reutilizando model_version existente: {model_version}"
+            )
+        else:
+            logger.info("Executando treino do modelo")
+
+            model_version = run_train_clientes_model(
+                spark=spark,
+                project=project,
+                use_catalog=ctx.naming.use_catalog,
+                config_path=config_path,
+                parent_component="run_clientes_ml_end_to_end",
+                parent_run_id=run_id,
+                forced_run_id=str(uuid4()),
+            )
 
         logger.info(f"Executando avaliação do modelo: {model_version}")
 
@@ -213,6 +229,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="true/false. Se omitido, usa o valor do ambiente.",
     )
+    parser.add_argument(
+        "--skip-train",
+        dest="skip_train",
+        action="store_true",
+        help="Pula o treino e reutiliza uma versao de modelo existente.",
+    )
+    parser.add_argument(
+        "--existing-model-version",
+        dest="existing_model_version",
+        default=None,
+        help="Model version existente para usar quando --skip-train estiver ativo.",
+    )
     return parser
 
 
@@ -235,6 +263,8 @@ def main(args: list[str] | None = None) -> None:
         project=parsed.project,
         use_catalog=use_catalog,
         config_path=parsed.config_path,
+        skip_train=parsed.skip_train,
+        existing_model_version=parsed.existing_model_version,
     )
 
 
