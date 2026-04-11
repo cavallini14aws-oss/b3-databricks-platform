@@ -1,19 +1,17 @@
 import json
 
 from data_platform.mlops.readiness_report import build_mlops_readiness_report
+from pyspark.sql import SparkSession
 
 
 def main():
     try:
-        spark  # type: ignore[name-defined]
-    except NameError as exc:
-        raise RuntimeError(
-            "Spark session não encontrada. Execute este entrypoint em ambiente Databricks "
-            "ou injete a variável global 'spark'."
-        ) from exc
+        active_spark = spark  # type: ignore[name-defined]
+    except NameError:
+        active_spark = SparkSession.builder.getOrCreate()
 
     report = build_mlops_readiness_report(
-        spark=spark,  # type: ignore[name-defined]
+        spark=active_spark,
         project="clientes",
         use_catalog=False,
     )
