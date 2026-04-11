@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ENV_NAME="${1:-dev}"
+PROFILE_NAME="${2:-}"
+
+if [[ -z "${PROFILE_NAME}" ]]; then
+  echo "[INFO] Executando pre-deploy gate sem profile explícito"
+  ./bin/pre-deploy-gate "${ENV_NAME}"
+  echo "[INFO] Executando bundle deploy"
+  databricks bundle deploy --target "${ENV_NAME}"
+else
+  echo "[INFO] Executando pre-deploy gate com profile=${PROFILE_NAME}"
+  ./bin/pre-deploy-gate "${ENV_NAME}" "${PROFILE_NAME}"
+  echo "[INFO] Executando bundle deploy"
+  databricks bundle deploy --target "${ENV_NAME}" --profile "${PROFILE_NAME}"
+fi

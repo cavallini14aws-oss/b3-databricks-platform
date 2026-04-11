@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+
+def run_cmd(cmd):
+    print(f"\n[RUN] {' '.join(cmd)}", flush=True)
+    result = subprocess.run(cmd, text=True, capture_output=True)
+    if result.stdout:
+        print(result.stdout, flush=True)
+    if result.stderr:
+        print(result.stderr, flush=True)
+    if result.returncode != 0:
+        raise SystemExit(result.returncode)
+    return result.stdout.strip()
+
+
+def run_json_module(module_name):
+    output = run_cmd([sys.executable, "-m", module_name])
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError as exc:
+        print(f"[ERROR] saída não-JSON de {module_name}", flush=True)
+        raise SystemExit(1) from exc
+
+
+def main():
+    env = sys.argv[1] if len(sys.argv) > 1 else "dev"
+    profile = sys.argv[2] if len(sys.argv) > 2 else ""
+
+    run_cmd([sys.executable, "-m", "pytest", "-q"])
+
+    schema_validation = run_json_module("data_platform.core.show_schema_validation")
+    pipeline_registry_validation = run_json_module("data_platform.core.show_pipeline_registry_validation")
+    activation_preflight = run_json_module("data_platform.core.show_activation_preflight")
+    go_no_go = run_json_module("data_platform.core.show_go_no_go_policy")
+    pr_merge_gate = run_json_module("data_platform.core.show_pr_merge_gate")
+
+    gate_report = {
+        "env": env,
+        "schema_validation": schema_validation,
+        "pipeline_registry_validation": pipeline_registry_validation,
+        "activation_preflight": activation_preflight,
+        "go_no_go": go_no_go,
+        "pr_merge_gate": pr_merge_gate,
+    }
+
+    Path("artifacts").mkdir(exist_ok=True)
+    Path("artifacts/pre_deploy_gate_report.json").write_text(
+        json.dumps(gate_report, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    if not schema_validation.get("valid", False):
+        print("[BLOCK] schema_validation inválido", flush=True)
+        raise SystemExit(1)
+
+    if not pipeline_registry_validation.get("valid", False):
+        print("[BLOCK] pipeline_registry_validation inválido", flush=True)
+        raise SystemExit(1)
+
+    decision = pr_merge_gate.get("decision")
+    if decision != "ALLOW":
+        print(f"[BLOCK] pr_merge_gate decision={decision}", flush=True)
+        raise SystemExit(1)
+
+    if profile:
+        run_cmd([
+            "databricks", "bundle", "validate",
+            "--target", env,
+            "--profile", profile,
+        ])
+    else:
+        run_cmd([
+            "databricks", "bundle", "validate",
+            "--target", env,
+        ])
+
+    print("[ALLOW] pre-deploy gate aprovado", flush=True)
+
+
+if __name__ == "__main__":
+    main()

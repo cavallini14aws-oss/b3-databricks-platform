@@ -1,0 +1,28 @@
+trigger:
+  branches:
+    include:
+      - main
+      - master
+      - dry-run-free-edition
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.10'
+
+  - script: |
+      python -m pip install --upgrade pip build
+      pip install -e ".[dev]"
+      pip install databricks-cli
+    displayName: Install dependencies
+
+  - script: ./bin/validate-active-provider
+    displayName: Validate active provider
+
+  - script: ./bin/pre-deploy-gate dev
+    displayName: Run hard gate
