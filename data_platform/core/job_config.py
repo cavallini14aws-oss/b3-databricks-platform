@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from data_platform.core.activation_control import get_activation_databricks_config, get_activation_jobs_config
 from data_platform.core.config_loader import load_yaml_config
 from data_platform.core.env import get_env
 
@@ -71,3 +72,22 @@ def load_job_config(env: str | None = None) -> JobConfig:
             minimum_auc=float(ml.get("minimum_auc", 0.0)),
         ),
     )
+
+
+def load_job_runtime_from_activation_control(
+    env: str | None = None,
+    config_path: str = "config/activation/operational_control.yml",
+) -> dict:
+    databricks_cfg = get_activation_databricks_config(
+        env=env,
+        config_path=config_path,
+    )
+    jobs_cfg = get_activation_jobs_config(
+        env=env,
+        config_path=config_path,
+    )
+
+    return {
+        "databricks": databricks_cfg,
+        "jobs": jobs_cfg,
+    }
