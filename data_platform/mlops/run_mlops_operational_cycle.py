@@ -1,6 +1,7 @@
 import json
 
 from data_platform.mlops.readiness_report import build_mlops_readiness_report
+from pyspark.sql import SparkSession
 
 
 def build_operational_cycle_summary(
@@ -32,15 +33,12 @@ def build_operational_cycle_summary(
 
 def main():
     try:
-        spark  # type: ignore[name-defined]
-    except NameError as exc:
-        raise RuntimeError(
-            "Spark session não encontrada. Execute este entrypoint em ambiente Databricks "
-            "ou injete a variável global 'spark'."
-        ) from exc
+        active_spark = spark  # type: ignore[name-defined]
+    except NameError:
+        active_spark = SparkSession.builder.getOrCreate()
 
     summary = build_operational_cycle_summary(
-        spark=spark,  # type: ignore[name-defined]
+        spark=active_spark,
         project="clientes",
         use_catalog=False,
     )

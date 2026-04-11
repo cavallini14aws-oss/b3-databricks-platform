@@ -8,9 +8,14 @@ on:
       - dry-run-free-edition
   workflow_dispatch:
 
+concurrency:
+  group: pr-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pr-gate:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -32,3 +37,11 @@ jobs:
 
       - name: Run hard gate
         run: ./bin/pre-deploy-gate dev
+
+      - name: Upload gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-gate-artifacts
+          path: artifacts/
+          if-no-files-found: ignore

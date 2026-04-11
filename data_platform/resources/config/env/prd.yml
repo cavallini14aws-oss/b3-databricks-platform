@@ -1,0 +1,63 @@
+environment:
+  name: prd
+  use_catalog: true
+  debug_mode: false
+
+storage:
+  model_artifact_base_path: "/mnt/prd/models/clientes"
+  enable_model_artifact_persistence: true
+
+flags:
+  enable_data_pipeline: true
+  enable_ml_pipeline: true
+  enable_llm_pipeline: false
+  enable_baseline: true
+  enable_confusion_matrix: true
+  enable_predictions_logging: true
+  enable_registry: true
+  enable_feature_store: true
+  enable_strict_quality_gates: true
+
+alerting:
+  enable_alerting: true
+  severity_min: "WARNING"
+  email_enabled: true
+  slack_enabled: false
+  teams_enabled: false
+  recipients: ""
+  owner_group: "mlops"
+  smtp_secret_scope: ""
+  smtp_host_key: ""
+  smtp_port_key: ""
+  smtp_username_key: ""
+  smtp_password_key: ""
+  webhook_secret_scope: ""
+  slack_webhook_key: ""
+  teams_webhook_key: ""
+
+retraining:
+  auto_open_from_drift_critical: true
+  auto_open_from_postprod_critical: true
+  auto_approve_drift_critical: false
+  auto_approve_postprod_critical: false
+
+mlops_thresholds:
+  drift_warning_relative_diff: 0.10
+  drift_critical_relative_diff: 0.30
+  postprod_min_accuracy: 0.70
+  postprod_min_f1: 0.70
+  postprod_min_precision: 0.70
+  postprod_min_recall: 0.70
+  auto_open_retraining_on_drift_critical: true
+  auto_open_retraining_on_postprod_critical: true
+  suggest_rollback_on_postprod_critical: true
+  require_smoke_after_rollback: true
+  require_smoke_after_retraining: true
+
+mlops_retention:
+  tb_model_predictions_days: 90
+  tb_ml_alert_events_days: 180
+  tb_model_postprod_metrics_days: 365
+  tb_model_retraining_requests_days: 365
+  tb_ml_governance_runs_days: 365
+  tb_ml_smoke_runs_days: 180

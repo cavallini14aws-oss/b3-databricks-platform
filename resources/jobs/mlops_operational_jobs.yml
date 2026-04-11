@@ -6,7 +6,7 @@ resources:
       tasks:
         - task_key: run_mlops_drift_cycle
           notebook_task:
-            notebook_path: ../notebooks/free_edition/mlops_drift_cycle.py
+            notebook_path: ../../notebooks/free_edition/mlops_drift_cycle.py
             source: WORKSPACE
 
     mlops_postprod_cycle:
@@ -15,7 +15,7 @@ resources:
       tasks:
         - task_key: run_mlops_postprod_cycle
           notebook_task:
-            notebook_path: ../notebooks/free_edition/mlops_postprod_cycle.py
+            notebook_path: ../../notebooks/free_edition/mlops_postprod_cycle.py
             source: WORKSPACE
 
     mlops_retraining_cycle:
@@ -24,7 +24,7 @@ resources:
       tasks:
         - task_key: run_mlops_retraining_cycle
           notebook_task:
-            notebook_path: ../notebooks/free_edition/mlops_retraining_cycle.py
+            notebook_path: ../../notebooks/free_edition/mlops_retraining_cycle.py
             source: WORKSPACE
 
     mlops_operational_cycle:
@@ -33,5 +33,5 @@ resources:
       tasks:
         - task_key: run_mlops_operational_cycle
           notebook_task:
-            notebook_path: ../notebooks/free_edition/mlops_operational_cycle.py
+            notebook_path: ../../notebooks/free_edition/mlops_operational_cycle.py
             source: WORKSPACE

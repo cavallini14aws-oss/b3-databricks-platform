@@ -1,0 +1,16 @@
+providers:
+  github_actions:
+    enabled: true
+    display_name: github_actions
+
+  azure_devops:
+    enabled: false
+    display_name: azure_devops
+
+  bitbucket:
+    enabled: false
+    display_name: bitbucket
+
+  aws:
+    enabled: false
+    display_name: aws

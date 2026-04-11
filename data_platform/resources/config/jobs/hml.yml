@@ -1,0 +1,28 @@
+job:
+  environment: hml
+  cluster_key: clientes-hml-cluster
+  cluster_mode: existing_or_job_cluster
+  workspace_root: /Workspace/Repos/b3-databricks-platform/b3-databricks-platform
+  default_timeout_seconds: 5400
+  max_retries: 1
+  use_catalog: true
+  default_config_path: config/clientes_ml_pipeline.yml
+
+promotion:
+  rules:
+    - source_env: dev
+      target_env: hml
+      requires_approval: false
+      require_tests_passed: true
+      require_quality_gates: false
+    - source_env: hml
+      target_env: prd
+      requires_approval: true
+      require_tests_passed: true
+      require_quality_gates: true
+
+quality_gates:
+  ml:
+    minimum_accuracy: 0.65
+    minimum_f1: 0.55
+    minimum_auc: 0.65
