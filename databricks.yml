@@ -1,8 +1,14 @@
 bundle:
   name: b3-databricks-platform
 
+artifacts:
+  default:
+    type: whl
+    build: python setup.py bdist_wheel
+    path: .
+
 include:
-  - resources/jobs/*.yml
+  - resources/jobs/mlops_operational_jobs.yml
 
 targets:
   dev:
