@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ENV_NAME="${1:-hml}"
+PROFILE_NAME="${2:-}"
+
+./bin/validate-active-provider
+./bin/pre-deploy-gate "${ENV_NAME}" "${PROFILE_NAME}"
+
+if [[ "${ENV_NAME}" == "hml" || "${ENV_NAME}" == "prd" ]]; then
+  ./bin/rehearsal-check "${ENV_NAME}"
+fi
+
+./bin/deploy-guarded "${ENV_NAME}" "${PROFILE_NAME}"
+
+if [[ "${ENV_NAME}" == "dev" || "${ENV_NAME}" == "hml" ]]; then
+  ./bin/post-deploy-smoke "${ENV_NAME}" "${PROFILE_NAME}"
+fi

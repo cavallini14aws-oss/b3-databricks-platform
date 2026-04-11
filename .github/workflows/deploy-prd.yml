@@ -34,5 +34,5 @@ jobs:
       - name: Validate active provider
         run: ./bin/validate-active-provider
 
-      - name: Guarded deploy
-        run: ./bin/deploy-guarded prd "${{ secrets.DATABRICKS_PROFILE_NAME }}"
+      - name: Promote guarded
+        run: ./bin/promote-guarded prd "${{ secrets.DATABRICKS_PROFILE_NAME }}"

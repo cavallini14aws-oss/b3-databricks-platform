@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+import glob
+import json
+import subprocess
+import sys
+import zipfile
+from pathlib import Path
+
+
+FORBIDDEN_RUNTIME_DEPS = {
+    "pyspark",
+    "mlflow",
+}
+
+
+def fail(message: str) -> None:
+    print(f"[BLOCK] {message}", flush=True)
+    raise SystemExit(1)
+
+
+def run(cmd):
+    result = subprocess.run(cmd, text=True, capture_output=True)
+    if result.returncode != 0:
+        print(result.stdout, flush=True)
+        print(result.stderr, flush=True)
+        raise SystemExit(result.returncode)
+    return result.stdout.strip()
+
+
+def get_current_commit() -> str:
+    return run(["git", "rev-parse", "HEAD"])
+
+
+def get_wheel_path() -> Path:
+    matches = sorted(glob.glob("dist/*.whl"))
+    if not matches:
+        fail("nenhuma wheel encontrada em dist/")
+    return Path(matches[-1])
+
+
+def read_wheel_metadata(wheel_path: Path):
+    with zipfile.ZipFile(wheel_path) as zf:
+        metadata_file = [n for n in zf.namelist() if n.endswith("METADATA")]
+        if not metadata_file:
+            fail("METADATA ausente na wheel")
+        metadata_text = zf.read(metadata_file[0]).decode("utf-8")
+
+        entry_files = [n for n in zf.namelist() if n.endswith("entry_points.txt")]
+        packaged_configs = [
+            n for n in zf.namelist()
+            if "resources/config" in n and n.endswith((".yml", ".yaml"))
+        ]
+
+    return metadata_text, entry_files, packaged_configs
+
+
+def extract_requires_dist(metadata_text: str):
+    deps = []
+    for line in metadata_text.splitlines():
+        if line.startswith("Requires-Dist: "):
+            deps.append(line.replace("Requires-Dist: ", "", 1))
+    return deps
+
+
+def extract_name(metadata_text: str):
+    for line in metadata_text.splitlines():
+        if line.startswith("Name: "):
+            return line.replace("Name: ", "", 1).strip()
+    fail("Name ausente no METADATA")
+
+
+def extract_version(metadata_text: str):
+    for line in metadata_text.splitlines():
+        if line.startswith("Version: "):
+            return line.replace("Version: ", "", 1).strip()
+    fail("Version ausente no METADATA")
+
+
+def main():
+    expected_package = "databricks_platform_template"
+    expected_entrypoints = {
+        "run_mlops_drift_cycle",
+        "run_mlops_postprod_cycle",
+        "run_mlops_retraining_cycle",
+        "run_mlops_operational_cycle",
+    }
+
+    commit = get_current_commit()
+    wheel_path = get_wheel_path()
+    metadata_text, entry_files, packaged_configs = read_wheel_metadata(wheel_path)
+
+    package_name = extract_name(metadata_text)
+    version = extract_version(metadata_text)
+    deps = extract_requires_dist(metadata_text)
+
+    if package_name != expected_package:
+        fail(f"package name inesperado: {package_name}")
+
+    if not version:
+        fail("versão vazia na wheel")
+
+    if not entry_files:
+        fail("entry_points.txt ausente na wheel")
+
+    missing_cfg = {
+        "data_platform/resources/config/env/dev.yml",
+        "data_platform/resources/config/env/hml.yml",
+        "data_platform/resources/config/env/prd.yml",
+        "data_platform/resources/config/pipelines_registry.yml",
+    } - set(packaged_configs)
+
+    if missing_cfg:
+        fail(f"configs ausentes na wheel: {sorted(missing_cfg)}")
+
+    entrypoint_text = ""
+    with zipfile.ZipFile(wheel_path) as zf:
+        for entry_file in entry_files:
+            entrypoint_text += zf.read(entry_file).decode("utf-8") + "\n"
+
+    for entrypoint in expected_entrypoints:
+        if entrypoint not in entrypoint_text:
+            fail(f"entrypoint ausente: {entrypoint}")
+
+    for dep in deps:
+        dep_name = dep.split("==")[0].split(">=")[0].split("<=")[0].strip()
+        dep_name = dep_name.split(";")[0].strip()
+        if dep_name in FORBIDDEN_RUNTIME_DEPS and 'extra == "dev"' not in dep:
+            fail(f"dependência proibida no runtime: {dep}")
+
+    report = {
+        "status": "ALLOW",
+        "package_name": package_name,
+        "version": version,
+        "wheel_path": str(wheel_path),
+        "git_commit": commit,
+        "entrypoint_files": entry_files,
+        "packaged_config_count": len(packaged_configs),
+        "runtime_dependencies": deps,
+    }
+
+    Path("artifacts").mkdir(exist_ok=True)
+    Path("artifacts/version_artifact_guard_report.json").write_text(
+        json.dumps(report, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    print(json.dumps(report, indent=2, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()

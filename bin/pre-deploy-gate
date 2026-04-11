@@ -30,8 +30,13 @@ def main():
     env = sys.argv[1] if len(sys.argv) > 1 else "dev"
     profile = sys.argv[2] if len(sys.argv) > 2 else ""
 
+    Path("artifacts").mkdir(exist_ok=True)
+
     run_cmd([sys.executable, "-m", "pytest", "-q"])
 
+    version_artifact_guard = json.loads(
+        run_cmd(["./bin/version-artifact-guard"])
+    )
     schema_validation = run_json_module("data_platform.core.show_schema_validation")
     pipeline_registry_validation = run_json_module("data_platform.core.show_pipeline_registry_validation")
     activation_preflight = run_json_module("data_platform.core.show_activation_preflight")
@@ -40,6 +45,7 @@ def main():
 
     gate_report = {
         "env": env,
+        "version_artifact_guard": version_artifact_guard,
         "schema_validation": schema_validation,
         "pipeline_registry_validation": pipeline_registry_validation,
         "activation_preflight": activation_preflight,
@@ -47,11 +53,14 @@ def main():
         "pr_merge_gate": pr_merge_gate,
     }
 
-    Path("artifacts").mkdir(exist_ok=True)
     Path("artifacts/pre_deploy_gate_report.json").write_text(
         json.dumps(gate_report, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+
+    if version_artifact_guard.get("status") != "ALLOW":
+        print("[BLOCK] version_artifact_guard bloqueou", flush=True)
+        raise SystemExit(1)
 
     if not schema_validation.get("valid", False):
         print("[BLOCK] schema_validation inválido", flush=True)
@@ -66,17 +75,20 @@ def main():
         print(f"[BLOCK] pr_merge_gate decision={decision}", flush=True)
         raise SystemExit(1)
 
+    bundle_cmd = ["databricks", "bundle", "validate", "--target", env]
     if profile:
-        run_cmd([
-            "databricks", "bundle", "validate",
-            "--target", env,
-            "--profile", profile,
-        ])
-    else:
-        run_cmd([
-            "databricks", "bundle", "validate",
-            "--target", env,
-        ])
+        bundle_cmd.extend(["--profile", profile])
+    run_cmd(bundle_cmd)
+
+    summary = {
+        "status": "ALLOW",
+        "env": env,
+        "decision": decision,
+    }
+    Path("artifacts/pre_deploy_gate_summary.json").write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
     print("[ALLOW] pre-deploy gate aprovado", flush=True)
 

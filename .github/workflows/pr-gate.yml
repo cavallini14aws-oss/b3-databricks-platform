@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  pre-deploy-gate:
+  pr-gate:
     runs-on: ubuntu-latest
 
     steps:
