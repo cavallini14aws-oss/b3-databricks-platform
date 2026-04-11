@@ -5,61 +5,33 @@ resources:
       max_concurrent_runs: 1
       tasks:
         - task_key: run_mlops_drift_cycle
-          python_wheel_task:
-            package_name: b3_data_platform
-            entry_point: run_mlops_drift_cycle
-          libraries:
-            - whl: ./dist/*.whl
-          environment_key: default
-      environments:
-        - environment_key: default
-          spec:
-            environment_version: "2"
+          notebook_task:
+            notebook_path: ../notebooks/free_edition/mlops_drift_cycle.py
+            source: WORKSPACE
 
     mlops_postprod_cycle:
       name: mlops-postprod-cycle-${bundle.target}
       max_concurrent_runs: 1
       tasks:
         - task_key: run_mlops_postprod_cycle
-          python_wheel_task:
-            package_name: b3_data_platform
-            entry_point: run_mlops_postprod_cycle
-          libraries:
-            - whl: ./dist/*.whl
-          environment_key: default
-      environments:
-        - environment_key: default
-          spec:
-            environment_version: "2"
+          notebook_task:
+            notebook_path: ../notebooks/free_edition/mlops_postprod_cycle.py
+            source: WORKSPACE
 
     mlops_retraining_cycle:
       name: mlops-retraining-cycle-${bundle.target}
       max_concurrent_runs: 1
       tasks:
         - task_key: run_mlops_retraining_cycle
-          python_wheel_task:
-            package_name: b3_data_platform
-            entry_point: run_mlops_retraining_cycle
-          libraries:
-            - whl: ./dist/*.whl
-          environment_key: default
-      environments:
-        - environment_key: default
-          spec:
-            environment_version: "2"
+          notebook_task:
+            notebook_path: ../notebooks/free_edition/mlops_retraining_cycle.py
+            source: WORKSPACE
 
     mlops_operational_cycle:
       name: mlops-operational-cycle-${bundle.target}
       max_concurrent_runs: 1
       tasks:
         - task_key: run_mlops_operational_cycle
-          python_wheel_task:
-            package_name: b3_data_platform
-            entry_point: run_mlops_operational_cycle
-          libraries:
-            - whl: ./dist/*.whl
-          environment_key: default
-      environments:
-        - environment_key: default
-          spec:
-            environment_version: "2"
+          notebook_task:
+            notebook_path: ../notebooks/free_edition/mlops_operational_cycle.py
+            source: WORKSPACE
