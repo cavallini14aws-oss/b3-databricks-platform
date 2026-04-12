@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+HOST="${APP_HOST:-127.0.0.1}"
+PORT="${APP_PORT:-8010}"
+BASE_URL="http://${HOST}:${PORT}"
+
+QUESTION='{"question":"Com base no documento, qual é o tema principal e como ele é apresentado na introdução?"}'
+
+echo "[INFO] Testing PDF RAG Lab API at ${BASE_URL}"
+
+echo "[INFO] Health check"
+curl -fsS "${BASE_URL}/health"
+echo
+
+echo "[INFO] Chat check"
+curl -fsS -X POST "${BASE_URL}/chat" \
+  -H 'Content-Type: application/json' \
+  -d "${QUESTION}"
+echo
+
+echo "[INFO] API checks finished successfully"
