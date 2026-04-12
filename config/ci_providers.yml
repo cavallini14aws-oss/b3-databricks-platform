@@ -1,16 +1,20 @@
+active_provider: github_actions
+
 providers:
   github_actions:
     enabled: true
-    display_name: github_actions
+    deploy_enabled: true
+    rehearsal_required_for_hml: true
+    rehearsal_required_for_prd: true
 
   azure_devops:
     enabled: false
-    display_name: azure_devops
+    deploy_enabled: false
+    rehearsal_required_for_hml: true
+    rehearsal_required_for_prd: true
 
   bitbucket:
     enabled: false
-    display_name: bitbucket
-
-  aws:
-    enabled: false
-    display_name: aws
+    deploy_enabled: false
+    rehearsal_required_for_hml: true
+    rehearsal_required_for_prd: true

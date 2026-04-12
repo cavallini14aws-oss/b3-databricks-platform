@@ -1,0 +1,14 @@
+image: python:3.10
+
+pipelines:
+  default:
+    - step:
+        name: pre-deploy-gate
+        caches:
+          - pip
+        script:
+          - python -m pip install --upgrade pip build
+          - pip install -e ".[dev]"
+          - pip install databricks-cli
+          - ./bin/validate-active-provider
+          - ./bin/pre-deploy-gate dev

@@ -29,3 +29,6 @@ validate_*.sh
 
 # macOS
 .DS_Store
+build
+dist
+*.egg-info

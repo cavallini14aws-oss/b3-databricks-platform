@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+import sys
+import yaml
+from pathlib import Path
+
+path = Path("config/ci_providers.yml")
+cfg = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+active = cfg.get("active_provider")
+providers = cfg.get("providers", {})
+
+if active not in providers:
+    print(f"[BLOCK] active_provider inválido: {active}")
+    raise SystemExit(1)
+
+active_cfg = providers[active]
+if not active_cfg.get("enabled", False):
+    print(f"[BLOCK] active_provider={active} está disabled")
+    raise SystemExit(1)
+
+print(f"[ALLOW] active_provider={active} válido e habilitado")

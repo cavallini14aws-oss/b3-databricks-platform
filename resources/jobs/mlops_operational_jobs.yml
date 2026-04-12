@@ -2,36 +2,36 @@ resources:
   jobs:
     mlops_drift_cycle:
       name: mlops-drift-cycle-${bundle.target}
+      max_concurrent_runs: 1
       tasks:
         - task_key: run_mlops_drift_cycle
-          spark_python_task:
-            python_file: ${workspace.file_path}/data_platform/mlops/run_mlops_drift_cycle.py
-          existing_cluster_id: ${var.cluster_id}
-      max_concurrent_runs: 1
+          notebook_task:
+            notebook_path: ../../notebooks/free_edition/mlops_drift_cycle.py
+            source: WORKSPACE
 
     mlops_postprod_cycle:
       name: mlops-postprod-cycle-${bundle.target}
+      max_concurrent_runs: 1
       tasks:
         - task_key: run_mlops_postprod_cycle
-          spark_python_task:
-            python_file: ${workspace.file_path}/data_platform/mlops/run_mlops_postprod_cycle.py
-          existing_cluster_id: ${var.cluster_id}
-      max_concurrent_runs: 1
+          notebook_task:
+            notebook_path: ../../notebooks/free_edition/mlops_postprod_cycle.py
+            source: WORKSPACE
 
     mlops_retraining_cycle:
       name: mlops-retraining-cycle-${bundle.target}
+      max_concurrent_runs: 1
       tasks:
         - task_key: run_mlops_retraining_cycle
-          spark_python_task:
-            python_file: ${workspace.file_path}/data_platform/mlops/run_mlops_retraining_cycle.py
-          existing_cluster_id: ${var.cluster_id}
-      max_concurrent_runs: 1
+          notebook_task:
+            notebook_path: ../../notebooks/free_edition/mlops_retraining_cycle.py
+            source: WORKSPACE
 
     mlops_operational_cycle:
       name: mlops-operational-cycle-${bundle.target}
+      max_concurrent_runs: 1
       tasks:
         - task_key: run_mlops_operational_cycle
-          spark_python_task:
-            python_file: ${workspace.file_path}/data_platform/mlops/run_mlops_operational_cycle.py
-          existing_cluster_id: ${var.cluster_id}
-      max_concurrent_runs: 1
+          notebook_task:
+            notebook_path: ../../notebooks/free_edition/mlops_operational_cycle.py
+            source: WORKSPACE

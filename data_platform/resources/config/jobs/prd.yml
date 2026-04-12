@@ -1,0 +1,23 @@
+job:
+  environment: prd
+  cluster_key: clientes-prd-cluster
+  cluster_mode: existing_or_job_cluster
+  workspace_root: /Workspace/Repos/b3-databricks-platform/b3-databricks-platform
+  default_timeout_seconds: 7200
+  max_retries: 2
+  use_catalog: true
+  default_config_path: config/clientes_ml_pipeline.yml
+
+promotion:
+  rules:
+    - source_env: hml
+      target_env: prd
+      requires_approval: true
+      require_tests_passed: true
+      require_quality_gates: true
+
+quality_gates:
+  ml:
+    minimum_accuracy: 0.75
+    minimum_f1: 0.70
+    minimum_auc: 0.75
