@@ -1,0 +1,45 @@
+runtime_install_governance:
+  dev:
+    manual_pip_install_allowed: true
+    approved_install_channels:
+      - wheel
+      - requirements
+      - manual_pip
+    approved_exception_required: false
+
+  hml:
+    manual_pip_install_allowed: false
+    approved_install_channels:
+      - wheel
+      - requirements
+    approved_exception_required: true
+
+  prd:
+    manual_pip_install_allowed: false
+    approved_install_channels:
+      - wheel
+      - requirements
+    approved_exception_required: true
+
+  forbidden_manual_install_patterns:
+    - "pip install"
+    - "%pip install"
+    - "dbutils.library.installPyPI"
+    - "python -m pip install"
+
+  scan_targets:
+    - ".github/workflows"
+    - "bin"
+    - "notebooks"
+    - "pipelines"
+    - "services"
+    - "data_platform"
+
+  ignore_paths:
+    - "docs"
+    - "frontend"
+    - "dist"
+    - "build"
+    - ".venv"
+
+  exceptions_file: "docs/platform_governance/runtime_install_exceptions.yml"

@@ -1,0 +1,12 @@
+exceptions:
+  - environment: hml
+    package_or_pattern: "pip install faiss-cpu"
+    reason: "Necessário para piloto PDF RAG Lab"
+    approved_by: "gestor_responsavel"
+    valid_until: "2026-12-31"
+
+  - environment: prd
+    package_or_pattern: "pip install <package>"
+    reason: "Exceção formal aprovada"
+    approved_by: "gestor_responsavel"
+    valid_until: "2026-12-31"
