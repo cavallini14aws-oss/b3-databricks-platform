@@ -1,22 +1,40 @@
-.venv/
-__pycache__/
-.pytest_cache/
-.mypy_cache/
-.ipynb_checkpoints/
-*.pyc
-*.pyo
-*.log
-.DS_Store
-artifacts/
-
-# Local virtual envs
+# Virtual environments
 .venv/
 .venv-*/
 
-# Python packaging artifacts
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Test and type-check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs and local env files
+*.log
+.env
+.env.*
+.python-version
+
+# macOS
+.DS_Store
+
+# Packaging artifacts
 *.egg-info/
-dist/
 build/
+dist/
+*.whl
+
+# Local artifacts
+artifacts/
+
+# Local Databricks / bundle state
+.databricks/
 
 # Local Spark/Hive artifacts
 metastore_db/
@@ -27,8 +45,7 @@ apply_*.sh
 fix_*.sh
 validate_*.sh
 
-# macOS
-.DS_Store
-build
-dist
-*.egg-info
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
