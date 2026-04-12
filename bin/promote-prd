@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+import subprocess
+import sys
+
+from data_platform.core.release_state import load_release_state, set_env_release
+
+
+def run(cmd):
+    result = subprocess.run(cmd, text=True, capture_output=True)
+    if result.stdout:
+        print(result.stdout, flush=True)
+    if result.stderr:
+        print(result.stderr, flush=True)
+    if result.returncode != 0:
+        raise SystemExit(result.returncode)
+    return result.stdout.strip()
+
+
+def get_current_commit() -> str:
+    return run(["git", "rev-parse", "HEAD"])
+
+
+def main():
+    profile = sys.argv[1] if len(sys.argv) > 1 else ""
+
+    dry_run_cmd = ["./bin/promote-prd-dry-run"]
+    if profile:
+        dry_run_cmd.append(profile)
+    run(dry_run_cmd)
+
+    deploy_cmd = ["./bin/deploy-guarded", "prd"]
+    if profile:
+        deploy_cmd.append(profile)
+    run(deploy_cmd)
+
+    state = load_release_state()
+    previous_version = state["prd"].get("current_version")
+    current_version = get_current_commit()
+
+    set_env_release(
+        env="prd",
+        current_version=current_version,
+        previous_version=previous_version,
+        smoke_status="pending_post_deploy_validation",
+    )
+
+    print(f"[OK] PRD promovido para versão {current_version}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,22 @@
+{
+  "dev": {
+    "current_version": null,
+    "previous_version": null,
+    "last_promoted_at": null,
+    "last_smoke_status": null
+  },
+  "hml": {
+    "current_version": null,
+    "previous_version": null,
+    "last_promoted_at": null,
+    "last_smoke_status": null,
+    "last_rehearsal_status": null
+  },
+  "prd": {
+    "current_version": null,
+    "previous_version": null,
+    "last_promoted_at": null,
+    "last_smoke_status": null,
+    "rollback_candidate": null
+  }
+}

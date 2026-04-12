@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+from data_platform.core.release_state import load_release_state
+
+
+def run(cmd):
+    result = subprocess.run(cmd, text=True, capture_output=True)
+    if result.stdout:
+        print(result.stdout, flush=True)
+    if result.stderr:
+        print(result.stderr, flush=True)
+    if result.returncode != 0:
+        raise SystemExit(result.returncode)
+    return result.stdout.strip()
+
+
+def main():
+    profile = sys.argv[1] if len(sys.argv) > 1 else ""
+
+    Path("artifacts").mkdir(exist_ok=True)
+
+    run(["./bin/validate-active-provider"])
+    run(["./bin/version-artifact-guard"])
+
+    gate_cmd = ["./bin/pre-deploy-gate", "prd"]
+    if profile:
+        gate_cmd.append(profile)
+
+    gate_ok = True
+    try:
+        run(gate_cmd)
+    except SystemExit:
+        gate_ok = False
+
+    rehearsal_ok = True
+    try:
+        run(["./bin/rehearsal-check", "hml"])
+    except SystemExit:
+        rehearsal_ok = False
+
+    state = load_release_state()
+    prd_state = state["prd"]
+
+    report = {
+        "target_env": "prd",
+        "gate_ok": gate_ok,
+        "hml_rehearsal_ok": rehearsal_ok,
+        "current_prd_version": prd_state.get("current_version"),
+        "rollback_candidate": prd_state.get("rollback_candidate"),
+        "promotion_allowed": gate_ok and rehearsal_ok,
+    }
+
+    Path("artifacts/promote_prd_dry_run.json").write_text(
+        json.dumps(report, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    print(json.dumps(report, indent=2, ensure_ascii=False))
+
+    if not report["promotion_allowed"]:
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
