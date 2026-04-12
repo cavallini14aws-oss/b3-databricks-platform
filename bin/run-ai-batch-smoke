@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from data_platform.aiops.evaluations.ai_smoke_report import build_ai_smoke_report
+from data_platform.core.config_loader import load_yaml_config
+from data_platform.core.context import get_context
+
+
+def run_python(code: str) -> str:
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        text=True,
+        capture_output=True,
+    )
+    if result.stdout:
+        print(result.stdout, flush=True)
+    if result.stderr:
+        print(result.stderr, flush=True)
+    if result.returncode != 0:
+        raise SystemExit(result.returncode)
+    return result.stdout.strip()
+
+
+def main():
+    project = sys.argv[1] if len(sys.argv) > 1 else "clientes"
+    config_path = sys.argv[2] if len(sys.argv) > 2 else "config/clientes_ai_pipeline.yml"
+
+    cfg = load_yaml_config(config_path)
+    ctx = get_context(project=project, use_catalog=False)
+
+    knowledge_table = f"{ctx.naming.silver_schema}.tb_{project}_ai_knowledge"
+    chunks_table = f"{ctx.naming.silver_schema}.tb_{project}_ai_chunks"
+    embeddings_table = f"{ctx.naming.silver_schema}.{cfg['embeddings'].get('output_table', f'tb_{project}_ai_embeddings')}"
+    index_table = f"{ctx.naming.silver_schema}.{cfg['index'].get('output_table', f'tb_{project}_ai_index')}"
+    rag_eval_table = f"{ctx.naming.silver_schema}.{cfg['evaluation'].get('output_table', f'tb_{project}_ai_rag_eval')}"
+
+    code = f"""
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.getOrCreate()
+
+tables = {{
+    "knowledge_count": "{knowledge_table}",
+    "chunks_count": "{chunks_table}",
+    "embeddings_count": "{embeddings_table}",
+    "index_count": "{index_table}",
+    "rag_eval_count": "{rag_eval_table}",
+}}
+
+result = {{}}
+for key, table_name in tables.items():
+    try:
+        result[key] = spark.table(table_name).count()
+    except Exception:
+        result[key] = 0
+
+import json
+print(json.dumps(result))
+"""
+
+    counts = json.loads(run_python(code))
+
+    report = build_ai_smoke_report(
+        project=project,
+        knowledge_count=counts["knowledge_count"],
+        chunks_count=counts["chunks_count"],
+        embeddings_count=counts["embeddings_count"],
+        index_count=counts["index_count"],
+        rag_eval_count=counts["rag_eval_count"],
+    )
+
+    Path("artifacts").mkdir(exist_ok=True)
+    Path("artifacts/ai_batch_smoke_report.json").write_text(
+        json.dumps(report, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    print(json.dumps(report, indent=2, ensure_ascii=False))
+
+    if report["status"] != "SUCCESS":
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
