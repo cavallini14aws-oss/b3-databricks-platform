@@ -4,8 +4,13 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-if [[ -f ".venv/bin/activate" ]]; then
+if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+  echo "[INFO] Using already active virtualenv: $VIRTUAL_ENV"
+elif [[ -f ".venv/bin/activate" ]]; then
+  echo "[INFO] Activating project virtualenv: $ROOT_DIR/.venv"
   source .venv/bin/activate
+else
+  echo "[WARN] No virtualenv active and no local .venv found"
 fi
 
 HOST="${APP_HOST:-127.0.0.1}"
@@ -15,5 +20,8 @@ echo "[INFO] Starting PDF RAG Lab locally"
 echo "[INFO] host=$HOST port=$PORT"
 echo "[INFO] provider defaults from config.py:"
 grep -n 'LLM_PROVIDER\|DEFAULT_LLM_MODEL' pipelines/examples/pdf_rag_lab/backend/services/config.py
+echo "[INFO] Python runtime:"
+which python || true
+python -c "import sys; print('[INFO] sys.executable=', sys.executable)"
 
 uvicorn pipelines.examples.pdf_rag_lab.backend.main:app --host "$HOST" --port "$PORT" --reload
