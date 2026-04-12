@@ -9,6 +9,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from data_platform.aiops.evaluations.ai_smoke_report import build_ai_smoke_report
+from data_platform.aiops.evaluations.ai_smoke_utils import resolve_schema
 from data_platform.core.config_loader import load_yaml_config
 from data_platform.core.context import get_context
 
@@ -34,12 +35,13 @@ def main():
 
     cfg = load_yaml_config(config_path)
     ctx = get_context(project=project, use_catalog=False)
+    silver_schema = resolve_schema(ctx)
 
-    knowledge_table = f"{ctx.naming.silver_schema}.tb_{project}_ai_knowledge"
-    chunks_table = f"{ctx.naming.silver_schema}.tb_{project}_ai_chunks"
-    embeddings_table = f"{ctx.naming.silver_schema}.{cfg['embeddings'].get('output_table', f'tb_{project}_ai_embeddings')}"
-    index_table = f"{ctx.naming.silver_schema}.{cfg['index'].get('output_table', f'tb_{project}_ai_index')}"
-    rag_eval_table = f"{ctx.naming.silver_schema}.{cfg['evaluation'].get('output_table', f'tb_{project}_ai_rag_eval')}"
+    knowledge_table = f"{silver_schema}.tb_{project}_ai_knowledge"
+    chunks_table = f"{silver_schema}.tb_{project}_ai_chunks"
+    embeddings_table = f"{silver_schema}.{cfg['embeddings'].get('output_table', f'tb_{project}_ai_embeddings')}"
+    index_table = f"{silver_schema}.{cfg['index'].get('output_table', f'tb_{project}_ai_index')}"
+    rag_eval_table = f"{silver_schema}.{cfg['evaluation'].get('output_table', f'tb_{project}_ai_rag_eval')}"
 
     code = f"""
 from pyspark.sql import SparkSession
