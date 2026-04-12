@@ -41,6 +41,11 @@ def _exception_matches(environment: str, pattern: str, exceptions: list[dict]) -
     return None
 
 
+def _is_comment_line(line: str) -> bool:
+    stripped = line.strip()
+    return stripped.startswith("#") or stripped.startswith("--")
+
+
 def scan_manual_install_patterns(environment: str) -> dict:
     contract = load_yaml_config("config/platform_contracts/runtime_install_contract.yml")
     rules = contract["runtime_install_governance"]
@@ -56,6 +61,7 @@ def scan_manual_install_patterns(environment: str) -> dict:
     allow_manual = rules[environment]["manual_pip_install_allowed"]
     exception_required = rules[environment]["approved_exception_required"]
     patterns = rules["forbidden_manual_install_patterns"]
+    approved_patterns = rules["approved_requirements_install_patterns"]
     targets = rules["scan_targets"]
     ignore_paths = rules["ignore_paths"]
     exceptions_file = rules["exceptions_file"]
@@ -76,28 +82,38 @@ def scan_manual_install_patterns(environment: str) -> dict:
                 continue
 
             try:
-                text = path.read_text(encoding="utf-8")
+                lines = path.read_text(encoding="utf-8").splitlines()
             except Exception:
                 continue
 
-            for pattern in patterns:
-                if pattern in text:
-                    match = {
-                        "file": str(path),
-                        "pattern": pattern,
-                    }
-                    matches.append(match)
+            for idx, line in enumerate(lines, start=1):
+                if _is_comment_line(line):
+                    continue
 
-                    approved = _exception_matches(environment, pattern, exceptions)
-                    if approved:
-                        approved_matches.append(
-                            {
-                                **match,
-                                "approved_by": approved.get("approved_by"),
-                                "reason": approved.get("reason"),
-                                "valid_until": approved.get("valid_until"),
-                            }
-                        )
+                approved_line = any(pattern in line for pattern in approved_patterns)
+                if approved_line:
+                    continue
+
+                for pattern in patterns:
+                    if pattern in line:
+                        match = {
+                            "file": str(path),
+                            "line": idx,
+                            "pattern": pattern,
+                            "content": line.strip(),
+                        }
+                        matches.append(match)
+
+                        approved = _exception_matches(environment, pattern, exceptions)
+                        if approved:
+                            approved_matches.append(
+                                {
+                                    **match,
+                                    "approved_by": approved.get("approved_by"),
+                                    "reason": approved.get("reason"),
+                                    "valid_until": approved.get("valid_until"),
+                                }
+                            )
 
     errors = []
 
@@ -115,7 +131,7 @@ def scan_manual_install_patterns(environment: str) -> dict:
         unapproved = [
             m for m in matches
             if not any(
-                a["file"] == m["file"] and a["pattern"] == m["pattern"]
+                a["file"] == m["file"] and a["pattern"] == m["pattern"] and a["line"] == m["line"]
                 for a in approved_matches
             )
         ]

@@ -27,6 +27,11 @@ runtime_install_governance:
     - "dbutils.library.installPyPI"
     - "python -m pip install"
 
+  approved_requirements_install_patterns:
+    - "python -m pip install -r requirements-platform.txt"
+    - "python -m pip install -r requirements-dev.txt"
+    - "python -m pip install -r requirements-rag-lab.txt"
+
   scan_targets:
     - ".github/workflows"
     - "bin"
@@ -45,5 +50,6 @@ runtime_install_governance:
     - "data_platform/governance/runtime_install_validator.py"
     - "docs/platform_governance/runtime_install_governance.md"
     - "docs/platform_governance/runtime_install_exceptions.yml"
+    - "data_platform/orchestration/generate_ci_adapters.py"
 
   exceptions_file: "docs/platform_governance/runtime_install_exceptions.yml"
