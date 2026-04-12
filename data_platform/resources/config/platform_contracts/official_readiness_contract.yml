@@ -1,0 +1,40 @@
+official_readiness:
+  required_top_level_sections:
+    - environment
+    - storage
+    - grants
+    - identity
+    - compute
+    - naming
+
+  storage:
+    required_fields:
+      - mode
+      - catalog
+      - schema
+      - volume_catalog
+      - volume_schema
+      - volume_name
+      - volume_path
+
+  grants:
+    required_fields:
+      - required_table_permissions
+      - required_volume_permissions
+
+  identity:
+    required_fields:
+      - allowed_executor_types
+      - expected_group
+
+  compute:
+    required_fields:
+      - allowed_cluster_modes
+      - min_runtime
+      - requires_uc_access
+
+  naming:
+    required_fields:
+      - expected_catalog
+      - expected_schema
+      - expected_volume_schema
