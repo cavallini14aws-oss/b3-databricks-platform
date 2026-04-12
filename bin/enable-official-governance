@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+OWNER="cavallini14aws-oss"
+REPO="b3-databricks-platform"
+BRANCH="main"
+
+gh api \
+  -X PUT \
+  -H "Accept: application/vnd.github+json" \
+  "/repos/${OWNER}/${REPO}/branches/${BRANCH}/protection" \
+  --input - <<'JSON'
+{
+  "required_status_checks": {
+    "strict": true,
+    "contexts": ["pr-gate"]
+  },
+  "enforce_admins": true,
+  "required_pull_request_reviews": {
+    "dismiss_stale_reviews": true,
+    "require_code_owner_reviews": false,
+    "required_approving_review_count": 1,
+    "require_last_push_approval": false
+  },
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "block_creations": false,
+  "required_conversation_resolution": true,
+  "lock_branch": false,
+  "allow_fork_syncing": true
+}
+JSON
+
+gh api \
+  -X PUT \
+  -H "Accept: application/vnd.github+json" \
+  "/repos/${OWNER}/${REPO}/environments/dev" \
+  --input - <<'JSON'
+{
+  "wait_timer": 0,
+  "deployment_branch_policy": {
+    "protected_branches": false,
+    "custom_branch_policies": true
+  }
+}
+JSON
+
+gh api \
+  -X PUT \
+  -H "Accept: application/vnd.github+json" \
+  "/repos/${OWNER}/${REPO}/environments/hml" \
+  --input - <<'JSON'
+{
+  "wait_timer": 0,
+  "deployment_branch_policy": {
+    "protected_branches": false,
+    "custom_branch_policies": true
+  }
+}
+JSON
+
+gh api \
+  -X PUT \
+  -H "Accept: application/vnd.github+json" \
+  "/repos/${OWNER}/${REPO}/environments/prd" \
+  --input - <<'JSON'
+{
+  "wait_timer": 0,
+  "deployment_branch_policy": {
+    "protected_branches": false,
+    "custom_branch_policies": true
+  }
+}
+JSON
+
+echo "[OK] Governança oficial reativada"

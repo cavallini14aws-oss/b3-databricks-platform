@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+OWNER="cavallini14aws-oss"
+REPO="b3-databricks-platform"
+BRANCH="main"
+
+gh api \
+  -X PUT \
+  -H "Accept: application/vnd.github+json" \
+  "/repos/${OWNER}/${REPO}/branches/${BRANCH}/protection" \
+  --input - <<'JSON'
+{
+  "required_status_checks": null,
+  "enforce_admins": true,
+  "required_pull_request_reviews": null,
+  "restrictions": null,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "block_creations": false,
+  "required_conversation_resolution": false,
+  "lock_branch": false,
+  "allow_fork_syncing": true
+}
+JSON
+
+echo "[OK] Governança afrouxada para fase local/free"
