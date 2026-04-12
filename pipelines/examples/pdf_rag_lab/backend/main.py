@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
-from pipelines.examples.pdf_rag_lab.backend.services.config import DEFAULT_TOP_K, RAW_DIR
+from pipelines.examples.pdf_rag_lab.backend.services.config import DEFAULT_RETRIEVAL_CANDIDATES, DEFAULT_TOP_K, RAW_DIR
 from pipelines.examples.pdf_rag_lab.backend.services.embedding_service import embed_query
 from pipelines.examples.pdf_rag_lab.backend.services.llm_service import generate_answer
 from pipelines.examples.pdf_rag_lab.backend.services.schemas import (
@@ -45,7 +45,11 @@ def chat(request: ChatRequest) -> ChatResponse:
 
     try:
         query_embedding = embed_query(request.question)
-        chunks = search_similar_chunks(query_embedding, top_k=top_k)
+        chunks = search_similar_chunks(
+            query_embedding,
+            top_k=top_k,
+            candidate_k=DEFAULT_RETRIEVAL_CANDIDATES,
+        )
         answer = generate_answer(request.question, chunks)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

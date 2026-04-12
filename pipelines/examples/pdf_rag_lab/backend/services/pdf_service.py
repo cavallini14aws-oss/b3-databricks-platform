@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 
 import fitz
@@ -7,7 +8,15 @@ import fitz
 from pipelines.examples.pdf_rag_lab.backend.services.config import (
     DEFAULT_CHUNK_OVERLAP,
     DEFAULT_CHUNK_SIZE,
+    MIN_CHUNK_LENGTH,
 )
+
+
+def _normalize_text(text: str) -> str:
+    text = text.replace("\xa0", " ")
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 def extract_pdf_pages(pdf_path: str) -> list[dict]:
@@ -15,7 +24,7 @@ def extract_pdf_pages(pdf_path: str) -> list[dict]:
     pages = []
 
     for page_index, page in enumerate(doc, start=1):
-        text = page.get_text("text").strip()
+        text = _normalize_text(page.get_text("text"))
         if text:
             pages.append(
                 {
@@ -28,19 +37,51 @@ def extract_pdf_pages(pdf_path: str) -> list[dict]:
     return pages
 
 
-def chunk_text(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE, chunk_overlap: int = DEFAULT_CHUNK_OVERLAP) -> list[str]:
+def _split_paragraphs(text: str) -> list[str]:
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    if paragraphs:
+        return paragraphs
+    return [text.strip()] if text.strip() else []
+
+
+def chunk_text(
+    text: str,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
+    chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
+) -> list[str]:
     if not text:
         return []
 
+    paragraphs = _split_paragraphs(text)
     chunks = []
-    start = 0
-    step = max(1, chunk_size - chunk_overlap)
+    current = ""
 
-    while start < len(text):
-        chunk = text[start:start + chunk_size].strip()
-        if chunk:
-            chunks.append(chunk)
-        start += step
+    for paragraph in paragraphs:
+        candidate = f"{current}\n\n{paragraph}".strip() if current else paragraph
+
+        if len(candidate) <= chunk_size:
+            current = candidate
+            continue
+
+        if current and len(current) >= MIN_CHUNK_LENGTH:
+            chunks.append(current.strip())
+
+        if len(paragraph) <= chunk_size:
+            current = paragraph
+            continue
+
+        start = 0
+        step = max(1, chunk_size - chunk_overlap)
+        while start < len(paragraph):
+            piece = paragraph[start:start + chunk_size].strip()
+            if piece and len(piece) >= MIN_CHUNK_LENGTH:
+                chunks.append(piece)
+            start += step
+
+        current = ""
+
+    if current and len(current) >= MIN_CHUNK_LENGTH:
+        chunks.append(current.strip())
 
     return chunks
 

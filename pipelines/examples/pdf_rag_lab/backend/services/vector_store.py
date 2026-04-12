@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import faiss
 import numpy as np
 
-from pipelines.examples.pdf_rag_lab.backend.services.config import VECTORSTORE_DIR
+from pipelines.examples.pdf_rag_lab.backend.services.config import (
+    DEFAULT_RETRIEVAL_CANDIDATES,
+    VECTORSTORE_DIR,
+)
 
 
 INDEX_PATH = VECTORSTORE_DIR / "pdf_rag.index"
@@ -39,11 +41,26 @@ def load_index() -> tuple[faiss.IndexFlatIP, list[dict]]:
     return index, metadata
 
 
-def search_similar_chunks(query_embedding: list[float], top_k: int = 4) -> list[dict]:
+def _rerank_results(results: list[dict], top_k: int) -> list[dict]:
+    def sort_key(item: dict):
+        page = item.get("page_number") or 999999
+        text_len = len(item.get("chunk_text", ""))
+        score = item.get("score", 0.0)
+        return (-score, page, -text_len)
+
+    ranked = sorted(results, key=sort_key)
+    return ranked[:top_k]
+
+
+def search_similar_chunks(
+    query_embedding: list[float],
+    top_k: int = 4,
+    candidate_k: int = DEFAULT_RETRIEVAL_CANDIDATES,
+) -> list[dict]:
     index, metadata = load_index()
 
     query = np.array([query_embedding], dtype="float32")
-    scores, indices = index.search(query, top_k)
+    scores, indices = index.search(query, max(top_k, candidate_k))
 
     results = []
     for score, idx in zip(scores[0], indices[0]):
@@ -53,4 +70,4 @@ def search_similar_chunks(query_embedding: list[float], top_k: int = 4) -> list[
         item["score"] = float(score)
         results.append(item)
 
-    return results
+    return _rerank_results(results, top_k)

@@ -11,25 +11,30 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 def build_prompt(question: str, chunks: list[dict]) -> str:
     context_blocks = []
 
-    for chunk in chunks:
+    for idx, chunk in enumerate(chunks, start=1):
         page = chunk.get("page_number")
         text = chunk.get("chunk_text", "")
-        context_blocks.append(f"[page={page}] {text}")
+        context_blocks.append(f"[trecho={idx} | page={page}]\n{text}")
 
     context = "\n\n".join(context_blocks)
 
     return f"""
 Você é um assistente de RAG.
-Responda usando apenas o contexto abaixo.
-Se a resposta não estiver no contexto, diga que não encontrou base suficiente.
+Use somente o contexto recuperado.
+Se a base for insuficiente, diga isso claramente.
+Se a pergunta pedir resumo, responda com:
+1. tema principal
+2. principais tópicos
+3. forma como a introdução apresenta o assunto
+4. uma resposta curta e objetiva
 
-Contexto:
+Contexto recuperado:
 {context}
 
 Pergunta:
 {question}
 
-Resposta:
+Responda em português do Brasil.
 """.strip()
 
 
@@ -43,7 +48,7 @@ def generate_answer(question: str, chunks: list[dict], model_name: str = DEFAULT
             "prompt": prompt,
             "stream": False,
         },
-        timeout=120,
+        timeout=180,
     )
     response.raise_for_status()
 
