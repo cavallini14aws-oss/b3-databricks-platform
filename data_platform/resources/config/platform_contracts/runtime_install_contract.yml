@@ -41,5 +41,9 @@ runtime_install_governance:
     - "dist"
     - "build"
     - ".venv"
+    - "data_platform/resources/config/platform_contracts/runtime_install_contract.yml"
+    - "data_platform/governance/runtime_install_validator.py"
+    - "docs/platform_governance/runtime_install_governance.md"
+    - "docs/platform_governance/runtime_install_exceptions.yml"
 
   exceptions_file: "docs/platform_governance/runtime_install_exceptions.yml"

@@ -1,0 +1,3 @@
+-r requirements-platform.txt
+pytest==8.3.3
+build==1.2.2.post1
