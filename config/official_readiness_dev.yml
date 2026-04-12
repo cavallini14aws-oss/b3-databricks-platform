@@ -1,0 +1,42 @@
+env: dev
+
+workspace:
+  provider: databricks
+  mode: official
+  readiness_level: pre-official
+
+identity:
+  execution_principal_type: service_principal
+  execution_principal_name: TO_BE_DEFINED
+  execution_group: TO_BE_DEFINED
+
+storage:
+  catalog: b3_dev
+  schema_ai: ai
+  schema_ops: ops
+  volume_name: pdf_rag_lab_docs
+  volume_path: /Volumes/b3_dev/ai/pdf_rag_lab_docs
+
+serving:
+  llm_provider: databricks
+  serving_endpoint: TO_BE_DEFINED
+  foundation_model_api_allowed: true
+
+runtime:
+  python_version: "3.10"
+  dependency_manifest: requirements-rag-lab.txt
+  manual_pip_install_allowed: false
+
+compute:
+  access_mode: TO_BE_DEFINED
+  runtime: TO_BE_DEFINED
+  unity_catalog_required: true
+
+governance:
+  branch_protection_required: false
+  pr_merge_gate_required: false
+  runtime_guard_required: true
+
+notes:
+  - Dev is allowed to be more flexible than hml and prd.
+  - Real secrets must not be hardcoded here.

@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+  echo "[INFO] Using already active virtualenv: $VIRTUAL_ENV"
+elif [[ -f ".venv/bin/activate" ]]; then
+  echo "[INFO] Activating project virtualenv: $ROOT_DIR/.venv"
+  source .venv/bin/activate
+fi
+
+required_files=(
+  "config/official_readiness_dev.yml"
+  "config/official_readiness_hml.yml"
+  "config/official_readiness_prd.yml"
+)
+
+for file in "${required_files[@]}"; do
+  if [[ -f "$file" ]]; then
+    echo "[OK] Found: $file"
+  else
+    echo "[ERROR] Missing: $file"
+    exit 1
+  fi
+done
+
+python - <<'PY'
+from pathlib import Path
+import sys
+import yaml
+
+required_top_keys = [
+    "env",
+    "workspace",
+    "identity",
+    "storage",
+    "serving",
+    "runtime",
+    "compute",
+    "governance",
+]
+
+required_nested = {
+    "workspace": ["provider", "mode", "readiness_level"],
+    "identity": ["execution_principal_type", "execution_principal_name", "execution_group"],
+    "storage": ["catalog", "schema_ai", "schema_ops", "volume_name", "volume_path"],
+    "serving": ["llm_provider", "serving_endpoint", "foundation_model_api_allowed"],
+    "runtime": ["python_version", "dependency_manifest", "manual_pip_install_allowed"],
+    "compute": ["access_mode", "runtime", "unity_catalog_required"],
+    "governance": ["branch_protection_required", "pr_merge_gate_required", "runtime_guard_required"],
+}
+
+paths = [
+    Path("config/official_readiness_dev.yml"),
+    Path("config/official_readiness_hml.yml"),
+    Path("config/official_readiness_prd.yml"),
+]
+
+ok = True
+
+for path in paths:
+    with path.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    print(f"[INFO] Validating {path}")
+
+    for key in required_top_keys:
+        if key not in data:
+            print(f"[ERROR] Missing top-level key '{key}' in {path}")
+            ok = False
+
+    for parent, children in required_nested.items():
+        section = data.get(parent, {})
+        if not isinstance(section, dict):
+            print(f"[ERROR] Section '{parent}' is not a mapping in {path}")
+            ok = False
+            continue
+        for child in children:
+            if child not in section:
+                print(f"[ERROR] Missing key '{parent}.{child}' in {path}")
+                ok = False
+
+if not ok:
+    sys.exit(1)
+
+print("[INFO] Official readiness configs validation passed")
+PY
