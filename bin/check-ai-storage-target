@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+import json
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from pyspark.sql import SparkSession
+from data_platform.aiops.retrieval.storage_guard import validate_ai_storage_target
+
+
+def main():
+    project = sys.argv[1] if len(sys.argv) > 1 else "clientes"
+    config_path = sys.argv[2] if len(sys.argv) > 2 else "config/clientes_ai_pipeline.yml"
+
+    spark = SparkSession.builder.getOrCreate()
+
+    result = validate_ai_storage_target(
+        spark=spark,
+        project=project,
+        config_path=config_path,
+        use_catalog=False,
+    )
+
+    Path("artifacts").mkdir(exist_ok=True)
+    Path("artifacts/ai_storage_target_check.json").write_text(
+        json.dumps(result, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+
+    if result["status"] != "ALLOW":
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
