@@ -4,6 +4,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from data_platform.core.release_state import set_rehearsal_status
+
 
 def run_json_module(module_name):
     result = subprocess.run(
@@ -43,7 +49,13 @@ def main():
 
     print(json.dumps(report, indent=2, ensure_ascii=False))
 
-    if env in {"hml", "prd"} and status == "BLOCK":
+    if env == "hml":
+        if status == "BLOCK":
+            set_rehearsal_status("hml", "failed")
+            raise SystemExit(1)
+        set_rehearsal_status("hml", "success")
+
+    if env == "prd" and status == "BLOCK":
         raise SystemExit(1)
 
 

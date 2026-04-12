@@ -48,11 +48,13 @@ def main():
 
     state = load_release_state()
     prd_state = state["prd"]
+    hml_state = state["hml"]
 
     report = {
         "target_env": "prd",
         "gate_ok": gate_ok,
         "hml_rehearsal_ok": rehearsal_ok,
+        "hml_last_rehearsal_status": hml_state.get("last_rehearsal_status"),
         "current_prd_version": prd_state.get("current_version"),
         "rollback_candidate": prd_state.get("rollback_candidate"),
         "promotion_allowed": gate_ok and rehearsal_ok,

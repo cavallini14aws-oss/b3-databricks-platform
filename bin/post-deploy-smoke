@@ -13,7 +13,14 @@ run_job() {
   fi
 }
 
+on_fail() {
+  ./bin/update-smoke-status "${ENV_NAME}" failed || true
+}
+trap on_fail ERR
+
 run_job mlops_drift_cycle
 run_job mlops_postprod_cycle
 run_job mlops_retraining_cycle
 run_job mlops_operational_cycle
+
+./bin/update-smoke-status "${ENV_NAME}" success

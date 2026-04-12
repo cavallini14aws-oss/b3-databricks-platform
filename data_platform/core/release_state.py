@@ -46,3 +46,19 @@ def set_env_release(
 
     save_release_state(state)
     return state
+
+
+def set_smoke_status(env: str, status: str) -> dict:
+    state = load_release_state()
+    state[env]["last_smoke_status"] = status
+    save_release_state(state)
+    return state
+
+
+def set_rehearsal_status(env: str, status: str) -> dict:
+    if env != "hml":
+        raise ValueError("Rehearsal status atualmente só é suportado para hml")
+    state = load_release_state()
+    state[env]["last_rehearsal_status"] = status
+    save_release_state(state)
+    return state
