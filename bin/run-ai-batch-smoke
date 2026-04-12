@@ -10,6 +10,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from data_platform.aiops.evaluations.ai_smoke_report import build_ai_smoke_report
 from data_platform.aiops.evaluations.ai_smoke_utils import resolve_schema
+from data_platform.aiops.retrieval.storage import ai_local_dataset_path, is_local_ai_mode
 from data_platform.core.config_loader import load_yaml_config
 from data_platform.core.context import get_context
 
@@ -35,30 +36,63 @@ def main():
 
     cfg = load_yaml_config(config_path)
     ctx = get_context(project=project, use_catalog=False)
-    silver_schema = resolve_schema(ctx)
 
-    knowledge_table = f"{silver_schema}.tb_{project}_ai_knowledge"
-    chunks_table = f"{silver_schema}.tb_{project}_ai_chunks"
-    embeddings_table = f"{silver_schema}.{cfg['embeddings'].get('output_table', f'tb_{project}_ai_embeddings')}"
-    index_table = f"{silver_schema}.{cfg['index'].get('output_table', f'tb_{project}_ai_index')}"
-    rag_eval_table = f"{silver_schema}.{cfg['evaluation'].get('output_table', f'tb_{project}_ai_rag_eval')}"
+    local_mode = is_local_ai_mode(cfg)
 
-    code = f"""
+    if local_mode:
+        knowledge_source = ai_local_dataset_path(cfg, project, "knowledge")
+        chunks_source = ai_local_dataset_path(cfg, project, "chunks")
+        embeddings_source = ai_local_dataset_path(cfg, project, "embeddings")
+        index_source = ai_local_dataset_path(cfg, project, "index")
+        rag_eval_source = ai_local_dataset_path(cfg, project, "rag_eval")
+    else:
+        silver_schema = resolve_schema(ctx)
+        knowledge_source = f"{silver_schema}.tb_{project}_ai_knowledge"
+        chunks_source = f"{silver_schema}.tb_{project}_ai_chunks"
+        embeddings_source = f"{silver_schema}.{cfg['embeddings'].get('output_table', f'tb_{project}_ai_embeddings')}"
+        index_source = f"{silver_schema}.{cfg['index'].get('output_table', f'tb_{project}_ai_index')}"
+        rag_eval_source = f"{silver_schema}.{cfg['evaluation'].get('output_table', f'tb_{project}_ai_rag_eval')}"
+
+    if local_mode:
+        code = f"""
 from pyspark.sql import SparkSession
 spark = SparkSession.builder.getOrCreate()
 
-tables = {{
-    "knowledge_count": "{knowledge_table}",
-    "chunks_count": "{chunks_table}",
-    "embeddings_count": "{embeddings_table}",
-    "index_count": "{index_table}",
-    "rag_eval_count": "{rag_eval_table}",
+sources = {{
+    "knowledge_count": "{knowledge_source}",
+    "chunks_count": "{chunks_source}",
+    "embeddings_count": "{embeddings_source}",
+    "index_count": "{index_source}",
+    "rag_eval_count": "{rag_eval_source}",
 }}
 
 result = {{}}
-for key, table_name in tables.items():
+for key, source in sources.items():
     try:
-        result[key] = spark.table(table_name).count()
+        result[key] = spark.read.parquet(source).count()
+    except Exception:
+        result[key] = 0
+
+import json
+print(json.dumps(result))
+"""
+    else:
+        code = f"""
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.getOrCreate()
+
+sources = {{
+    "knowledge_count": "{knowledge_source}",
+    "chunks_count": "{chunks_source}",
+    "embeddings_count": "{embeddings_source}",
+    "index_count": "{index_source}",
+    "rag_eval_count": "{rag_eval_source}",
+}}
+
+result = {{}}
+for key, source in sources.items():
+    try:
+        result[key] = spark.table(source).count()
     except Exception:
         result[key] = 0
 

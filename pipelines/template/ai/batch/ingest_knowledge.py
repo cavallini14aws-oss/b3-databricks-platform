@@ -1,5 +1,10 @@
 from pyspark.sql import functions as F
 
+from data_platform.aiops.retrieval.storage import (
+    ai_local_dataset_path,
+    is_local_ai_mode,
+)
+from data_platform.aiops.retrieval.table_names import ai_table_fqn
 from data_platform.core.config_loader import load_yaml_config
 from data_platform.core.context import get_context
 from data_platform.core.logger import PlatformLogger
@@ -31,7 +36,12 @@ def run_ingest_knowledge(
     text_column = cfg["knowledge"]["text_column"]
     metadata_columns = cfg["knowledge"].get("metadata_columns", [])
 
-    target_table = f"{ctx.naming.silver_schema}.tb_{project}_ai_knowledge"
+    local_mode = is_local_ai_mode(cfg)
+    target = (
+        ai_local_dataset_path(cfg, project, "knowledge")
+        if local_mode
+        else ai_table_fqn(ctx, project, "knowledge")
+    )
 
     logger.info(f"Lendo knowledge source_path={source_path} format={source_format}")
 
@@ -50,8 +60,12 @@ def run_ingest_knowledge(
         *[F.col(c).cast("string").alias(c) for c in available_metadata],
     ).withColumn("project", F.lit(project))
 
-    logger.info(f"Persistindo knowledge target_table={target_table}")
-    df_out.write.mode("overwrite").saveAsTable(target_table)
+    if local_mode:
+        logger.info(f"Persistindo knowledge target_path={target}")
+        df_out.write.mode("overwrite").parquet(target)
+    else:
+        logger.info(f"Persistindo knowledge target_table={target}")
+        df_out.write.mode("overwrite").saveAsTable(target)
 
-    logger.info(f"Knowledge ingest concluído target_table={target_table}")
-    return target_table
+    logger.info(f"Knowledge ingest concluído target={target}")
+    return target

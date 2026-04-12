@@ -1,5 +1,10 @@
 from pyspark.sql import functions as F
 
+from data_platform.aiops.retrieval.storage import (
+    ai_local_dataset_path,
+    is_local_ai_mode,
+)
+from data_platform.aiops.retrieval.table_names import ai_table_fqn, resolve_silver_schema
 from data_platform.core.config_loader import load_yaml_config
 from data_platform.core.context import get_context
 from data_platform.core.logger import PlatformLogger
@@ -25,16 +30,28 @@ def run_evaluate_rag(
         run_id=forced_run_id,
     )
 
-    chunks_table = f"{ctx.naming.silver_schema}.tb_{project}_ai_chunks"
-    embeddings_table = f"{ctx.naming.silver_schema}.{cfg['embeddings'].get('output_table', f'tb_{project}_ai_embeddings')}"
-    index_table = f"{ctx.naming.silver_schema}.{cfg['index'].get('output_table', f'tb_{project}_ai_index')}"
-    target_table = f"{ctx.naming.silver_schema}.{cfg['evaluation'].get('output_table', f'tb_{project}_ai_rag_eval')}"
+    local_mode = is_local_ai_mode(cfg)
+    if local_mode:
+        chunks_source = ai_local_dataset_path(cfg, project, "chunks")
+        embeddings_source = ai_local_dataset_path(cfg, project, "embeddings")
+        index_source = ai_local_dataset_path(cfg, project, "index")
+        target = ai_local_dataset_path(cfg, project, "rag_eval")
+    else:
+        silver_schema = resolve_silver_schema(ctx)
+        chunks_source = ai_table_fqn(ctx, project, "chunks")
+        embeddings_source = f"{silver_schema}.{cfg['embeddings'].get('output_table', f'tb_{project}_ai_embeddings')}"
+        index_source = f"{silver_schema}.{cfg['index'].get('output_table', f'tb_{project}_ai_index')}"
+        target = f"{silver_schema}.{cfg['evaluation'].get('output_table', f'tb_{project}_ai_rag_eval')}"
 
     logger.info("Calculando métricas básicas da trilha RAG")
 
-    chunks_count = spark.table(chunks_table).count()
-    embeddings_count = spark.table(embeddings_table).count()
-    index_count = spark.table(index_table).count()
+    chunks_df = spark.read.parquet(chunks_source) if local_mode else spark.table(chunks_source)
+    embeddings_df = spark.read.parquet(embeddings_source) if local_mode else spark.table(embeddings_source)
+    index_df = spark.read.parquet(index_source) if local_mode else spark.table(index_source)
+
+    chunks_count = chunks_df.count()
+    embeddings_count = embeddings_df.count()
+    index_count = index_df.count()
 
     coverage = 0.0
     if chunks_count > 0:
@@ -59,8 +76,12 @@ def run_evaluate_rag(
         ],
     ).withColumn("status", F.when(F.col("embedding_coverage") >= 1.0, F.lit("OK")).otherwise(F.lit("WARN")))
 
-    logger.info(f"Persistindo avaliação RAG target_table={target_table}")
-    df_out.write.mode("overwrite").saveAsTable(target_table)
+    if local_mode:
+        logger.info(f"Persistindo avaliação RAG target_path={target}")
+        df_out.write.mode("overwrite").parquet(target)
+    else:
+        logger.info(f"Persistindo avaliação RAG target_table={target}")
+        df_out.write.mode("overwrite").saveAsTable(target)
 
-    logger.info(f"Avaliação RAG concluída target_table={target_table}")
-    return target_table
+    logger.info(f"Avaliação RAG concluída target={target}")
+    return target

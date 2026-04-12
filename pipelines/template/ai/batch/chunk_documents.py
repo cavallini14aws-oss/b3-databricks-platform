@@ -1,5 +1,10 @@
-from pyspark.sql import Row, functions as F, types as T
+from pyspark.sql import Row, types as T
 
+from data_platform.aiops.retrieval.storage import (
+    ai_local_dataset_path,
+    is_local_ai_mode,
+)
+from data_platform.aiops.retrieval.table_names import ai_table_fqn
 from data_platform.core.config_loader import load_yaml_config
 from data_platform.core.context import get_context
 from data_platform.core.logger import PlatformLogger
@@ -42,18 +47,24 @@ def run_chunk_documents(
         run_id=forced_run_id,
     )
 
-    source_table = f"{ctx.naming.silver_schema}.tb_{project}_ai_knowledge"
-    target_table = f"{ctx.naming.silver_schema}.tb_{project}_ai_chunks"
+    local_mode = is_local_ai_mode(cfg)
+    source = (
+        ai_local_dataset_path(cfg, project, "knowledge")
+        if local_mode
+        else ai_table_fqn(ctx, project, "knowledge")
+    )
+    target = (
+        ai_local_dataset_path(cfg, project, "chunks")
+        if local_mode
+        else ai_table_fqn(ctx, project, "chunks")
+    )
 
     chunk_size = cfg["chunking"].get("chunk_size", 800)
     chunk_overlap = cfg["chunking"].get("chunk_overlap", 120)
 
-    logger.info(
-        f"Lendo knowledge source_table={source_table} chunk_size={chunk_size} chunk_overlap={chunk_overlap}"
-    )
+    logger.info(f"Lendo source={source} chunk_size={chunk_size} chunk_overlap={chunk_overlap}")
 
-    df = spark.table(source_table)
-
+    df = spark.read.parquet(source) if local_mode else spark.table(source)
     rows = df.select("document_id", "document_text", "project").collect()
 
     output_rows = []
@@ -80,8 +91,12 @@ def run_chunk_documents(
 
     df_out = spark.createDataFrame(output_rows, schema=schema)
 
-    logger.info(f"Persistindo chunks target_table={target_table}")
-    df_out.write.mode("overwrite").saveAsTable(target_table)
+    if local_mode:
+        logger.info(f"Persistindo chunks target_path={target}")
+        df_out.write.mode("overwrite").parquet(target)
+    else:
+        logger.info(f"Persistindo chunks target_table={target}")
+        df_out.write.mode("overwrite").saveAsTable(target)
 
-    logger.info(f"Chunking concluído target_table={target_table}")
-    return target_table
+    logger.info(f"Chunking concluído target={target}")
+    return target
