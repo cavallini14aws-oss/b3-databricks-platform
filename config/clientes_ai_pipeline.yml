@@ -1,0 +1,36 @@
+pipeline:
+  name: clientes_ai_pipeline
+  project: clientes
+  type: ai
+  enabled: true
+
+knowledge:
+  source_path: /Volumes/workspace/customer_intelligence/knowledge/clientes
+  format: parquet
+  id_column: document_id
+  text_column: document_text
+  metadata_columns:
+    - source_type
+    - segmento
+    - dh_referencia
+
+chunking:
+  enabled: true
+  chunk_size: 800
+  chunk_overlap: 120
+
+embeddings:
+  enabled: true
+  provider: internal
+  model_name: text-embedding-3-large
+  output_table: tb_clientes_ai_embeddings
+
+index:
+  enabled: true
+  index_type: vector
+  output_table: tb_clientes_ai_index
+
+evaluation:
+  enabled: true
+  evaluation_type: rag_basic
+  output_table: tb_clientes_ai_rag_eval

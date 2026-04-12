@@ -12,5 +12,5 @@ def test_validate_pipeline_registry_artifacts_returns_expected_shape(monkeypatch
     result = validate_pipeline_registry_artifacts()
 
     assert result["valid"] is True
-    assert len(result["required_artifacts"]) == 5
+    assert len(result["required_artifacts"]) == 7
     assert result["missing_artifacts"] == []

@@ -4,9 +4,11 @@ from pathlib import Path
 REQUIRED_PIPELINE_ARTIFACTS = [
     "config/pipelines_registry.yml",
     "config/clientes_ml_pipeline.yml",
+    "config/clientes_ai_pipeline.yml",
     "pipelines/examples/clientes/ml/run_clientes_ml_end_to_end.py",
     "pipelines/examples/clientes/ml/run_clientes_retraining.py",
     "pipelines/examples/clientes/ml/evaluate_clientes_postprod.py",
+    "pipelines/examples/clientes/ai/run_clientes_ai_end_to_end.py",
 ]
 
 
