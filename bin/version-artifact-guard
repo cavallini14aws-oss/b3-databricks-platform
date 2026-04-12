@@ -7,6 +7,13 @@ import zipfile
 from pathlib import Path
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from data_platform.core.build_support import ensure_wheel_exists
+
+
 FORBIDDEN_RUNTIME_DEPS = {
     "pyspark",
     "mlflow",
@@ -32,10 +39,8 @@ def get_current_commit() -> str:
 
 
 def get_wheel_path() -> Path:
-    matches = sorted(glob.glob("dist/*.whl"))
-    if not matches:
-        fail("nenhuma wheel encontrada em dist/")
-    return Path(matches[-1])
+    wheel = ensure_wheel_exists()
+    return Path(wheel)
 
 
 def read_wheel_metadata(wheel_path: Path):

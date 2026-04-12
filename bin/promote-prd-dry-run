@@ -4,6 +4,10 @@ import subprocess
 import sys
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from data_platform.core.release_state import load_release_state
 
 
@@ -26,11 +30,11 @@ def main():
     run(["./bin/validate-active-provider"])
     run(["./bin/version-artifact-guard"])
 
+    gate_ok = True
     gate_cmd = ["./bin/pre-deploy-gate", "prd"]
     if profile:
         gate_cmd.append(profile)
 
-    gate_ok = True
     try:
         run(gate_cmd)
     except SystemExit:
