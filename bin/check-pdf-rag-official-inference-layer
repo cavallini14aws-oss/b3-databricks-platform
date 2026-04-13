@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ ! -f "config/pdf_rag_official_inference.yml" ]]; then
+  echo "[ERROR] Missing config/pdf_rag_official_inference.yml"
+  exit 1
+fi
+
+python3 - <<'PY'
+from pathlib import Path
+import sys
+import yaml
+
+path = Path("config/pdf_rag_official_inference.yml")
+data = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+required = {
+    "realtime": ["provider", "mode", "serving_endpoint_type", "ollama_enabled"],
+    "batch": ["provider", "mode", "ai_query_enabled"],
+    "governance": [
+        "ai_gateway_enabled",
+        "inference_tables_enabled",
+        "endpoint_telemetry_enabled",
+        "endpoint_telemetry_scope",
+    ],
+}
+
+ok = True
+
+for section, keys in required.items():
+    if section not in data or not isinstance(data[section], dict):
+        print(f"[ERROR] Missing or invalid section: {section}")
+        ok = False
+        continue
+    for key in keys:
+        if key not in data[section]:
+            print(f"[ERROR] Missing key: {section}.{key}")
+            ok = False
+
+if ok:
+    realtime = data["realtime"]
+    batch = data["batch"]
+    governance = data["governance"]
+
+    if realtime["provider"] != "databricks":
+        print("[ERROR] realtime.provider must be databricks")
+        ok = False
+
+    if realtime["mode"] not in {"foundation_model_api", "serving_endpoint"}:
+        print("[ERROR] realtime.mode must be foundation_model_api or serving_endpoint")
+        ok = False
+
+    if batch["provider"] != "databricks":
+        print("[ERROR] batch.provider must be databricks")
+        ok = False
+
+    if batch["mode"] != "ai_query":
+        print("[ERROR] batch.mode must be ai_query")
+        ok = False
+
+    if governance["ai_gateway_enabled"] is not True:
+        print("[ERROR] governance.ai_gateway_enabled must be true")
+        ok = False
+
+    if governance["inference_tables_enabled"] is not True:
+        print("[ERROR] governance.inference_tables_enabled must be true")
+        ok = False
+
+    if governance["endpoint_telemetry_enabled"] is not False:
+        print("[ERROR] governance.endpoint_telemetry_enabled must be false in phase 1")
+        ok = False
+
+    if governance["endpoint_telemetry_scope"] != "custom_only":
+        print("[ERROR] governance.endpoint_telemetry_scope must be custom_only")
+        ok = False
+
+if not ok:
+    sys.exit(1)
+
+print("[INFO] PDF RAG official inference layer validation passed")
+PY
