@@ -1,0 +1,10 @@
+ai_gateway:
+  endpoint_name_env: DATABRICKS_FOUNDATION_ENDPOINT
+  enabled: true
+  usage_tracking: true
+  inference_tables_enabled: true
+  inference_table_catalog: main
+  inference_table_schema: pdf_rag_monitoring
+  inference_table_prefix: pdf_rag
+  notes: >
+    Endpoint must already exist before enabling AI Gateway inference tables.
