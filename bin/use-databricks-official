@@ -25,7 +25,7 @@ ROOT_DIR="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
 cd "$ROOT_DIR"
 
 ENV_NAME="${1:-}"
-PROFILE_NAME="${2:-}"
+PROFILE_NAME_ARG="${2:-}"
 SERVING_ENDPOINT_ARG="${3:-}"
 
 if [[ -z "$ENV_NAME" ]]; then
@@ -46,12 +46,42 @@ if ! command -v databricks >/dev/null 2>&1; then
   return 1
 fi
 
-if [[ -z "$PROFILE_NAME" ]]; then
+if [[ ! -f ".databricks.official.endpoints.yml" ]]; then
+  echo "[ERROR] Arquivo .databricks.official.endpoints.yml não encontrado"
+  return 1
+fi
+
+PROFILE_FROM_MAP="$(python3 - <<PY
+import yaml
+from pathlib import Path
+data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
+print(data.get("$ENV_NAME", {}).get("profile", ""))
+PY
+)"
+
+ENDPOINT_FROM_MAP="$(python3 - <<PY
+import yaml
+from pathlib import Path
+data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
+print(data.get("$ENV_NAME", {}).get("serving_endpoint", ""))
+PY
+)"
+
+PROFILE_NAME="${PROFILE_NAME_ARG:-$PROFILE_FROM_MAP}"
+SERVING_ENDPOINT="${SERVING_ENDPOINT_ARG:-$ENDPOINT_FROM_MAP}"
+
+if [[ -z "$PROFILE_NAME" || "$PROFILE_NAME" == "TO_BE_DEFINED" ]]; then
   PROFILE_NAME="$(databricks auth profiles | awk '/\(Default\)/ { line=$0; sub(/ \(Default\)/,"",line); sub(/[[:space:]]+https:\/\/.*/,"",line); print line; exit }')"
 fi
 
 if [[ -z "$PROFILE_NAME" ]]; then
-  echo "[ERROR] Não foi possível resolver um profile default"
+  echo "[ERROR] Não foi possível resolver um profile para o ambiente $ENV_NAME"
+  return 1
+fi
+
+if [[ -z "$SERVING_ENDPOINT" || "$SERVING_ENDPOINT" == "TO_BE_DEFINED" ]]; then
+  echo "[ERROR] Serving endpoint não definido para o ambiente $ENV_NAME"
+  echo "[INFO] Ajuste .databricks.official.endpoints.yml ou passe o endpoint explicitamente"
   return 1
 fi
 
@@ -79,12 +109,6 @@ if [[ -z "${DATABRICKS_TOKEN:-}" ]]; then
   return 1
 fi
 
-SERVING_ENDPOINT="$SERVING_ENDPOINT_ARG"
-if [[ -z "$SERVING_ENDPOINT" ]]; then
-  echo "[ERROR] Informe explicitamente o nome do serving endpoint"
-  return 1
-fi
-
 ENV_FILE=".env.databricks.${ENV_NAME}.local"
 umask 077
 cat > "$ENV_FILE" <<EOT
@@ -92,6 +116,7 @@ DATABRICKS_HOST=$HOST
 DATABRICKS_TOKEN=$DATABRICKS_TOKEN
 DATABRICKS_SERVING_ENDPOINT=$SERVING_ENDPOINT
 DATABRICKS_CONFIG_PROFILE=$PROFILE_NAME
+DATABRICKS_ENV=$ENV_NAME
 LLM_PROVIDER=databricks
 EOT
 
@@ -100,8 +125,8 @@ source "$ENV_FILE"
 set +a
 
 echo "[INFO] Databricks official mode loaded"
-echo "[INFO] env=$ENV_NAME"
-echo "[INFO] profile=$PROFILE_NAME"
+echo "[INFO] env=$DATABRICKS_ENV"
+echo "[INFO] profile=$DATABRICKS_CONFIG_PROFILE"
 echo "[INFO] host=$DATABRICKS_HOST"
 echo "[INFO] endpoint=$DATABRICKS_SERVING_ENDPOINT"
 echo "[INFO] provider=$LLM_PROVIDER"

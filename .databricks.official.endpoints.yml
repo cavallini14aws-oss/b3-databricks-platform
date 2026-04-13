@@ -1,0 +1,11 @@
+dev:
+  profile: brunocavallini@hotmail.com
+  serving_endpoint: pdf-rag-dev-endpoint
+
+hml:
+  profile: TO_BE_DEFINED
+  serving_endpoint: pdf-rag-hml-endpoint
+
+prd:
+  profile: TO_BE_DEFINED
+  serving_endpoint: pdf-rag-prd-endpoint

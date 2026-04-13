@@ -38,6 +38,7 @@ if [[ ! "$DATABRICKS_HOST" =~ ^https:// ]]; then
   exit 1
 fi
 
+echo "[INFO] env=${DATABRICKS_ENV:-unset}"
 echo "[INFO] host=$DATABRICKS_HOST"
 echo "[INFO] endpoint=$DATABRICKS_SERVING_ENDPOINT"
 echo "[INFO] profile=${DATABRICKS_CONFIG_PROFILE:-unset}"
