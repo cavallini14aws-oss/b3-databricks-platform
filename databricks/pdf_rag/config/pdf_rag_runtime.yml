@@ -1,0 +1,16 @@
+volumes_raw_path: /Volumes/main/pdf_rag/raw
+volumes_reports_path: /Volumes/main/pdf_rag/reports
+
+ocr:
+  enabled: true
+  max_ocr_pages: 12
+  ocr_page_limit: 40
+  lang: eng
+
+chunking:
+  chunk_size: 1200
+  overlap: 150
+
+quality:
+  ocr_noise_threshold: 0.06
+  min_alpha_ratio: 0.55

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+required_files=(
+  "databricks/pdf_rag/config/pdf_rag_tables.yml"
+  "databricks/pdf_rag/config/pdf_rag_runtime.yml"
+  "databricks/pdf_rag/sql/create_pdf_rag_tables.sql"
+  "databricks/pdf_rag/src/vector_index_bootstrap.py"
+  "databricks/pdf_rag/src/foundation_model_client.py"
+  "docs/databricks/pdf_rag/AI_GATEWAY_ROADMAP.md"
+)
+
+for file in "${required_files[@]}"; do
+  if [[ -f "$file" ]]; then
+    echo "[OK] Found: $file"
+  else
+    echo "[ERROR] Missing: $file"
+    exit 1
+  fi
+done
+
+echo "[OK] Databricks PDF RAG readiness baseline is present"

@@ -1,0 +1,9 @@
+catalog: main
+schema: pdf_rag
+
+tables:
+  documents: pdf_documents
+  pages: pdf_pages
+  chunks: pdf_chunks
+  chunk_embeddings: pdf_chunk_embeddings
+  quality_reports: pdf_document_quality_reports
