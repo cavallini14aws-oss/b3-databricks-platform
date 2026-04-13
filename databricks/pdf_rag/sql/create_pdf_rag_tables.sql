@@ -1,6 +1,6 @@
-CREATE SCHEMA IF NOT EXISTS main.pdf_rag;
+CREATE SCHEMA IF NOT EXISTS workspace.pdf_rag;
 
-CREATE TABLE IF NOT EXISTS main.pdf_rag.pdf_documents (
+CREATE TABLE IF NOT EXISTS workspace.pdf_rag.pdf_documents (
   document_id STRING,
   file_name STRING,
   display_name STRING,
@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS main.pdf_rag.pdf_documents (
   ingestion_ts TIMESTAMP
 ) USING DELTA;
 
-CREATE TABLE IF NOT EXISTS main.pdf_rag.pdf_pages (
+CREATE TABLE IF NOT EXISTS workspace.pdf_rag.pdf_pages (
   document_id STRING,
   file_name STRING,
   page_number INT,
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS main.pdf_rag.pdf_pages (
   ingestion_ts TIMESTAMP
 ) USING DELTA;
 
-CREATE TABLE IF NOT EXISTS main.pdf_rag.pdf_chunks (
+CREATE TABLE IF NOT EXISTS workspace.pdf_rag.pdf_chunks (
   document_id STRING,
   file_name STRING,
   display_name STRING,
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS main.pdf_rag.pdf_chunks (
   ingestion_ts TIMESTAMP
 ) USING DELTA;
 
-CREATE TABLE IF NOT EXISTS main.pdf_rag.pdf_chunk_embeddings (
+CREATE TABLE IF NOT EXISTS workspace.pdf_rag.pdf_chunk_embeddings (
   chunk_id STRING,
   document_id STRING,
   file_name STRING,
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS main.pdf_rag.pdf_chunk_embeddings (
   embedding_ts TIMESTAMP
 ) USING DELTA;
 
-CREATE TABLE IF NOT EXISTS main.pdf_rag.pdf_document_quality_reports (
+CREATE TABLE IF NOT EXISTS workspace.pdf_rag.pdf_document_quality_reports (
   document_id STRING,
   file_name STRING,
   report_json STRING,

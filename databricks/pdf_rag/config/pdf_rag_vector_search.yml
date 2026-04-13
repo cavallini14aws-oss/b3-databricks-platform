@@ -1,8 +1,8 @@
 vector_search:
   endpoint_name: pdf-rag-vs-endpoint
   endpoint_type: STANDARD
-  index_name: main.pdf_rag.pdf_chunks_index
-  source_table_name: main.pdf_rag.pdf_chunks
+  index_name: workspace.pdf_rag.pdf_chunks_index
+  source_table_name: workspace.pdf_rag.pdf_chunks
   primary_key: chunk_id
   embedding_source_column: chunk_text
   embedding_model_endpoint_name: databricks-bge-large-en

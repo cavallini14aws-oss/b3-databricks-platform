@@ -7,6 +7,6 @@ SELECT
   status_code,
   request,
   response
-FROM main.pdf_rag_monitoring.pdf_rag_payload
+FROM workspace.pdf_rag_monitoring.pdf_rag_payload
 ORDER BY event_time DESC
 LIMIT 50;

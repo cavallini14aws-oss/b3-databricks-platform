@@ -1,7 +1,7 @@
 custom_serving:
   endpoint_name: pdf-rag-custom-serving-endpoint
   served_model_name: pdf-rag-custom-pyfunc
-  uc_model_name: main.pdf_rag_models.pdf_rag_custom_pyfunc
+  uc_model_name: workspace.pdf_rag_models.pdf_rag_custom_pyfunc
   workload_size: Small
   scale_to_zero_enabled: true
   route_optimized: false

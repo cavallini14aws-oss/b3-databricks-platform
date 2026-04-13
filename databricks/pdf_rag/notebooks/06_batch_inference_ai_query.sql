@@ -11,5 +11,5 @@ SELECT
       chunk_text
     )
   ) AS chunk_summary
-FROM main.pdf_rag.pdf_chunks
+FROM workspace.pdf_rag.pdf_chunks
 LIMIT 20;
