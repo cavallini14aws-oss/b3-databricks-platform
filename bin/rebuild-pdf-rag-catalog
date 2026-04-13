@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+  echo "[INFO] Using already active virtualenv: $VIRTUAL_ENV"
+elif [[ -f "/Users/brunocavallini/Unicorn.ia/.venv/bin/activate" ]]; then
+  source /Users/brunocavallini/Unicorn.ia/.venv/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  source .venv/bin/activate
+fi
+
+python - <<'PY'
+from pathlib import Path
+import re
+import unicodedata
+import yaml
+
+raw_dir = Path("pipelines/examples/pdf_rag_lab/backend/data/raw")
+files = sorted(
+    p.name for p in raw_dir.iterdir()
+    if p.is_file() and p.name != ".DS_Store" and p.suffix.lower() == ".pdf"
+)
+
+def normalize(text: str) -> str:
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+    text = text.lower()
+    text = re.sub(r"\.pdf$", "", text)
+    text = re.sub(r"[_\-]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+def make_document_id(name: str) -> str:
+    base = normalize(name)
+    base = re.sub(r"[^a-z0-9]+", "_", base).strip("_")
+    return base[:80]
+
+def make_display_name(name: str) -> str:
+    base = re.sub(r"\.pdf$", "", name, flags=re.IGNORECASE)
+    base = base.replace("_", " ").replace("-", " ")
+    base = re.sub(r"\s+", " ", base).strip()
+    return base
+
+documents = []
+for name in files:
+    display_name = make_display_name(name)
+    alias = normalize(name)
+    documents.append(
+        {
+            "document_id": make_document_id(name),
+            "display_name": display_name,
+            "source_file_name": name,
+            "aliases": [alias, normalize(display_name)],
+        }
+    )
+
+output = {"documents": documents}
+path = Path("config/pdf_rag_document_catalog.yml")
+path.write_text(yaml.safe_dump(output, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+print(f"[OK] catálogo gerado com {len(documents)} documento(s)")
+print(f"[OK] path={path}")
+for doc in documents:
+    print(f"[OK] {doc['display_name']}")
+PY

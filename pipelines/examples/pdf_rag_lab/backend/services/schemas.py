@@ -8,6 +8,10 @@ class ChatRequest(BaseModel):
 
 class RetrievedChunk(BaseModel):
     document_id: str
+    document_name: str | None = None
+    document_title_normalized: str | None = None
+    catalog_document_id: str | None = None
+    catalog_display_name: str | None = None
     chunk_id: str
     page_number: int | None = None
     score: float
@@ -17,6 +21,9 @@ class RetrievedChunk(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     chunks: list[RetrievedChunk]
+    retrieval_mode: str | None = None
+    document_filter_applied: str | None = None
+    document_filters_applied: list[str] | None = None
 
 
 class UploadResponse(BaseModel):

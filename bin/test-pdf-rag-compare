@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+time curl -v --max-time 30 -X POST http://127.0.0.1:8010/chat \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"Compare os principais temas de O Livro Vermelho e Os Arquétipos e o Inconsciente Coletivo."}'
+echo

@@ -1,0 +1,9 @@
+questions:
+  - name: red_book_summary
+    question: No PDF sobre o Livro Vermelho, qual é o tema principal e como ele é introduzido?
+
+  - name: red_book_intro
+    question: No PDF sobre O Livro Vermelho, o que o texto apresenta nas primeiras páginas?
+
+  - name: compare_red_book_and_archetypes
+    question: Compare os principais temas de O Livro Vermelho e Os Arquétipos e o Inconsciente Coletivo.

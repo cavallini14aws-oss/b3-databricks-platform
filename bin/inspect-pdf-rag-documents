@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+  echo "[INFO] Using already active virtualenv: $VIRTUAL_ENV"
+elif [[ -f "/Users/brunocavallini/Unicorn.ia/.venv/bin/activate" ]]; then
+  source /Users/brunocavallini/Unicorn.ia/.venv/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  source .venv/bin/activate
+fi
+
+python - <<'PY'
+from pipelines.examples.pdf_rag_lab.backend.services.document_catalog import load_document_catalog
+from pipelines.examples.pdf_rag_lab.backend.services.config import RAW_DIR
+from pipelines.examples.pdf_rag_lab.backend.services.document_intelligence import inspect_document
+from pipelines.examples.pdf_rag_lab.backend.services.document_quality_report import write_document_quality_report
+
+catalog = load_document_catalog()
+
+for doc in catalog:
+    pdf_file = RAW_DIR / doc["source_file_name"]
+    inspection = inspect_document(str(pdf_file), pdf_file.name)
+    report_path = write_document_quality_report(inspection)
+
+    print(f"[INFO] file={pdf_file.name}")
+    print(f"[INFO] quality_tier={inspection.quality_tier}")
+    print(f"[INFO] extraction_strategy={inspection.extraction_strategy}")
+    print(f"[INFO] usable_pages={inspection.usable_pages}/{inspection.total_pages}")
+    print(f"[INFO] avg_ocr_noise_score={inspection.avg_ocr_noise_score:.4f}")
+    print(f"[INFO] report={report_path}")
+    print()
+PY

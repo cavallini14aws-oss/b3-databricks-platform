@@ -1,1 +1,3 @@
 -r requirements-platform.txt
+pytesseract
+Pillow

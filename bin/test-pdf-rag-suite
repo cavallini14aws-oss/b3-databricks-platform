@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BASE_URL="${PDF_RAG_BASE_URL:-http://127.0.0.1:8010}"
+
+echo "[INFO] Health"
+curl -s --max-time 10 "${BASE_URL}/health"
+echo
+echo
+
+echo "[INFO] Test 1: Red Book summary"
+time curl -s --max-time 30 -X POST "${BASE_URL}/chat" \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"No PDF sobre o Livro Vermelho, qual é o tema principal e como ele é introduzido?"}'
+echo
+echo
+
+echo "[INFO] Test 2: Red Book intro pages"
+time curl -s --max-time 30 -X POST "${BASE_URL}/chat" \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"No PDF sobre O Livro Vermelho, o que o texto apresenta nas primeiras páginas?"}'
+echo
+echo
+
+echo "[INFO] Test 3: Compare"
+time curl -s --max-time 30 -X POST "${BASE_URL}/chat" \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"Compare os principais temas de O Livro Vermelho e Os Arquétipos e o Inconsciente Coletivo."}'
+echo
