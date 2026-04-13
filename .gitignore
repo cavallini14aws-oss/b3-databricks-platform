@@ -54,3 +54,5 @@ htmlcov/
 pipelines/examples/pdf_rag_lab/backend/data/
 pipelines/examples/pdf_rag_lab/backend/vectorstore/
 !pipelines/examples/pdf_rag_lab/backend/.env.example
+.env.databricks.*.local
+.secrets.databricks.*.local

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+  echo "[INFO] Using already active virtualenv: $VIRTUAL_ENV"
+elif [[ -f ".venv/bin/activate" ]]; then
+  echo "[INFO] Activating project virtualenv: $ROOT_DIR/.venv"
+  source .venv/bin/activate
+fi
+
+echo "[INFO] Databricks RAG smoke"
+
+if [[ "${LLM_PROVIDER:-}" != "databricks" ]]; then
+  echo "[ERROR] LLM_PROVIDER must be databricks"
+  exit 1
+fi
+
+if [[ -z "${DATABRICKS_HOST:-}" ]]; then
+  echo "[ERROR] DATABRICKS_HOST not set"
+  exit 1
+fi
+
+if [[ -z "${DATABRICKS_TOKEN:-}" ]]; then
+  echo "[ERROR] DATABRICKS_TOKEN not set"
+  exit 1
+fi
+
+if [[ -z "${DATABRICKS_SERVING_ENDPOINT:-}" ]]; then
+  echo "[ERROR] DATABRICKS_SERVING_ENDPOINT not set"
+  exit 1
+fi
+
+if [[ ! "$DATABRICKS_HOST" =~ ^https:// ]]; then
+  echo "[ERROR] DATABRICKS_HOST must start with https://"
+  exit 1
+fi
+
+echo "[INFO] host=$DATABRICKS_HOST"
+echo "[INFO] endpoint=$DATABRICKS_SERVING_ENDPOINT"
+echo "[INFO] profile=${DATABRICKS_CONFIG_PROFILE:-unset}"
+echo "[INFO] token=[REDACTED]"
+
+python -m pytest tests/test_pdf_rag_llm_service_databricks.py -q
+
+echo "[INFO] Databricks RAG smoke finished successfully"

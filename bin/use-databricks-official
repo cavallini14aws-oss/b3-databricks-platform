@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ -n "${ZSH_VERSION:-}" ]; then
+  SCRIPT_PATH="${(%):-%N}"
+  CALLED_DIRECTLY=0
+elif [ -n "${BASH_VERSION:-}" ]; then
+  SCRIPT_PATH="${BASH_SOURCE[0]}"
+  if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    CALLED_DIRECTLY=1
+  else
+    CALLED_DIRECTLY=0
+  fi
+else
+  SCRIPT_PATH="$0"
+  CALLED_DIRECTLY=0
+fi
+
+if [[ "${CALLED_DIRECTLY}" -eq 1 ]]; then
+  echo "[ERROR] Use: source bin/use-databricks-official <dev|hml|prd> [profile] [serving-endpoint]"
+  exit 1
+fi
+
+ROOT_DIR="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-}"
+PROFILE_NAME="${2:-}"
+SERVING_ENDPOINT_ARG="${3:-}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Use: source bin/use-databricks-official <dev|hml|prd> [profile] [serving-endpoint]"
+  return 1
+fi
+
+case "$ENV_NAME" in
+  dev|hml|prd) ;;
+  *)
+    echo "[ERROR] Ambiente inválido: $ENV_NAME"
+    return 1
+    ;;
+esac
+
+if ! command -v databricks >/dev/null 2>&1; then
+  echo "[ERROR] Databricks CLI não encontrado"
+  return 1
+fi
+
+if [[ -z "$PROFILE_NAME" ]]; then
+  PROFILE_NAME="$(databricks auth profiles | awk '/\(Default\)/ { line=$0; sub(/ \(Default\)/,"",line); sub(/[[:space:]]+https:\/\/.*/,"",line); print line; exit }')"
+fi
+
+if [[ -z "$PROFILE_NAME" ]]; then
+  echo "[ERROR] Não foi possível resolver um profile default"
+  return 1
+fi
+
+AUTH_ENV_JSON="$(databricks auth env --profile "$PROFILE_NAME" --output json)"
+HOST="$(printf '%s' "$AUTH_ENV_JSON" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("env",{}).get("DATABRICKS_HOST",""))')"
+
+if [[ -z "$HOST" ]]; then
+  echo "[ERROR] Não foi possível resolver DATABRICKS_HOST a partir do profile $PROFILE_NAME"
+  return 1
+fi
+
+SECRETS_FILE=".secrets.databricks.${ENV_NAME}.local"
+if [[ ! -f "$SECRETS_FILE" ]]; then
+  echo "[ERROR] Arquivo de segredo não encontrado: $SECRETS_FILE"
+  echo "[INFO] Copie .secrets.databricks.example para $SECRETS_FILE e preencha o token."
+  return 1
+fi
+
+set -a
+source "$SECRETS_FILE"
+set +a
+
+if [[ -z "${DATABRICKS_TOKEN:-}" ]]; then
+  echo "[ERROR] DATABRICKS_TOKEN ausente em $SECRETS_FILE"
+  return 1
+fi
+
+SERVING_ENDPOINT="$SERVING_ENDPOINT_ARG"
+if [[ -z "$SERVING_ENDPOINT" ]]; then
+  echo "[ERROR] Informe explicitamente o nome do serving endpoint"
+  return 1
+fi
+
+ENV_FILE=".env.databricks.${ENV_NAME}.local"
+umask 077
+cat > "$ENV_FILE" <<EOT
+DATABRICKS_HOST=$HOST
+DATABRICKS_TOKEN=$DATABRICKS_TOKEN
+DATABRICKS_SERVING_ENDPOINT=$SERVING_ENDPOINT
+DATABRICKS_CONFIG_PROFILE=$PROFILE_NAME
+LLM_PROVIDER=databricks
+EOT
+
+set -a
+source "$ENV_FILE"
+set +a
+
+echo "[INFO] Databricks official mode loaded"
+echo "[INFO] env=$ENV_NAME"
+echo "[INFO] profile=$PROFILE_NAME"
+echo "[INFO] host=$DATABRICKS_HOST"
+echo "[INFO] endpoint=$DATABRICKS_SERVING_ENDPOINT"
+echo "[INFO] provider=$LLM_PROVIDER"
+echo "[INFO] token=[REDACTED]"
