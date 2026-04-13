@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ -n "${ZSH_VERSION:-}" ]; then
+  SCRIPT_PATH="${(%):-%N}"
+  CALLED_DIRECTLY=0
+elif [ -n "${BASH_VERSION:-}" ]; then
+  SCRIPT_PATH="${BASH_SOURCE[0]}"
+  if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    CALLED_DIRECTLY=1
+  else
+    CALLED_DIRECTLY=0
+  fi
+else
+  SCRIPT_PATH="$0"
+  CALLED_DIRECTLY=0
+fi
+
+if [[ "${CALLED_DIRECTLY}" -eq 1 ]]; then
+  echo "[ERROR] Use: source bin/use-databricks-official-m2m <dev|hml|prd> [serving-endpoint]"
+  exit 1
+fi
+
+ROOT_DIR="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-}"
+SERVING_ENDPOINT_ARG="${2:-}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Use: source bin/use-databricks-official-m2m <dev|hml|prd> [serving-endpoint]"
+  return 1
+fi
+
+case "$ENV_NAME" in
+  dev|hml|prd) ;;
+  *)
+    echo "[ERROR] Ambiente inválido: $ENV_NAME"
+    return 1
+    ;;
+esac
+
+if [[ ! -f ".databricks.official.endpoints.yml" ]]; then
+  echo "[ERROR] Arquivo .databricks.official.endpoints.yml não encontrado"
+  return 1
+fi
+
+ENDPOINT_FROM_MAP="$(python3 - <<PY
+import yaml
+from pathlib import Path
+data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
+print(data.get("$ENV_NAME", {}).get("serving_endpoint", ""))
+PY
+)"
+
+SERVING_ENDPOINT="${SERVING_ENDPOINT_ARG:-$ENDPOINT_FROM_MAP}"
+
+if [[ -z "$SERVING_ENDPOINT" || "$SERVING_ENDPOINT" == "TO_BE_DEFINED" ]]; then
+  echo "[ERROR] Serving endpoint não definido para o ambiente $ENV_NAME"
+  return 1
+fi
+
+SECRETS_FILE=".secrets.databricks.${ENV_NAME}.oauth.local"
+if [[ ! -f "$SECRETS_FILE" ]]; then
+  echo "[ERROR] Arquivo de segredo OAuth não encontrado: $SECRETS_FILE"
+  echo "[INFO] Copie .secrets.databricks.oauth.example para $SECRETS_FILE e preencha os valores."
+  return 1
+fi
+
+set -a
+source "$SECRETS_FILE"
+set +a
+
+if [[ -z "${DATABRICKS_HOST:-}" ]]; then
+  echo "[ERROR] DATABRICKS_HOST ausente em $SECRETS_FILE"
+  return 1
+fi
+
+if [[ -z "${DATABRICKS_CLIENT_ID:-}" ]]; then
+  echo "[ERROR] DATABRICKS_CLIENT_ID ausente em $SECRETS_FILE"
+  return 1
+fi
+
+if [[ -z "${DATABRICKS_CLIENT_SECRET:-}" ]]; then
+  echo "[ERROR] DATABRICKS_CLIENT_SECRET ausente em $SECRETS_FILE"
+  return 1
+fi
+
+export DATABRICKS_AUTH_TYPE="oauth-m2m"
+export DATABRICKS_CONFIG_PROFILE="official-${ENV_NAME}-m2m"
+export DATABRICKS_ENV="$ENV_NAME"
+export DATABRICKS_SERVING_ENDPOINT="$SERVING_ENDPOINT"
+export LLM_PROVIDER="databricks"
+
+echo "[INFO] Databricks official M2M mode loaded"
+echo "[INFO] env=$DATABRICKS_ENV"
+echo "[INFO] auth_type=$DATABRICKS_AUTH_TYPE"
+echo "[INFO] host=$DATABRICKS_HOST"
+echo "[INFO] endpoint=$DATABRICKS_SERVING_ENDPOINT"
+echo "[INFO] provider=$LLM_PROVIDER"
+echo "[INFO] client_id=[REDACTED]"
+echo "[INFO] client_secret=[REDACTED]"
