@@ -1,0 +1,19 @@
+vector_search:
+  endpoint_name: pdf-rag-vs-endpoint
+  endpoint_type: STANDARD
+  index_name: main.pdf_rag.pdf_chunks_index
+  source_table_name: main.pdf_rag.pdf_chunks
+  primary_key: chunk_id
+  embedding_source_column: chunk_text
+  embedding_model_endpoint_name: databricks-bge-large-en
+  model_endpoint_name_for_query: databricks-gte-large-en
+  pipeline_type: TRIGGERED
+  query_columns:
+    - chunk_id
+    - document_id
+    - file_name
+    - display_name
+    - page_number
+    - chunk_text
+    - document_quality_tier
+    - page_extraction_method
