@@ -5,12 +5,16 @@ required_files=(
   "databricks/pdf_rag/config/pdf_rag_tables.yml"
   "databricks/pdf_rag/config/pdf_rag_runtime.yml"
   "databricks/pdf_rag/config/pdf_rag_vector_search.yml"
+  "databricks/pdf_rag/config/pdf_rag_foundation_models.yml"
   "databricks/pdf_rag/sql/create_pdf_rag_tables.sql"
   "databricks/pdf_rag/src/vector_index_bootstrap.py"
   "databricks/pdf_rag/src/query_vector_index.py"
   "databricks/pdf_rag/src/foundation_model_client.py"
+  "databricks/pdf_rag/src/smoke_foundation_model.py"
   "databricks/pdf_rag/notebooks/03_create_vector_index.py"
   "databricks/pdf_rag/notebooks/04_query_vector_index.py"
+  "databricks/pdf_rag/notebooks/05_test_foundation_model.py"
+  "databricks/pdf_rag/notebooks/06_batch_inference_ai_query.sql"
   "docs/databricks/pdf_rag/AI_GATEWAY_ROADMAP.md"
 )
 

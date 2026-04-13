@@ -1,0 +1,7 @@
+foundation_models:
+  endpoint_name_env: DATABRICKS_FOUNDATION_ENDPOINT
+  request_timeout_seconds: 120
+  default_max_tokens: 800
+  default_temperature: 0.1
+  api_style: openai_compatible_chat
+  batch_inference_recommendation: ai_query
