@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DBX_PROFILE="${DBX_PROFILE:-brunocavallini@hotmail.com}"
+DBX_WS_ROOT="${DBX_WS_ROOT:-/Workspace/Shared/pdf_rag}"
+
+require_json() {
+  local payload="$1"
+  if [[ -z "${payload// }" ]]; then
+    echo "[ERROR] Empty JSON payload"
+    exit 1
+  fi
+  printf '%s' "$payload" | python3 - <<'PY' >/dev/null
+import json, sys
+json.load(sys.stdin)
+PY
+}
+
+ensure_job() {
+  local job_name="$1"
+  local notebook_path="$2"
+
+  local jobs_json
+  jobs_json="$(databricks jobs list --profile "$DBX_PROFILE" -o json)"
+  require_json "$jobs_json"
+
+  local existing_job_id
+  existing_job_id="$(printf '%s' "$jobs_json" | python3 - "$job_name" <<'PY'
+import json
+import sys
+
+data = json.load(sys.stdin)
+target = sys.argv[1]
+
+jobs = data if isinstance(data, list) else data.get("jobs", [])
+for job in jobs:
+    settings = job.get("settings", {})
+    if settings.get("name") == target:
+        print(job["job_id"])
+        raise SystemExit(0)
+
+print("")
+PY
+)"
+
+  if [[ -n "$existing_job_id" ]]; then
+    printf '%s\n' "$existing_job_id"
+    return 0
+  fi
+
+  local create_payload
+  create_payload="$(python3 - "$job_name" "$notebook_path" <<'PY'
+import json
+import sys
+
+job_name = sys.argv[1]
+notebook_path = sys.argv[2]
+
+payload = {
+    "name": job_name,
+    "tasks": [
+        {
+            "task_key": "main",
+            "notebook_task": {
+                "notebook_path": notebook_path
+            },
+            "environment_key": "default"
+        }
+    ],
+    "environments": [
+        {
+            "environment_key": "default",
+            "spec": {
+                "client": "1"
+            }
+        }
+    ]
+}
+
+print(json.dumps(payload))
+PY
+)"
+  require_json "$create_payload"
+
+  local create_json
+  create_json="$(databricks jobs create --profile "$DBX_PROFILE" --json "$create_payload" -o json)"
+  require_json "$create_json"
+
+  printf '%s' "$create_json" | python3 - <<'PY'
+import json
+import sys
+
+data = json.load(sys.stdin)
+print(data["job_id"])
+PY
+}
+
+run_job() {
+  local job_id="$1"
+
+  if [[ -z "$job_id" ]]; then
+    echo "[ERROR] invalid JOB_ID: empty"
+    exit 1
+  fi
+
+  local run_json
+  run_json="$(databricks jobs run-now "$job_id" --profile "$DBX_PROFILE" -o json)"
+  require_json "$run_json"
+
+  printf '%s' "$run_json" | python3 - <<'PY'
+import json
+import sys
+
+data = json.load(sys.stdin)
+print(data["run_id"])
+PY
+}
+
+wait_run() {
+  local run_id="$1"
+
+  if [[ -z "$run_id" ]]; then
+    echo "[ERROR] invalid RUN_ID: empty"
+    exit 1
+  fi
+
+  while true; do
+    local run_json
+    run_json="$(databricks jobs get-run "$run_id" --profile "$DBX_PROFILE" -o json)"
+    require_json "$run_json"
+
+    local state_line
+    state_line="$(printf '%s' "$run_json" | python3 - <<'PY'
+import json
+import sys
+
+data = json.load(sys.stdin)
+state = data.get("state", {})
+print(state.get("life_cycle_state", ""))
+print(state.get("result_state", ""))
+print(state.get("state_message", ""))
+PY
+)"
+    local life_cycle
+    local result_state
+    local state_message
+    life_cycle="$(printf '%s' "$state_line" | sed -n '1p')"
+    result_state="$(printf '%s' "$state_line" | sed -n '2p')"
+    state_message="$(printf '%s' "$state_line" | sed -n '3p')"
+
+    echo "[INFO] run_id=$run_id life_cycle_state=$life_cycle result_state=$result_state message=$state_message"
+
+    if [[ "$life_cycle" == "TERMINATED" ]]; then
+      if [[ "$result_state" == "SUCCESS" ]]; then
+        return 0
+      fi
+      echo "[ERROR] Run failed: run_id=$run_id"
+      printf '%s\n' "$run_json"
+      exit 1
+    fi
+
+    if [[ "$life_cycle" == "INTERNAL_ERROR" || "$life_cycle" == "SKIPPED" ]]; then
+      echo "[ERROR] Run ended unexpectedly: run_id=$run_id"
+      printf '%s\n' "$run_json"
+      exit 1
+    fi
+
+    sleep 10
+  done
+}
+
+NOTEBOOK_01="$DBX_WS_ROOT/databricks/pdf_rag/notebooks/01_inspect_documents"
+NOTEBOOK_02="$DBX_WS_ROOT/databricks/pdf_rag/notebooks/02_ingest_pages_and_chunks"
+
+echo "[INFO] Ensuring job 01"
+JOB_ID_01="$(ensure_job "pdf-rag-01-inspect-documents" "$NOTEBOOK_01")"
+echo "[OK] JOB_ID_01=$JOB_ID_01"
+
+echo "[INFO] Ensuring job 02"
+JOB_ID_02="$(ensure_job "pdf-rag-02-ingest-pages-and-chunks" "$NOTEBOOK_02")"
+echo "[OK] JOB_ID_02=$JOB_ID_02"
+
+echo "[INFO] Running job 01"
+RUN_ID_01="$(run_job "$JOB_ID_01")"
+echo "[OK] RUN_ID_01=$RUN_ID_01"
+wait_run "$RUN_ID_01"
+
+echo "[INFO] Running job 02"
+RUN_ID_02="$(run_job "$JOB_ID_02")"
+echo "[OK] RUN_ID_02=$RUN_ID_02"
+wait_run "$RUN_ID_02"
+
+echo "[OK] Both serverless notebook jobs completed successfully"

@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DBX_PROFILE="${DBX_PROFILE:-brunocavallini@hotmail.com}"
+
+json_get() {
+  python3 -c 'import json,sys; data=json.load(sys.stdin); print(eval(sys.argv[1], {"__builtins__": {}}, {"data": data}))' "$1"
+}
+
+echo "[INFO] profile=$DBX_PROFILE"
+
+WAREHOUSES_JSON="$(databricks api get /api/2.0/sql/warehouses --profile "$DBX_PROFILE")"
+
+WAREHOUSE_ID="$(printf '%s' "$WAREHOUSES_JSON" | python3 - <<'PY'
+import json, sys
+data = json.load(sys.stdin)
+warehouses = data.get("warehouses", [])
+if not warehouses:
+    raise SystemExit("Nenhum warehouse encontrado")
+running = [w for w in warehouses if w.get("state") == "RUNNING"]
+chosen = running[0] if running else warehouses[0]
+print(chosen["id"])
+PY
+)"
+
+WAREHOUSE_NAME="$(printf '%s' "$WAREHOUSES_JSON" | python3 - <<'PY'
+import json, sys, os
+target = os.environ["WAREHOUSE_ID"]
+data = json.load(sys.stdin)
+for w in data.get("warehouses", []):
+    if w.get("id") == target:
+        print(w.get("name", ""))
+        break
+PY
+)"
+
+WAREHOUSE_STATE="$(printf '%s' "$WAREHOUSES_JSON" | python3 - <<'PY'
+import json, sys, os
+target = os.environ["WAREHOUSE_ID"]
+data = json.load(sys.stdin)
+for w in data.get("warehouses", []):
+    if w.get("id") == target:
+        print(w.get("state", ""))
+        break
+PY
+)"
+
+DATABRICKS_HOST="$(databricks auth env --profile "$DBX_PROFILE" --output json | python3 - <<'PY'
+import json, sys
+data = json.load(sys.stdin)
+print(data["env"]["DATABRICKS_HOST"])
+PY
+)"
+
+export DATABRICKS_SQL_WAREHOUSE_ID="$WAREHOUSE_ID"
+export DATABRICKS_HOST="$DATABRICKS_HOST"
+
+if [[ "$WAREHOUSE_STATE" != "RUNNING" ]]; then
+  echo "[INFO] starting warehouse=$WAREHOUSE_ID name=$WAREHOUSE_NAME"
+  databricks warehouses start "$WAREHOUSE_ID" --profile "$DBX_PROFILE" >/dev/null
+fi
+
+while true; do
+  STATE="$(databricks warehouses get "$WAREHOUSE_ID" --profile "$DBX_PROFILE" -o json | python3 -c 'import sys,json; print(json.load(sys.stdin)["state"])')"
+  echo "[INFO] warehouse_state=$STATE"
+  if [[ "$STATE" == "RUNNING" ]]; then
+    break
+  fi
+  sleep 5
+done
+
+run_sql_scalar() {
+  local sql="$1"
+  databricks api post /api/2.0/sql/statements \
+    --profile "$DBX_PROFILE" \
+    --json "{
+      \"warehouse_id\": \"$WAREHOUSE_ID\",
+      \"statement\": $(python3 - <<PY
+import json
+print(json.dumps("""$sql"""))
+PY
+),
+      \"wait_timeout\": \"50s\",
+      \"on_wait_timeout\": \"CONTINUE\"
+    }" | python3 - <<'PY'
+import json, sys
+data = json.load(sys.stdin)
+status = data.get("status", {}).get("state")
+if status != "SUCCEEDED":
+    raise SystemExit(json.dumps(data, ensure_ascii=False, indent=2))
+rows = data["result"]["data_array"]
+print(rows[0][0] if rows and rows[0] else "")
+PY
+}
+
+run_sql_rows() {
+  local sql="$1"
+  databricks api post /api/2.0/sql/statements \
+    --profile "$DBX_PROFILE" \
+    --json "{
+      \"warehouse_id\": \"$WAREHOUSE_ID\",
+      \"statement\": $(python3 - <<PY
+import json
+print(json.dumps("""$sql"""))
+PY
+),
+      \"wait_timeout\": \"50s\",
+      \"on_wait_timeout\": \"CONTINUE\"
+    }"
+}
+
+CURRENT_CATALOG="$(run_sql_scalar 'SELECT CURRENT_CATALOG()')"
+CURRENT_SCHEMA="$(run_sql_scalar 'SELECT CURRENT_SCHEMA()')"
+CURRENT_METASTORE="$(run_sql_scalar 'SELECT CURRENT_METASTORE()')"
+
+CATALOGS_JSON="$(run_sql_rows 'SHOW CATALOGS')"
+
+TARGET_CATALOG="$(printf '%s' "$CATALOGS_JSON" | python3 - <<'PY'
+import json, sys
+data = json.load(sys.stdin)
+rows = [r[0] for r in data.get("result", {}).get("data_array", [])]
+preferred = ["main", "workspace", "hive_metastore"]
+for name in preferred:
+    if name in rows:
+        print(name)
+        break
+else:
+    print(rows[0] if rows else "")
+PY
+)"
+
+export DBX_PROFILE
+export DATABRICKS_SQL_WAREHOUSE_ID
+export DATABRICKS_HOST
+export DATABRICKS_CURRENT_CATALOG="$CURRENT_CATALOG"
+export DATABRICKS_CURRENT_SCHEMA="$CURRENT_SCHEMA"
+export DATABRICKS_CURRENT_METASTORE="$CURRENT_METASTORE"
+export TARGET_CATALOG
+export TARGET_SCHEMA="pdf_rag"
+
+echo "[OK] profile=$DBX_PROFILE"
+echo "[OK] host=$DATABRICKS_HOST"
+echo "[OK] warehouse_id=$DATABRICKS_SQL_WAREHOUSE_ID"
+echo "[OK] current_catalog=$DATABRICKS_CURRENT_CATALOG"
+echo "[OK] current_schema=$DATABRICKS_CURRENT_SCHEMA"
+echo "[OK] current_metastore=$DATABRICKS_CURRENT_METASTORE"
+echo "[OK] target_catalog=$TARGET_CATALOG"
+echo "[OK] target_schema=$TARGET_SCHEMA"

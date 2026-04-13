@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TARGETS=(
+  "databricks"
+  "docs/databricks"
+  "tests/databricks"
+)
+
+while IFS= read -r file; do
+  TARGETS+=("$file")
+done < <(find bin -maxdepth 1 -type f -name 'dbx-*' | sort)
+
+PATTERNS=(
+  'Unicorn\.ia'
+  '/Users/brunocavallini/'
+  'pipelines\.examples\.pdf_rag_lab'
+  'pipelines/examples/pdf_rag_lab'
+)
+
+FOUND=0
+
+for target in "${TARGETS[@]}"; do
+  if [[ -e "$target" ]]; then
+    while IFS= read -r match; do
+      file_path="$(printf '%s' "$match" | cut -d: -f1)"
+
+      if [[ "$file_path" == "tests/databricks/test_pdf_rag_isolation.py" ]]; then
+        continue
+      fi
+
+      if [[ "$file_path" == *"__pycache__"* ]]; then
+        continue
+      fi
+
+      echo "[ERROR] Forbidden reference found in target: $target"
+      echo "$match"
+      FOUND=1
+    done < <(
+      grep -RIn \
+        --exclude-dir='__pycache__' \
+        -e "${PATTERNS[0]}" \
+        -e "${PATTERNS[1]}" \
+        -e "${PATTERNS[2]}" \
+        -e "${PATTERNS[3]}" \
+        "$target" 2>/dev/null || true
+    )
+  fi
+done
+
+if [[ "$FOUND" -ne 0 ]]; then
+  echo "[ERROR] Databricks PDF RAG isolation check failed"
+  exit 1
+fi
+
+echo "[OK] Databricks PDF RAG isolation check passed"

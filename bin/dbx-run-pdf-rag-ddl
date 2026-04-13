@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DBX_PROFILE="${DBX_PROFILE:-brunocavallini@hotmail.com}"
+DATABRICKS_SQL_WAREHOUSE_ID="${DATABRICKS_SQL_WAREHOUSE_ID:-2398740caa0672b7}"
+SQL_FILE="databricks/pdf_rag/sql/create_pdf_rag_tables.sql"
+
+echo "[INFO] Starting warehouse: $DATABRICKS_SQL_WAREHOUSE_ID"
+databricks warehouses start "$DATABRICKS_SQL_WAREHOUSE_ID" --profile "$DBX_PROFILE" >/dev/null || true
+
+while true; do
+  STATE="$(databricks warehouses get "$DATABRICKS_SQL_WAREHOUSE_ID" --profile "$DBX_PROFILE" -o json | python3 -c 'import sys,json; print(json.load(sys.stdin)["state"])')"
+  echo "[INFO] warehouse_state=$STATE"
+  if [ "$STATE" = "RUNNING" ]; then
+    break
+  fi
+  sleep 5
+done
+
+SQL_JSON="$(python3 - <<'PY'
+import json
+from pathlib import Path
+print(json.dumps(Path("databricks/pdf_rag/sql/create_pdf_rag_tables.sql").read_text(encoding="utf-8")))
+PY
+)"
+
+echo "[INFO] Executing DDL"
+databricks api post /api/2.0/sql/statements \
+  --profile "$DBX_PROFILE" \
+  --json "{
+    \"warehouse_id\": \"$DATABRICKS_SQL_WAREHOUSE_ID\",
+    \"catalog\": \"main\",
+    \"schema\": \"pdf_rag\",
+    \"statement\": $SQL_JSON,
+    \"wait_timeout\": \"50s\",
+    \"on_wait_timeout\": \"CONTINUE\"
+  }"
+
+echo "[INFO] Validating tables"
+databricks api post /api/2.0/sql/statements \
+  --profile "$DBX_PROFILE" \
+  --json "{
+    \"warehouse_id\": \"$DATABRICKS_SQL_WAREHOUSE_ID\",
+    \"catalog\": \"main\",
+    \"schema\": \"pdf_rag\",
+    \"statement\": \"SHOW TABLES IN main.pdf_rag\",
+    \"wait_timeout\": \"50s\",
+    \"on_wait_timeout\": \"CONTINUE\"
+  }"

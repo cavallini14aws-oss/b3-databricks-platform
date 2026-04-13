@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DBX_PROFILE="${DBX_PROFILE:-brunocavallini@hotmail.com}"
+DBX_WS_ROOT="${DBX_WS_ROOT:-/Workspace/Shared/pdf_rag}"
+TARGET_SCHEMA="${TARGET_SCHEMA:-pdf_rag}"
+
+run_sql() {
+  local sql="$1"
+  databricks api post /api/2.0/sql/statements \
+    --profile "$DBX_PROFILE" \
+    --json "{
+      \"warehouse_id\": \"$DATABRICKS_SQL_WAREHOUSE_ID\",
+      \"statement\": $(python3 - <<PY
+import json
+print(json.dumps("""$sql"""))
+PY
+),
+      \"wait_timeout\": \"50s\",
+      \"on_wait_timeout\": \"CONTINUE\"
+    }"
+}
+
+run_sql_scalar() {
+  local sql="$1"
+  run_sql "$sql" | python3 - <<'PY'
+import json, sys
+data = json.load(sys.stdin)
+if data.get("status", {}).get("state") != "SUCCEEDED":
+    raise SystemExit(json.dumps(data, ensure_ascii=False, indent=2))
+rows = data.get("result", {}).get("data_array", [])
+print(rows[0][0] if rows and rows[0] else "")
+PY
+}
+
+echo "[INFO] Discovering warehouse"
+WAREHOUSES_JSON="$(databricks api get /api/2.0/sql/warehouses --profile "$DBX_PROFILE")"
+
+export DATABRICKS_SQL_WAREHOUSE_ID="$(printf '%s' "$WAREHOUSES_JSON" | python3 - <<'PY'
+import json, sys
+data = json.load(sys.stdin)
+warehouses = data.get("warehouses", [])
+if not warehouses:
+    raise SystemExit("Nenhum warehouse encontrado")
+running = [w for w in warehouses if w.get("state") == "RUNNING"]
+chosen = running[0] if running else warehouses[0]
+print(chosen["id"])
+PY
+)"
+
+echo "[INFO] warehouse_id=$DATABRICKS_SQL_WAREHOUSE_ID"
+
+export DATABRICKS_HOST="$(databricks auth env --profile "$DBX_PROFILE" --output json | python3 - <<'PY'
+import json, sys
+data = json.load(sys.stdin)
+print(data["env"]["DATABRICKS_HOST"])
+PY
+)"
+
+echo "[INFO] host=$DATABRICKS_HOST"
+
+echo "[INFO] Starting warehouse if needed"
+databricks warehouses start "$DATABRICKS_SQL_WAREHOUSE_ID" --profile "$DBX_PROFILE" >/dev/null || true
+
+while true; do
+  STATE="$(databricks warehouses get "$DATABRICKS_SQL_WAREHOUSE_ID" --profile "$DBX_PROFILE" -o json | python3 -c 'import sys,json; print(json.load(sys.stdin)["state"])')"
+  echo "[INFO] warehouse_state=$STATE"
+  if [[ "$STATE" == "RUNNING" ]]; then
+    break
+  fi
+  sleep 5
+done
+
+export DATABRICKS_CURRENT_CATALOG="$(run_sql_scalar 'SELECT CURRENT_CATALOG()')"
+export DATABRICKS_CURRENT_SCHEMA="$(run_sql_scalar 'SELECT CURRENT_SCHEMA()')"
+export DATABRICKS_CURRENT_METASTORE="$(run_sql_scalar 'SELECT CURRENT_METASTORE()')"
+
+echo "[INFO] current_catalog=$DATABRICKS_CURRENT_CATALOG"
+echo "[INFO] current_schema=$DATABRICKS_CURRENT_SCHEMA"
+echo "[INFO] current_metastore=$DATABRICKS_CURRENT_METASTORE"
+
+CATALOGS_JSON="$(run_sql 'SHOW CATALOGS')"
+
+export TARGET_CATALOG="$(printf '%s' "$CATALOGS_JSON" | python3 - <<'PY'
+import json, sys
+data = json.load(sys.stdin)
+if data.get("status", {}).get("state") != "SUCCEEDED":
+    raise SystemExit(json.dumps(data, ensure_ascii=False, indent=2))
+rows = [r[0] for r in data.get("result", {}).get("data_array", [])]
+for preferred in ["main", "workspace", "hive_metastore"]:
+    if preferred in rows:
+        print(preferred)
+        break
+else:
+    print(rows[0] if rows else "")
+PY
+)"
+
+echo "[INFO] target_catalog=$TARGET_CATALOG"
+echo "[INFO] target_schema=$TARGET_SCHEMA"
+
+echo "[INFO] Rewriting project catalog references"
+python3 - <<PY
+from pathlib import Path
+
+target_catalog = "${TARGET_CATALOG}"
+
+files = [
+    Path("databricks/pdf_rag/config/pdf_rag_tables.yml"),
+    Path("databricks/pdf_rag/sql/create_pdf_rag_tables.sql"),
+    Path("databricks/pdf_rag/config/pdf_rag_vector_search.yml"),
+    Path("databricks/pdf_rag/config/pdf_rag_ai_gateway.yml"),
+    Path("databricks/pdf_rag/config/pdf_rag_custom_serving.yml"),
+    Path("databricks/pdf_rag/notebooks/06_batch_inference_ai_query.sql"),
+    Path("databricks/pdf_rag/notebooks/08_query_inference_tables.sql"),
+]
+
+catalog_candidates = ["main", "workspace", "hive_metastore"]
+
+for path in files:
+    text = path.read_text(encoding="utf-8")
+    for c in catalog_candidates:
+        text = text.replace(f"{c}.", f"{target_catalog}.")
+        text = text.replace(f"catalog: {c}", f"catalog: {target_catalog}")
+        text = text.replace(f"inference_table_catalog: {c}", f"inference_table_catalog: {target_catalog}")
+        text = text.replace(f"uc_model_name: {c}.", f"uc_model_name: {target_catalog}.")
+    path.write_text(text, encoding="utf-8")
+    print(f"[OK] updated {path}")
+PY
+
+echo "[INFO] Running DDL"
+./bin/dbx-run-pdf-rag-ddl-split
+
+echo "[INFO] Importing workspace files"
+databricks workspace mkdirs "$DBX_WS_ROOT" --profile "$DBX_PROFILE"
+databricks workspace import-dir databricks "$DBX_WS_ROOT/databricks" --overwrite --profile "$DBX_PROFILE"
+databricks workspace import-dir docs "$DBX_WS_ROOT/docs" --overwrite --profile "$DBX_PROFILE"
+
+echo "[INFO] Listing notebooks"
+databricks workspace list "$DBX_WS_ROOT/databricks/pdf_rag/notebooks" --profile "$DBX_PROFILE"
+
+cat <<EOM
+[OK] Bootstrap complete
+
+Next manual/controlled step:
+- Run notebooks in this order inside Databricks workspace:
+  1. /Workspace/Shared/pdf_rag/databricks/pdf_rag/notebooks/01_inspect_documents
+  2. /Workspace/Shared/pdf_rag/databricks/pdf_rag/notebooks/02_ingest_pages_and_chunks
+
+Then validate counts with SQL:
+SELECT 'pdf_documents' AS table_name, COUNT(*) AS cnt FROM ${TARGET_CATALOG}.${TARGET_SCHEMA}.pdf_documents
+UNION ALL
+SELECT 'pdf_pages' AS table_name, COUNT(*) AS cnt FROM ${TARGET_CATALOG}.${TARGET_SCHEMA}.pdf_pages
+UNION ALL
+SELECT 'pdf_chunks' AS table_name, COUNT(*) AS cnt FROM ${TARGET_CATALOG}.${TARGET_SCHEMA}.pdf_chunks
+UNION ALL
+SELECT 'pdf_document_quality_reports' AS table_name, COUNT(*) AS cnt FROM ${TARGET_CATALOG}.${TARGET_SCHEMA}.pdf_document_quality_reports;
+EOM
