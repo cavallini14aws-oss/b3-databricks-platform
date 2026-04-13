@@ -1,0 +1,12 @@
+custom_serving:
+  endpoint_name: pdf-rag-custom-serving-endpoint
+  served_model_name: pdf-rag-custom-pyfunc
+  uc_model_name: main.pdf_rag_models.pdf_rag_custom_pyfunc
+  workload_size: Small
+  scale_to_zero_enabled: true
+  route_optimized: false
+  traffic_percentage: 100
+  readiness_timeout_seconds: 1800
+  notes: >
+    Use this path only when Foundation Model APIs are not sufficient or when
+    a custom MLflow/pyfunc model must be served behind a Databricks endpoint.
