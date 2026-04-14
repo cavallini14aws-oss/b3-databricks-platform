@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DBX_PROFILE="${DBX_PROFILE:-brunocavallini@hotmail.com}"
-DATABRICKS_SQL_WAREHOUSE_ID="${DATABRICKS_SQL_WAREHOUSE_ID:-2398740caa0672b7}"
+: "${DBX_PROFILE:?DBX_PROFILE nao definido}"
+: "${DATABRICKS_SQL_WAREHOUSE_ID:?DATABRICKS_SQL_WAREHOUSE_ID nao definido}"
 SQL_FILE="databricks/pdf_rag/sql/create_pdf_rag_tables.sql"
 
 echo "[INFO] Starting warehouse: $DATABRICKS_SQL_WAREHOUSE_ID"

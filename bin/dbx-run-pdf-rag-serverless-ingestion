@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DBX_PROFILE="${DBX_PROFILE:-brunocavallini@hotmail.com}"
-DBX_WS_ROOT="${DBX_WS_ROOT:-/Workspace/Shared/pdf_rag}"
+: "${DBX_PROFILE:?DBX_PROFILE nao definido}"
+: "${DBX_WS_ROOT:?DBX_WS_ROOT nao definido}"
 
 api_get() {
   local path="$1"

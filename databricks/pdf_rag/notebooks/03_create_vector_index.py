@@ -5,6 +5,6 @@
 # COMMAND ----------
 
 # Databricks notebook source
-from databricks.pdf_rag.src.vector_index_bootstrap import main
+from src.vector_index_bootstrap import main
 
 main()

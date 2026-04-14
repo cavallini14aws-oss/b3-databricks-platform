@@ -6,11 +6,18 @@ import os
 import subprocess
 import sys
 import time
+
+
+def require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"{name} nao definido")
+    return value
 from typing import Any
 
 
-DBX_PROFILE = os.environ.get("DBX_PROFILE", "brunocavallini@hotmail.com")
-DBX_WS_ROOT = os.environ.get("DBX_WS_ROOT", "/Workspace/Shared/pdf_rag")
+DBX_PROFILE = require_env("DBX_PROFILE")
+DBX_WS_ROOT = require_env("DBX_WS_ROOT")
 
 
 def run_cmd(cmd: list[str]) -> str:
