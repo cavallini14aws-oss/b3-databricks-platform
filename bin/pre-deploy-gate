@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -75,10 +76,15 @@ def main():
         print(f"[BLOCK] pr_merge_gate decision={decision}", flush=True)
         raise SystemExit(1)
 
-    bundle_cmd = ["databricks", "bundle", "validate", "--target", env]
-    if profile:
-        bundle_cmd.extend(["--profile", profile])
-    run_cmd(bundle_cmd)
+    pr_gate_mode = os.environ.get("PR_GATE_MODE", "full")
+
+    if pr_gate_mode == "full":
+        bundle_cmd = ["databricks", "bundle", "validate", "--target", env]
+        if profile:
+            bundle_cmd.extend(["--profile", profile])
+        run_cmd(bundle_cmd)
+    else:
+        print(f"[INFO] skipping bundle validate in PR_GATE_MODE={pr_gate_mode}", flush=True)
 
     summary = {
         "status": "ALLOW",
