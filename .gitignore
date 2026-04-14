@@ -59,3 +59,5 @@ pipelines/examples/pdf_rag_lab/backend/vectorstore/
 .secrets.databricks.*.oauth.local
 .trash_pdf_rag_raw/
 pipelines/examples/pdf_rag_lab/backend/reports/
+
+pdf_rag_input/
