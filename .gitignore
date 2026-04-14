@@ -61,3 +61,5 @@ pipelines/examples/pdf_rag_lab/backend/vectorstore/
 pipelines/examples/pdf_rag_lab/backend/reports/
 
 pdf_rag_input/
+
+.state/
