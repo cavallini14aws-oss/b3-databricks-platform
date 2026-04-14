@@ -36,7 +36,7 @@ jobs:
         run: ./bin/validate-active-provider
 
       - name: Run hard gate
-        run: ./bin/pre-deploy-gate dev
+        run: PR_GATE_MODE=technical ./bin/pre-deploy-gate dev
 
       - name: Upload gate artifacts
         if: always()
