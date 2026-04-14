@@ -106,3 +106,11 @@ def update_rehearsal_status(env: str, status: str) -> dict[str, Any]:
     state[env]["last_rehearsal_status"] = status
     save_release_state(state)
     return state
+
+def set_smoke_status(env: str, status: str) -> dict[str, Any]:
+    return update_smoke_status(env, status)
+
+
+def set_rehearsal_status(env: str, status: str) -> dict[str, Any]:
+    return update_rehearsal_status(env, status)
+
