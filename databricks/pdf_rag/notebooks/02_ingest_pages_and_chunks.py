@@ -135,6 +135,21 @@ pages_table = f"{tables_cfg['catalog']}.{tables_cfg['schema']}.{tables_cfg['tabl
 chunks_table = f"{tables_cfg['catalog']}.{tables_cfg['schema']}.{tables_cfg['tables']['chunks']}"
 
 catalog = load_document_catalog("/Volumes/workspace/pdf_rag/raw_docs")
+
+existing_chunk_files = set()
+if spark.catalog.tableExists(chunks_table):
+    existing_chunk_files = {
+        row["file_name"]
+        for row in spark.table(chunks_table).select("file_name").distinct().collect()
+    }
+
+catalog = [
+    doc for doc in catalog
+    if str(doc["source_file_name"]) not in existing_chunk_files
+]
+
+print(f"[INFO] new_documents_to_chunk={len(catalog)}")
+
 rows_pages = []
 rows_chunks = []
 
@@ -216,19 +231,23 @@ chunks_schema = StructType([
     StructField("ingestion_ts", TimestampType(), True),
 ])
 
+if not rows_pages and not rows_chunks:
+    print("[INFO] No new pages/chunks found. Skipping stage 2 writes.")
+    dbutils.notebook.exit("NO_NEW_CHUNKS")
+
 df_pages = spark.createDataFrame(rows_pages, schema=pages_schema)
 df_chunks = spark.createDataFrame(rows_chunks, schema=chunks_schema)
 
 (
     df_pages.write
-    .mode("overwrite")
+    .mode("append")
     .option("overwriteSchema", "true")
     .saveAsTable(pages_table)
 )
 
 (
     df_chunks.write
-    .mode("overwrite")
+    .mode("append")
     .option("overwriteSchema", "true")
     .saveAsTable(chunks_table)
 )

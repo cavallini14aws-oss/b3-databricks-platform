@@ -36,6 +36,21 @@ documents_table = f"{tables_cfg['catalog']}.{tables_cfg['schema']}.{tables_cfg['
 reports_table = f"{tables_cfg['catalog']}.{tables_cfg['schema']}.{tables_cfg['tables']['quality_reports']}"
 
 catalog = load_document_catalog("/Volumes/workspace/pdf_rag/raw_docs")
+
+existing_files = set()
+if spark.catalog.tableExists(documents_table):
+    existing_files = {
+        row["file_name"]
+        for row in spark.table(documents_table).select("file_name").distinct().collect()
+    }
+
+catalog = [
+    doc for doc in catalog
+    if str(doc["source_file_name"]) not in existing_files
+]
+
+print(f"[INFO] new_documents_to_ingest={len(catalog)}")
+
 rows_documents = []
 rows_reports = []
 
@@ -105,19 +120,26 @@ reports_schema = StructType([
     StructField("report_ts", TimestampType(), True),
 ])
 
+if not rows_documents:
+    print("[INFO] No new documents found. Skipping stage 1 writes.")
+    dbutils.notebook.exit("NO_NEW_DOCUMENTS")
+
 df_documents = spark.createDataFrame(rows_documents, schema=documents_schema)
 df_reports = spark.createDataFrame(rows_reports, schema=reports_schema)
 
+documents_write_mode = "append" if spark.catalog.tableExists(documents_table) else "overwrite"
+reports_write_mode = "append" if spark.catalog.tableExists(reports_table) else "overwrite"
+
 (
     df_documents.write
-    .mode("overwrite")
+    .mode(documents_write_mode)
     .option("overwriteSchema", "true")
     .saveAsTable(documents_table)
 )
 
 (
     df_reports.write
-    .mode("overwrite")
+    .mode(reports_write_mode)
     .option("overwriteSchema", "true")
     .saveAsTable(reports_table)
 )
