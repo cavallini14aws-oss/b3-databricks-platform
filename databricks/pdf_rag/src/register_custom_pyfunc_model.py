@@ -8,7 +8,7 @@ import pandas as pd
 import yaml
 from pathlib import Path
 
-from databricks.pdf_rag.src.custom_pyfunc_model import PdfRagCustomPyFunc
+from src.custom_pyfunc_model import PdfRagCustomPyFunc
 
 
 def load_config() -> dict:

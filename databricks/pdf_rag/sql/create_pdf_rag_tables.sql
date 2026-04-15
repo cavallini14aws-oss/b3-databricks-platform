@@ -54,3 +54,7 @@ CREATE TABLE IF NOT EXISTS workspace.pdf_rag.pdf_document_quality_reports (
   strategy_name STRING,
   report_ts TIMESTAMP
 ) USING DELTA;
+
+
+ALTER TABLE workspace.pdf_rag.pdf_chunks
+SET TBLPROPERTIES (delta.enableChangeDataFeed = true);
