@@ -4,7 +4,13 @@
 
 # COMMAND ----------
 
-# Databricks notebook source
-from databricks.pdf_rag.src.vector_index_bootstrap import main
+import os
+import sys
+
+PROJECT_ROOT = os.path.abspath("..")
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+
+from src.vector_index_bootstrap import main
 
 main()
