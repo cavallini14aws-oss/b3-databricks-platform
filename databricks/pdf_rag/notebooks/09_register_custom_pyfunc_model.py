@@ -4,6 +4,6 @@
 
 # COMMAND ----------
 
-from databricks.pdf_rag.src.register_custom_pyfunc_model import main
+from src.register_custom_pyfunc_model import main
 
 main()
