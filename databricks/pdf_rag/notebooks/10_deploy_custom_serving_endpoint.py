@@ -4,6 +4,6 @@
 
 # COMMAND ----------
 
-from databricks.pdf_rag.src.deploy_custom_serving_endpoint import main
+from src.deploy_custom_serving_endpoint import main
 
 main()

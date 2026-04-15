@@ -2,20 +2,18 @@ job:
   environment: dev
   cluster_key: clientes-dev-cluster
   cluster_mode: existing_or_job_cluster
-  workspace_root: /Workspace/Repos/b3-databricks-platform/b3-databricks-platform
+  workspace_root: /Workspace/Users/${workspace.current_user.userName}/.bundle/databricks-platform-template/dev
   default_timeout_seconds: 3600
   max_retries: 0
   use_catalog: false
   default_config_path: config/clientes_ml_pipeline.yml
-
 promotion:
   rules:
-    - source_env: dev
-      target_env: hml
-      requires_approval: false
-      require_tests_passed: true
-      require_quality_gates: false
-
+  - source_env: dev
+    target_env: hml
+    requires_approval: false
+    require_tests_passed: true
+    require_quality_gates: false
 quality_gates:
   ml:
     minimum_accuracy: 0.0

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -17,12 +18,36 @@ def run_cmd(cmd):
     return result.stdout.strip()
 
 
+
+def extract_json_from_output(raw_output):
+    raw_output = raw_output.strip()
+    if not raw_output:
+        raise json.JSONDecodeError("Empty output", raw_output, 0)
+
+    lines = [line.strip() for line in raw_output.splitlines() if line.strip()]
+    for line in reversed(lines):
+        if line.startswith("{") and line.endswith("}"):
+            try:
+                return json.loads(line)
+            except json.JSONDecodeError:
+                pass
+
+    start = raw_output.find("{")
+    end = raw_output.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        candidate = raw_output[start:end + 1]
+        return json.loads(candidate)
+
+    raise json.JSONDecodeError("No JSON object found", raw_output, 0)
+
+
 def run_json_module(module_name):
     output = run_cmd([sys.executable, "-m", module_name])
     try:
-        return json.loads(output)
+        return extract_json_from_output(output)
     except json.JSONDecodeError as exc:
         print(f"[ERROR] saída não-JSON de {module_name}", flush=True)
+        print(output, flush=True)
         raise SystemExit(1) from exc
 
 
@@ -34,7 +59,7 @@ def main():
 
     run_cmd([sys.executable, "-m", "pytest", "-q"])
 
-    version_artifact_guard = json.loads(
+    version_artifact_guard = extract_json_from_output(
         run_cmd(["./bin/version-artifact-guard"])
     )
     schema_validation = run_json_module("data_platform.core.show_schema_validation")
@@ -75,10 +100,15 @@ def main():
         print(f"[BLOCK] pr_merge_gate decision={decision}", flush=True)
         raise SystemExit(1)
 
-    bundle_cmd = ["databricks", "bundle", "validate", "--target", env]
-    if profile:
-        bundle_cmd.extend(["--profile", profile])
-    run_cmd(bundle_cmd)
+    pr_gate_mode = os.environ.get("PR_GATE_MODE", "full")
+
+    if pr_gate_mode == "full":
+        bundle_cmd = ["databricks", "bundle", "validate", "--target", env]
+        if profile:
+            bundle_cmd.extend(["--profile", profile])
+        run_cmd(bundle_cmd)
+    else:
+        print(f"[INFO] skipping bundle validate in PR_GATE_MODE={pr_gate_mode}", flush=True)
 
     summary = {
         "status": "ALLOW",

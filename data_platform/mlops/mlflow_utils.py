@@ -1,9 +1,18 @@
 from __future__ import annotations
 
-import mlflow
-
 
 VALID_MLFLOW_STAGES = {"train", "evaluate"}
+
+
+def _get_mlflow_module():
+    try:
+        import mlflow
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "mlflow nao esta instalado no ambiente atual. "
+            "Instale a dependencia de runtime ML antes de executar esta etapa."
+        ) from exc
+    return mlflow
 
 
 def build_mlflow_experiment_path(project: str, stage: str) -> str:
@@ -39,5 +48,6 @@ def _ensure_workspace_parent_path(experiment_path: str) -> None:
 def set_mlflow_experiment_for_project(project: str, stage: str) -> str:
     experiment_path = build_mlflow_experiment_path(project=project, stage=stage)
     _ensure_workspace_parent_path(experiment_path)
+    mlflow = _get_mlflow_module()
     mlflow.set_experiment(experiment_path)
     return experiment_path

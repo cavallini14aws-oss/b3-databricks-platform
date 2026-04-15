@@ -1,8 +1,5 @@
 from datetime import datetime
 
-from pyspark.sql import Row
-from pyspark.sql import types as T
-
 from data_platform.core.context import get_context
 
 
@@ -10,18 +7,21 @@ def _ensure_schema(spark, qualified_schema: str) -> None:
     spark.sql(f"CREATE SCHEMA IF NOT EXISTS {qualified_schema}")
 
 
-OBSERVABILITY_SCHEMA = T.StructType(
-    [
-        T.StructField("event_timestamp", T.TimestampType(), False),
-        T.StructField("env", T.StringType(), False),
-        T.StructField("project", T.StringType(), False),
-        T.StructField("component", T.StringType(), False),
-        T.StructField("status", T.StringType(), False),
-        T.StructField("run_id", T.StringType(), False),
-        T.StructField("message", T.StringType(), False),
-        T.StructField("duration_seconds", T.DoubleType(), True),
-    ]
-)
+def _build_observability_schema():
+    from pyspark.sql import types as T
+
+    return T.StructType(
+        [
+            T.StructField("event_timestamp", T.TimestampType(), False),
+            T.StructField("env", T.StringType(), False),
+            T.StructField("project", T.StringType(), False),
+            T.StructField("component", T.StringType(), False),
+            T.StructField("status", T.StringType(), False),
+            T.StructField("run_id", T.StringType(), False),
+            T.StructField("message", T.StringType(), False),
+            T.StructField("duration_seconds", T.DoubleType(), True),
+        ]
+    )
 
 
 def log_pipeline_event(
@@ -34,6 +34,8 @@ def log_pipeline_event(
     use_catalog: bool = False,
     duration_seconds: float | None = None,
 ) -> None:
+    from pyspark.sql import Row
+
     ctx = get_context(project=project, use_catalog=use_catalog)
 
     obs_schema = ctx.naming.qualified_schema(ctx.naming.schema_obs)
@@ -52,7 +54,7 @@ def log_pipeline_event(
         duration_seconds=float(duration_seconds) if duration_seconds is not None else None,
     )
 
-    df = spark.createDataFrame([row], schema=OBSERVABILITY_SCHEMA)
+    df = spark.createDataFrame([row], schema=_build_observability_schema())
 
     if spark.catalog.tableExists(obs_table):
         df.write.mode("append").saveAsTable(obs_table)
