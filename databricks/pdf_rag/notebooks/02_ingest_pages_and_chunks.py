@@ -134,7 +134,7 @@ with open(tables_cfg_path, "r", encoding="utf-8") as f:
 pages_table = f"{tables_cfg['catalog']}.{tables_cfg['schema']}.{tables_cfg['tables']['pages']}"
 chunks_table = f"{tables_cfg['catalog']}.{tables_cfg['schema']}.{tables_cfg['tables']['chunks']}"
 
-catalog = load_document_catalog()
+catalog = load_document_catalog("/Volumes/workspace/pdf_rag/raw_docs")
 rows_pages = []
 rows_chunks = []
 

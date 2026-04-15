@@ -35,7 +35,7 @@ with open(tables_cfg_path, "r", encoding="utf-8") as f:
 documents_table = f"{tables_cfg['catalog']}.{tables_cfg['schema']}.{tables_cfg['tables']['documents']}"
 reports_table = f"{tables_cfg['catalog']}.{tables_cfg['schema']}.{tables_cfg['tables']['quality_reports']}"
 
-catalog = load_document_catalog()
+catalog = load_document_catalog("/Volumes/workspace/pdf_rag/raw_docs")
 rows_documents = []
 rows_reports = []
 
