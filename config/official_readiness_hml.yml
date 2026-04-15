@@ -8,7 +8,7 @@ workspace:
 identity:
   execution_principal_type: service_principal
   execution_principal_name: TO_BE_DEFINED
-  execution_group: TO_BE_DEFINED
+  execution_group: mlops_hml
 
 storage:
   catalog: b3_hml
@@ -19,7 +19,7 @@ storage:
 
 serving:
   llm_provider: databricks
-  serving_endpoint: TO_BE_DEFINED
+  serving_endpoint: b3-pdf-rag-hml
   foundation_model_api_allowed: true
 
 runtime:
@@ -28,8 +28,8 @@ runtime:
   manual_pip_install_allowed: false
 
 compute:
-  access_mode: TO_BE_DEFINED
-  runtime: TO_BE_DEFINED
+  access_mode: STANDARD
+  runtime: 15.4.x-scala2.12
   unity_catalog_required: true
 
 governance:
