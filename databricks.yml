@@ -9,6 +9,7 @@ artifacts:
 
 include:
   - resources/jobs/mlops_operational_jobs.yml
+  - resources/jobs/pdf_rag_ingestion_jobs.yml
 
 sync:
   include:
