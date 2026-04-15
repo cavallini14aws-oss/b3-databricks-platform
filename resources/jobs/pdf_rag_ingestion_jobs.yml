@@ -3,18 +3,23 @@ resources:
     pdf_rag_incremental_ingestion_dev:
       name: pdf-rag-incremental-ingestion-dev
       schedule:
-        quartz_cron_expression: "0 0/30 * * * ?"
-        timezone_id: "America/Sao_Paulo"
+        quartz_cron_expression: 0 0/30 * * * ?
+        timezone_id: America/Sao_Paulo
         pause_status: PAUSED
       tasks:
+      - task_key: inspect_documents
+        notebook_task:
+          notebook_path: /Workspace/Shared/pdf_rag/databricks/pdf_rag/notebooks/01_inspect_documents
+          source: WORKSPACE
+      - task_key: ingest_pages_and_chunks
+        depends_on:
         - task_key: inspect_documents
-          notebook_task:
-            notebook_path: /Workspace/Shared/pdf_rag/databricks/pdf_rag/notebooks/01_inspect_documents
-            source: WORKSPACE
-
+        notebook_task:
+          notebook_path: /Workspace/Shared/pdf_rag/databricks/pdf_rag/notebooks/02_ingest_pages_and_chunks
+          source: WORKSPACE
+      - task_key: refresh_vector_index
+        depends_on:
         - task_key: ingest_pages_and_chunks
-          depends_on:
-            - task_key: inspect_documents
-          notebook_task:
-            notebook_path: /Workspace/Shared/pdf_rag/databricks/pdf_rag/notebooks/02_ingest_pages_and_chunks
-            source: WORKSPACE
+        notebook_task:
+          notebook_path: /Workspace/Shared/pdf_rag/databricks/pdf_rag/notebooks/03_create_vector_index
+          source: WORKSPACE
