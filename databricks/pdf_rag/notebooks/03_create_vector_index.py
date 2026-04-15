@@ -13,4 +13,12 @@ if PROJECT_ROOT not in sys.path:
 
 from src.vector_index_bootstrap import main
 
+
+# Vector Search Delta Sync requires Change Data Feed on the source table.
+spark.sql("""
+ALTER TABLE workspace.pdf_rag.pdf_chunks
+SET TBLPROPERTIES (delta.enableChangeDataFeed = true)
+""")
+print("[OK] Change Data Feed enabled for workspace.pdf_rag.pdf_chunks")
+
 main()
