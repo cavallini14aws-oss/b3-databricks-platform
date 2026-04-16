@@ -6,7 +6,7 @@ from data_platform.core.pipeline_registry_validation import (
 from data_platform.core.schema_validation import validate_required_schema_specs
 
 
-def run_pr_merge_gate() -> dict:
+def run_pr_merge_gate(mode: str = "full") -> dict:
     schema_validation = validate_required_schema_specs()
     pipeline_validation = validate_pipeline_registry_artifacts()
     preflight = run_activation_preflight()
@@ -21,15 +21,24 @@ def run_pr_merge_gate() -> dict:
     if not pipeline_validation["valid"]:
         errors.append("pipeline_registry_validation_failed")
 
-    if preflight["status"] == "BLOCK":
-        errors.append("activation_preflight_blocked")
-    elif preflight["status"] == "WARN":
-        warnings.append("activation_preflight_warn")
+    if mode == "full":
+        if preflight["status"] == "BLOCK":
+            errors.append("activation_preflight_blocked")
+        elif preflight["status"] == "WARN":
+            warnings.append("activation_preflight_warn")
 
-    if go_no_go["decision"] == "NO_GO":
-        errors.append("go_no_go_policy_blocked")
-    elif go_no_go["decision"] == "GO_WITH_RISK":
-        warnings.append("go_no_go_policy_warn")
+        if go_no_go["decision"] == "NO_GO":
+            errors.append("go_no_go_policy_blocked")
+        elif go_no_go["decision"] == "GO_WITH_RISK":
+            warnings.append("go_no_go_policy_warn")
+    elif mode == "technical":
+        if preflight["status"] == "WARN":
+            warnings.append("activation_preflight_warn")
+
+        if go_no_go["decision"] == "GO_WITH_RISK":
+            warnings.append("go_no_go_policy_warn")
+    else:
+        raise ValueError(f"Modo invalido para pr merge gate: {mode}")
 
     decision = "ALLOW"
     if errors:
@@ -39,6 +48,7 @@ def run_pr_merge_gate() -> dict:
 
     return {
         "decision": decision,
+        "mode": mode,
         "errors": errors,
         "warnings": warnings,
         "schema_validation": schema_validation,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from databricks.pdf_rag.src.foundation_model_client import invoke_foundation_model
+from src.foundation_model_client import invoke_foundation_model
 
 
 def main() -> None:

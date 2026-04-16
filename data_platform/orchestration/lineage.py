@@ -1,7 +1,5 @@
 from datetime import datetime
 
-from pyspark.sql import Row
-
 from data_platform.core.context import get_context
 
 
@@ -18,6 +16,8 @@ def log_pipeline_lineage(
     project: str = "clientes",
     use_catalog: bool = False,
 ) -> None:
+    from pyspark.sql import Row
+
     ctx = get_context(project=project, use_catalog=use_catalog)
 
     obs_schema = ctx.naming.qualified_schema(ctx.naming.schema_obs)
@@ -40,6 +40,4 @@ def log_pipeline_lineage(
     if spark.catalog.tableExists(lineage_table):
         df.write.mode("append").saveAsTable(lineage_table)
     else:
-        df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(
-            lineage_table
-        )
+        df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(lineage_table)

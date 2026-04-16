@@ -8,7 +8,7 @@ from databricks.vector_search.client import VectorSearchClient
 
 
 def load_config() -> dict:
-    path = Path("databricks/pdf_rag/config/pdf_rag_vector_search.yml")
+    path = Path(__file__).resolve().parents[1] / "config" / "pdf_rag_vector_search.yml"
     return yaml.safe_load(path.read_text(encoding="utf-8"))["vector_search"]
 
 
@@ -71,9 +71,23 @@ def trigger_sync(client: VectorSearchClient, cfg: dict) -> None:
     index_name = cfg["index_name"]
 
     print(f"[INFO] triggering sync for index: {index_name}")
-    index = client.get_index(endpoint_name=endpoint_name, index_name=index_name)
-    index.sync()
-    print(f"[OK] sync requested: {index_name}")
+    last_error = None
+
+    for attempt in range(1, 11):
+        try:
+            index = client.get_index(endpoint_name=endpoint_name, index_name=index_name)
+            index.sync()
+            print(f"[OK] sync requested: {index_name}")
+            return
+        except Exception as exc:
+            last_error = exc
+            message = str(exc)
+            if "not ready" not in message.lower():
+                raise
+            print(f"[WARN] index not ready yet attempt={attempt}/10")
+            time.sleep(30)
+
+    raise RuntimeError(f"Vector index not ready after retries: {last_error}")
 
 
 def main() -> None:

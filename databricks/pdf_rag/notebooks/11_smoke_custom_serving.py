@@ -4,6 +4,6 @@
 
 # COMMAND ----------
 
-from databricks.pdf_rag.src.smoke_custom_serving import main
+from src.smoke_custom_serving import main
 
 main()

@@ -13,7 +13,7 @@ done < <(find bin -maxdepth 1 -type f -name 'dbx-*' | sort)
 
 PATTERNS=(
   'Unicorn\.ia'
-  '/Users/brunocavallini/'
+  '/Users/USER_PLACEHOLDER/'
   'pipelines\.examples\.pdf_rag_lab'
   'pipelines/examples/pdf_rag_lab'
 )

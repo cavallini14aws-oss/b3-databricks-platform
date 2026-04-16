@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DBX_PROFILE="${DBX_PROFILE:-brunocavallini@hotmail.com}"
+: "${DBX_PROFILE:?DBX_PROFILE nao definido}"
 
 json_get() {
   python3 -c 'import json,sys; data=json.load(sys.stdin); print(eval(sys.argv[1], {"__builtins__": {}}, {"data": data}))' "$1"
