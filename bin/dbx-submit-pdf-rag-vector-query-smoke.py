@@ -14,8 +14,13 @@ def require_env(name: str) -> str:
         raise RuntimeError(f"{name} nao definido")
     return value
 
+
 DBX_PROFILE = require_env("DBX_PROFILE")
 DBX_WS_ROOT = require_env("DBX_WS_ROOT")
+QUERY_TEXT = os.environ.get(
+    "PDF_RAG_QUERY_TEXT",
+    "Explique o significado psicológico do Livro Vermelho de Jung.",
+)
 
 
 def cli_json(cmd: list[str]) -> dict:
@@ -26,12 +31,7 @@ def cli_json(cmd: list[str]) -> dict:
         )
     if not proc.stdout.strip():
         raise RuntimeError(f"Empty response: {' '.join(cmd)}")
-    try:
-        return json.loads(proc.stdout)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(
-            f"Invalid JSON: {' '.join(cmd)}\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
-        ) from exc
+    return json.loads(proc.stdout)
 
 
 def submit_notebook_run(run_name: str, notebook_path: str) -> int:
@@ -41,10 +41,13 @@ def submit_notebook_run(run_name: str, notebook_path: str) -> int:
             {
                 "task_key": "main",
                 "notebook_task": {
-                    "notebook_path": notebook_path
-                }
+                    "notebook_path": notebook_path,
+                    "base_parameters": {
+                        "query_text": QUERY_TEXT,
+                    },
+                },
             }
-        ]
+        ],
     }
 
     data = cli_json(
@@ -102,20 +105,13 @@ def wait_run(run_id: int) -> None:
 
 
 def main() -> None:
-    notebook_01 = f"{DBX_WS_ROOT}/databricks/pdf_rag/notebooks/01_inspect_documents"
-    notebook_02 = f"{DBX_WS_ROOT}/databricks/pdf_rag/notebooks/02_ingest_pages_and_chunks"
-
-    print("[INFO] Submitting notebook 01")
-    run_id_01 = submit_notebook_run("pdf-rag-01-inspect-documents-submit", notebook_01)
-    print(f"[OK] RUN_ID_01={run_id_01}")
-    wait_run(run_id_01)
-
-    print("[INFO] Submitting notebook 02")
-    run_id_02 = submit_notebook_run("pdf-rag-02-ingest-pages-and-chunks-submit", notebook_02)
-    print(f"[OK] RUN_ID_02={run_id_02}")
-    wait_run(run_id_02)
-
-    print("[OK] Both notebook runs completed successfully")
+    notebook = f"{DBX_WS_ROOT}/databricks/pdf_rag/notebooks/04_query_vector_index"
+    print(f"[INFO] Submitting vector query smoke notebook={notebook}")
+    print(f"[INFO] query_text={QUERY_TEXT}")
+    run_id = submit_notebook_run("pdf-rag-04-vector-query-smoke-submit", notebook)
+    print(f"[OK] RUN_ID_VECTOR_QUERY_SMOKE={run_id}")
+    wait_run(run_id)
+    print("[OK] Vector query smoke completed successfully")
 
 
 if __name__ == "__main__":
