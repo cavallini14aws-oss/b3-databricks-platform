@@ -5,3 +5,4 @@ foundation_models:
   default_temperature: 0.1
   api_style: openai_compatible_chat
   batch_inference_recommendation: ai_query
+  default_endpoint_name: databricks-gpt-5-4-mini

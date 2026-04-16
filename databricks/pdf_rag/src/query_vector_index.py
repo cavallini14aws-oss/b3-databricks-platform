@@ -9,7 +9,7 @@ from databricks.vector_search.client import VectorSearchClient
 
 
 def load_config() -> dict:
-    path = Path("databricks/pdf_rag/config/pdf_rag_vector_search.yml")
+    path = Path(__file__).resolve().parents[1] / "config" / "pdf_rag_vector_search.yml"
     return yaml.safe_load(path.read_text(encoding="utf-8"))["vector_search"]
 
 
