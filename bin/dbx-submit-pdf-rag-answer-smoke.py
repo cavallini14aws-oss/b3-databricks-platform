@@ -22,10 +22,8 @@ QUESTION = os.environ.get(
     "PDF_RAG_QUESTION",
     "Explique o significado psicológico do Livro Vermelho de Jung.",
 )
-FOUNDATION_ENDPOINT = os.environ.get(
-    "DATABRICKS_FOUNDATION_ENDPOINT",
-    "databricks-qwen3-next-80b-a3b-instruct",
-)
+LOCAL_ENV = os.environ.get("LOCAL_ENV", "dev")
+FOUNDATION_ENDPOINT = os.environ.get("DATABRICKS_FOUNDATION_ENDPOINT", "")
 
 
 def cli_json(cmd: list[str]) -> dict[str, Any]:
@@ -52,7 +50,7 @@ def submit_notebook_run() -> int:
                 "task_key": "main",
                 "notebook_task": {
                     "notebook_path": notebook,
-                    "base_parameters": {"question": QUESTION, "foundation_endpoint": FOUNDATION_ENDPOINT},
+                    "base_parameters": {"question": QUESTION, "env": LOCAL_ENV, "foundation_endpoint": FOUNDATION_ENDPOINT},
                 },
             }
         ],
@@ -165,6 +163,7 @@ def wait_run(run_id: int) -> None:
 def main() -> None:
     print("[INFO] submitting RAG answer PT-BR smoke")
     print(f"[INFO] question={QUESTION}")
+    print(f"[INFO] env={LOCAL_ENV}")
     print(f"[INFO] foundation_endpoint={FOUNDATION_ENDPOINT}")
 
     run_id = submit_notebook_run()

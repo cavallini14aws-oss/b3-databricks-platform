@@ -17,14 +17,25 @@ dbutils.widgets.text(
 )
 
 dbutils.widgets.text(
+    "env",
+    "dev",
+)
+
+dbutils.widgets.text(
     "foundation_endpoint",
-    "databricks-qwen3-next-80b-a3b-instruct",
+    "",
 )
 
 question = dbutils.widgets.get("question")
+env = dbutils.widgets.get("env")
 foundation_endpoint = dbutils.widgets.get("foundation_endpoint")
 
-os.environ["DATABRICKS_FOUNDATION_ENDPOINT"] = foundation_endpoint
+os.environ["LOCAL_ENV"] = env
+
+if foundation_endpoint:
+    os.environ["DATABRICKS_FOUNDATION_ENDPOINT"] = foundation_endpoint
+else:
+    os.environ.pop("DATABRICKS_FOUNDATION_ENDPOINT", None)
 
 from src.rag_answer_ptbr import main
 
