@@ -24,7 +24,7 @@ QUESTION = os.environ.get(
 )
 FOUNDATION_ENDPOINT = os.environ.get(
     "DATABRICKS_FOUNDATION_ENDPOINT",
-    "databricks-gpt-5-4-mini",
+    "databricks-qwen3-next-80b-a3b-instruct",
 )
 
 

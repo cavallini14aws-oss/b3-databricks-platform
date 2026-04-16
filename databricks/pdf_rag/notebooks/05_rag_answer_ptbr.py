@@ -18,7 +18,7 @@ dbutils.widgets.text(
 
 dbutils.widgets.text(
     "foundation_endpoint",
-    "databricks-gpt-5-4-mini",
+    "databricks-qwen3-next-80b-a3b-instruct",
 )
 
 question = dbutils.widgets.get("question")
