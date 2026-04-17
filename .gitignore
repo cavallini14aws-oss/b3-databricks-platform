@@ -59,3 +59,15 @@ pipelines/examples/pdf_rag_lab/backend/vectorstore/
 .secrets.databricks.*.oauth.local
 .trash_pdf_rag_raw/
 pipelines/examples/pdf_rag_lab/backend/reports/
+
+# Local runtime state
+.state/
+pdf_rag_input/
+
+# Local runtime artifacts
+artifacts/
+
+# Local Databricks secrets/env
+.env.databricks.*.local
+.secrets.databricks.*.local
+.secrets.databricks.*.oauth.local
