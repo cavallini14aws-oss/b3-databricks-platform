@@ -65,9 +65,5 @@ pipelines/examples/pdf_rag_lab/backend/reports/
 pdf_rag_input/
 
 # Local runtime artifacts
-artifacts/
 
 # Local Databricks secrets/env
-.env.databricks.*.local
-.secrets.databricks.*.local
-.secrets.databricks.*.oauth.local
