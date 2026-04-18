@@ -67,3 +67,6 @@ pdf_rag_input/
 # Local runtime artifacts
 
 # Local Databricks secrets/env
+
+# Generated release/version file
+VERSION

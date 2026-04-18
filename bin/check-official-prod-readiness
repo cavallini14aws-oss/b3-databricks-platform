@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-${DATABRICKS_ENV:-}}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Ambiente não informado. Use: bin/check-official-prod-readiness <dev|hml|prd>"
+  exit 1
+fi
+
+case "$ENV_NAME" in
+  dev|hml|prd) ;;
+  *)
+    echo "[ERROR] Ambiente inválido: $ENV_NAME"
+    exit 1
+    ;;
+esac
+
+if [[ ! -f ".databricks.official.endpoints.yml" ]]; then
+  echo "[ERROR] .databricks.official.endpoints.yml ausente"
+  exit 1
+fi
+
+SERVING_ENDPOINT="$(python3 - <<PY
+import yaml
+from pathlib import Path
+data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
+print(data.get("${ENV_NAME}", {}).get("serving_endpoint", ""))
+PY
+)"
+
+PROFILE_NAME="$(python3 - <<PY
+import yaml
+from pathlib import Path
+data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
+print(data.get("${ENV_NAME}", {}).get("profile", ""))
+PY
+)"
+
+if [[ -z "$SERVING_ENDPOINT" || "$SERVING_ENDPOINT" == "TO_BE_DEFINED" ]]; then
+  echo "[ERROR] serving_endpoint inválido para env=${ENV_NAME}"
+  exit 1
+fi
+
+if [[ "$ENV_NAME" == "prd" ]]; then
+  bin/check-prod-hardening prd
+
+  if [[ -z "${PROFILE_NAME}" || "${PROFILE_NAME}" == "TO_BE_DEFINED" ]]; then
+    echo "[ERROR] profile inválido para produção"
+    exit 1
+  fi
+fi
+
+if [[ ! -f "VERSION" ]]; then
+  echo "[ERROR] VERSION ausente. Rode bin/gen-version"
+  exit 1
+fi
+
+echo "[OK] official readiness validado para env=${ENV_NAME}"
+echo "[INFO] endpoint=${SERVING_ENDPOINT}"
+echo "[INFO] profile=${PROFILE_NAME}"
+echo "[INFO] version=$(cat VERSION)"

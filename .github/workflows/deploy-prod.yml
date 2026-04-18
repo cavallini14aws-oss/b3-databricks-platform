@@ -1,0 +1,72 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy-prd:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Setup Databricks CLI
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks version
+
+      - name: Prepare secrets files for M2M
+        run: |
+          cat > .secrets.databricks.prd.oauth.local <<EOT
+          DATABRICKS_HOST=${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID=${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET=${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          EOT
+          chmod 600 .secrets.databricks.prd.oauth.local
+
+      - name: Generate version
+        run: |
+          chmod +x bin/gen-version
+          bin/gen-version
+
+      - name: Load official M2M env
+        shell: bash
+        run: |
+          source bin/use-databricks-official-m2m prd
+          env | grep -E 'DATABRICKS|LLM_PROVIDER' | sort | sed 's/\(TOKEN\|SECRET\)=.*/\1=[REDACTED]/'
+
+      - name: Validate production hardening
+        shell: bash
+        run: |
+          source bin/use-databricks-official-m2m prd
+          bin/check-prod-hardening prd
+          bin/check-official-prod-readiness prd
+
+      - name: Deploy bundle/resources
+        shell: bash
+        run: |
+          source bin/use-databricks-official-m2m prd
+          echo "[INFO] Aqui entra o comando real de deploy bundle/serving"
+          echo "[INFO] version=$(cat VERSION)"
+          # Exemplo:
+          # databricks bundle deploy -t prd
+
+      - name: Post-deploy smoke
+        shell: bash
+        run: |
+          source bin/use-databricks-official-m2m prd
+          echo "[INFO] Aqui entra o smoke oficial pós-deploy"
+          # Exemplo:
+          # ./bin/dbx-rag-smoke-official

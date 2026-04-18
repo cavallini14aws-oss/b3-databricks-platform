@@ -41,6 +41,12 @@ case "$ENV_NAME" in
     ;;
 esac
 
+if [[ "$ENV_NAME" == "prd" ]]; then
+  echo "[ERROR] Produção não pode usar PAT/local token via bin/use-databricks-official"
+  echo "[INFO] Use: source bin/use-databricks-official-m2m prd [serving-endpoint]"
+  return 1
+fi
+
 if ! command -v databricks >/dev/null 2>&1; then
   echo "[ERROR] Databricks CLI não encontrado"
   return 1

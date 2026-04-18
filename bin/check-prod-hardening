@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ENV_NAME="${1:-${DATABRICKS_ENV:-}}"
+
+if [[ -z "${ENV_NAME}" ]]; then
+  echo "[ERROR] Ambiente não informado. Use: bin/check-prod-hardening <env>"
+  exit 1
+fi
+
+if [[ "${ENV_NAME}" != "prd" ]]; then
+  echo "[INFO] check-prod-hardening: ambiente=${ENV_NAME}. Nada a endurecer fora de prd."
+  exit 0
+fi
+
+if [[ "${DATABRICKS_AUTH_TYPE:-}" != "oauth-m2m" ]]; then
+  echo "[ERROR] Produção exige DATABRICKS_AUTH_TYPE=oauth-m2m"
+  exit 1
+fi
+
+if [[ -z "${DATABRICKS_HOST:-}" ]]; then
+  echo "[ERROR] DATABRICKS_HOST ausente em produção"
+  exit 1
+fi
+
+if [[ -z "${DATABRICKS_CLIENT_ID:-}" ]]; then
+  echo "[ERROR] DATABRICKS_CLIENT_ID ausente em produção"
+  exit 1
+fi
+
+if [[ -z "${DATABRICKS_CLIENT_SECRET:-}" ]]; then
+  echo "[ERROR] DATABRICKS_CLIENT_SECRET ausente em produção"
+  exit 1
+fi
+
+if [[ -z "${DATABRICKS_SERVING_ENDPOINT:-}" || "${DATABRICKS_SERVING_ENDPOINT}" == "TO_BE_DEFINED" ]]; then
+  echo "[ERROR] DATABRICKS_SERVING_ENDPOINT inválido em produção"
+  exit 1
+fi
+
+echo "[OK] Produção endurecida: auth=M2M, endpoint definido, credenciais presentes"
