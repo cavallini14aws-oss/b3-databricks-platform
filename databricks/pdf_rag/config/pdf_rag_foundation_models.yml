@@ -5,3 +5,32 @@ foundation_models:
   default_temperature: 0.1
   api_style: openai_compatible_chat
   batch_inference_recommendation: ai_query
+
+  env_name_env: LOCAL_ENV
+  default_env: dev
+
+  environments:
+    dev:
+      endpoint_strategy: first_available
+      default_endpoint_name: databricks-qwen3-next-80b-a3b-instruct
+      endpoint_priority:
+        - databricks-qwen3-next-80b-a3b-instruct
+        - databricks-meta-llama-3-3-70b-instruct
+        - databricks-llama-4-maverick
+        - databricks-gemma-3-12b
+        - databricks-meta-llama-3-1-8b-instruct
+        - databricks-gpt-oss-120b
+        - databricks-gpt-oss-20b
+
+    hml:
+      endpoint_strategy: first_available
+      default_endpoint_name: databricks-qwen3-next-80b-a3b-instruct
+      endpoint_priority:
+        - databricks-qwen3-next-80b-a3b-instruct
+        - databricks-meta-llama-3-3-70b-instruct
+        - databricks-llama-4-maverick
+
+    prd:
+      endpoint_strategy: strict
+      default_endpoint_name: TO_BE_DEFINED
+      endpoint_priority: []
