@@ -32,26 +32,44 @@ print(data.get("${ENV_NAME}", {}).get("serving_endpoint", ""))
 PY
 )"
 
-PROFILE_NAME="$(python3 - <<PY
-import yaml
-from pathlib import Path
-data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
-print(data.get("${ENV_NAME}", {}).get("profile", ""))
-PY
-)"
-
 if [[ -z "$SERVING_ENDPOINT" || "$SERVING_ENDPOINT" == "TO_BE_DEFINED" ]]; then
   echo "[ERROR] serving_endpoint inválido para env=${ENV_NAME}"
   exit 1
 fi
 
+case "$ENV_NAME" in
+  dev)
+    if [[ -z "${DATABRICKS_CONFIG_PROFILE:-}" ]]; then
+      echo "[ERROR] DATABRICKS_CONFIG_PROFILE ausente para dev"
+      exit 1
+    fi
+    if [[ -z "${DATABRICKS_HOST:-}" ]]; then
+      echo "[ERROR] DATABRICKS_HOST ausente para dev"
+      exit 1
+    fi
+    ;;
+  hml|prd)
+    if [[ -z "${DATABRICKS_HOST:-}" || "${DATABRICKS_HOST}" == *"TO_BE_DEFINED"* || "${DATABRICKS_HOST}" == *"<"* ]]; then
+      echo "[ERROR] DATABRICKS_HOST inválido para env=${ENV_NAME}"
+      exit 1
+    fi
+    if [[ -z "${DATABRICKS_CLIENT_ID:-}" || "${DATABRICKS_CLIENT_ID}" == *"TO_BE_DEFINED"* || "${DATABRICKS_CLIENT_ID}" == *"<"* ]]; then
+      echo "[ERROR] DATABRICKS_CLIENT_ID inválido para env=${ENV_NAME}"
+      exit 1
+    fi
+    if [[ -z "${DATABRICKS_CLIENT_SECRET:-}" || "${DATABRICKS_CLIENT_SECRET}" == *"TO_BE_DEFINED"* || "${DATABRICKS_CLIENT_SECRET}" == *"<"* ]]; then
+      echo "[ERROR] DATABRICKS_CLIENT_SECRET inválido para env=${ENV_NAME}"
+      exit 1
+    fi
+    if [[ "${DATABRICKS_AUTH_TYPE:-}" != "oauth-m2m" ]]; then
+      echo "[ERROR] DATABRICKS_AUTH_TYPE deve ser oauth-m2m para env=${ENV_NAME}"
+      exit 1
+    fi
+    ;;
+esac
+
 if [[ "$ENV_NAME" == "prd" ]]; then
   bin/check-prod-hardening prd
-
-  if [[ -z "${PROFILE_NAME}" || "${PROFILE_NAME}" == "TO_BE_DEFINED" ]]; then
-    echo "[ERROR] profile inválido para produção"
-    exit 1
-  fi
 fi
 
 if [[ ! -f "VERSION" ]]; then
@@ -60,6 +78,6 @@ if [[ ! -f "VERSION" ]]; then
 fi
 
 echo "[OK] official readiness validado para env=${ENV_NAME}"
+echo "[INFO] host=${DATABRICKS_HOST:-unset}"
 echo "[INFO] endpoint=${SERVING_ENDPOINT}"
-echo "[INFO] profile=${PROFILE_NAME}"
 echo "[INFO] version=$(cat VERSION)"

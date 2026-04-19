@@ -12,15 +12,23 @@ if [[ -f "/Users/brunocavallini/Unicorn.ia/.venv/bin/activate" ]]; then
 fi
 
 if [[ "$MODE" == "auto" ]]; then
-  if [[ "${DATABRICKS_AUTH_TYPE:-}" == "oauth-m2m" ]]; then
-    if [[ "${DATABRICKS_ENV:-}" == "hml" ]]; then
+  case "${DATABRICKS_ENV:-}" in
+    hml)
       MODE="hml-m2m"
-    else
+      ;;
+    prd)
       MODE="prd-m2m"
-    fi
-  else
-    MODE="dev"
-  fi
+      ;;
+    *)
+      if [[ -n "${DATABRICKS_CONFIG_PROFILE:-}" ]]; then
+        MODE="dev"
+      elif [[ "${DATABRICKS_AUTH_TYPE:-}" == "oauth-m2m" ]]; then
+        MODE="prd-m2m"
+      else
+        MODE="dev"
+      fi
+      ;;
+  esac
 fi
 
 case "$MODE" in

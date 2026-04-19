@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MODE="${1:-auto}"
+
+echo "[INFO] live auth check mode=$MODE"
+
+require_non_empty() {
+  local var_name="$1"
+  local value="${!var_name:-}"
+  if [[ -z "$value" ]]; then
+    echo "[ERROR] $var_name ausente"
+    exit 1
+  fi
+}
+
+require_not_placeholder() {
+  local var_name="$1"
+  local value="${!var_name:-}"
+  if [[ "$value" == *"TO_BE_DEFINED"* || "$value" == *"COLE_AQUI"* || "$value" == *"<"* ]]; then
+    echo "[ERROR] $var_name inválido"
+    exit 1
+  fi
+}
+
+case "$MODE" in
+  dev|profile)
+    require_non_empty "DATABRICKS_CONFIG_PROFILE"
+    databricks current-user me --profile "$DATABRICKS_CONFIG_PROFILE" -o json >/dev/null
+    ;;
+  hml|prd|m2m|oauth-m2m)
+    require_non_empty "DATABRICKS_HOST"
+    require_non_empty "DATABRICKS_CLIENT_ID"
+    require_non_empty "DATABRICKS_CLIENT_SECRET"
+    require_not_placeholder "DATABRICKS_HOST"
+    require_not_placeholder "DATABRICKS_CLIENT_ID"
+    require_not_placeholder "DATABRICKS_CLIENT_SECRET"
+    if [[ "${DATABRICKS_AUTH_TYPE:-}" != "oauth-m2m" ]]; then
+      echo "[ERROR] DATABRICKS_AUTH_TYPE deve ser oauth-m2m"
+      exit 1
+    fi
+    databricks current-user me -o json >/dev/null
+    ;;
+  auto)
+    case "${DATABRICKS_ENV:-}" in
+      hml|prd)
+        require_non_empty "DATABRICKS_HOST"
+        require_non_empty "DATABRICKS_CLIENT_ID"
+        require_non_empty "DATABRICKS_CLIENT_SECRET"
+        require_not_placeholder "DATABRICKS_HOST"
+        require_not_placeholder "DATABRICKS_CLIENT_ID"
+        require_not_placeholder "DATABRICKS_CLIENT_SECRET"
+        if [[ "${DATABRICKS_AUTH_TYPE:-}" != "oauth-m2m" ]]; then
+          echo "[ERROR] DATABRICKS_AUTH_TYPE deve ser oauth-m2m"
+          exit 1
+        fi
+        databricks current-user me -o json >/dev/null
+        ;;
+      *)
+        require_non_empty "DATABRICKS_CONFIG_PROFILE"
+        databricks current-user me --profile "$DATABRICKS_CONFIG_PROFILE" -o json >/dev/null
+        ;;
+    esac
+    ;;
+  *)
+    echo "[ERROR] modo inválido para check-live-auth: $MODE"
+    exit 1
+    ;;
+esac
+
+echo "[OK] live auth validado"

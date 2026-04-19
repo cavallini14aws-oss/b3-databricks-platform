@@ -13,31 +13,9 @@ fi
 source bin/use-databricks-official-m2m hml
 
 bin/check-runtime-env prd-m2m
-
-if [[ ! -f ".databricks.official.endpoints.yml" ]]; then
-  echo "[ERROR] .databricks.official.endpoints.yml ausente"
-  exit 1
-fi
-
-ENDPOINT_VALUE="$(python3 - <<PY
-import yaml
-from pathlib import Path
-data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
-print(data.get("hml", {}).get("serving_endpoint", ""))
-PY
-)"
-
-if [[ -z "$ENDPOINT_VALUE" || "$ENDPOINT_VALUE" == "TO_BE_DEFINED" ]]; then
-  echo "[ERROR] serving_endpoint inválido para HML"
-  exit 1
-fi
-
-if [[ ! -f "VERSION" ]]; then
-  echo "[ERROR] VERSION ausente. Rode bin/gen-version"
-  exit 1
-fi
+bin/check-live-auth hml
+bin/check-official-prod-readiness hml
 
 echo "[OK] HML pronta para validação"
 echo "[INFO] host=$DATABRICKS_HOST"
-echo "[INFO] endpoint=$ENDPOINT_VALUE"
-echo "[INFO] version=$(cat VERSION)"
+echo "[INFO] endpoint=$DATABRICKS_SERVING_ENDPOINT"

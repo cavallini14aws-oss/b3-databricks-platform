@@ -12,16 +12,8 @@ fi
 # shellcheck disable=SC1091
 source bin/use-databricks-official-m2m prd
 
-for key in DATABRICKS_HOST DATABRICKS_CLIENT_ID DATABRICKS_CLIENT_SECRET; do
-  value="${!key:-}"
-  if [[ -z "$value" || "$value" == *"TO_BE_DEFINED"* ]]; then
-    echo "[ERROR] $key inválido para produção"
-    exit 1
-  fi
-done
-
 bin/check-runtime-env prd-m2m
-bin/check-prod-hardening prd
+bin/check-live-auth prd
 bin/check-official-prod-readiness prd
 
 echo "[OK] produção pronta para deploy"
