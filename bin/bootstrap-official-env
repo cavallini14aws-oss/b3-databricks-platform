@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ENV_NAME="${1:-}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Use: bin/bootstrap-official-env <dev|hml|prd>"
+  exit 1
+fi
+
+case "$ENV_NAME" in
+  dev)
+    if [[ -z "${DATABRICKS_CONFIG_PROFILE:-}" ]]; then
+      echo "[ERROR] DATABRICKS_CONFIG_PROFILE ausente para dev"
+      exit 1
+    fi
+    echo "[INFO] bootstrap env=dev"
+    echo "[INFO] auth_mode=profile-unified"
+    echo "[INFO] profile=${DATABRICKS_CONFIG_PROFILE}"
+    ;;
+  hml|prd)
+    if [[ -z "${DATABRICKS_HOST:-}" ]]; then
+      echo "[ERROR] DATABRICKS_HOST ausente para env=${ENV_NAME}"
+      exit 1
+    fi
+    if [[ -z "${DATABRICKS_CLIENT_ID:-}" ]]; then
+      echo "[ERROR] DATABRICKS_CLIENT_ID ausente para env=${ENV_NAME}"
+      exit 1
+    fi
+    if [[ -z "${DATABRICKS_CLIENT_SECRET:-}" ]]; then
+      echo "[ERROR] DATABRICKS_CLIENT_SECRET ausente para env=${ENV_NAME}"
+      exit 1
+    fi
+    export DATABRICKS_AUTH_TYPE="oauth-m2m"
+    export DATABRICKS_ENV="$ENV_NAME"
+    echo "[INFO] bootstrap env=${ENV_NAME}"
+    echo "[INFO] auth_mode=oauth-m2m"
+    echo "[INFO] host=[REDACTED]"
+    ;;
+  *)
+    echo "[ERROR] Ambiente inválido: $ENV_NAME"
+    exit 1
+    ;;
+esac

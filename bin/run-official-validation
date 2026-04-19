@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ENV_NAME="${1:-}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Use: bin/run-official-validation <dev|hml|prd>"
+  exit 1
+fi
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ -f "/Users/brunocavallini/Unicorn.ia/.venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source /Users/brunocavallini/Unicorn.ia/.venv/bin/activate
+fi
+
+./bin/bootstrap-official-env "$ENV_NAME"
+
+case "$ENV_NAME" in
+  dev)
+    ./bin/check-live-auth dev
+    ./bin/dbx-rag-smoke-official dev
+    ;;
+  hml)
+    ./bin/hml-preflight
+    ./bin/check-live-auth hml
+    ./bin/dbx-rag-smoke-official hml-m2m
+    ;;
+  prd)
+    ./bin/prd-preflight
+    ./bin/check-live-auth prd
+    ./bin/dbx-rag-smoke-official prd-m2m
+    ;;
+esac
+
+echo "[OK] validação oficial concluída para env=${ENV_NAME}"
