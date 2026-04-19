@@ -65,6 +65,14 @@ print(data.get("$ENV_NAME", {}).get("profile", ""))
 PY
 )"
 
+HOST_FROM_MAP="$(python3 - <<PY
+import yaml
+from pathlib import Path
+data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
+print(data.get("$ENV_NAME", {}).get("host", ""))
+PY
+)"
+
 ENDPOINT_FROM_MAP="$(python3 - <<PY
 import yaml
 from pathlib import Path
@@ -74,6 +82,7 @@ PY
 )"
 
 PROFILE_NAME="${PROFILE_NAME_ARG:-$PROFILE_FROM_MAP}"
+HOST="${HOST_FROM_MAP:-}"
 SERVING_ENDPOINT="${SERVING_ENDPOINT_ARG:-$ENDPOINT_FROM_MAP}"
 
 if [[ -z "$PROFILE_NAME" || "$PROFILE_NAME" == "TO_BE_DEFINED" ]]; then
@@ -91,11 +100,14 @@ if [[ -z "$SERVING_ENDPOINT" || "$SERVING_ENDPOINT" == "TO_BE_DEFINED" ]]; then
   return 1
 fi
 
-AUTH_ENV_JSON="$(databricks auth env --profile "$PROFILE_NAME" --output json)"
-HOST="$(printf '%s' "$AUTH_ENV_JSON" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("env",{}).get("DATABRICKS_HOST",""))')"
+if [[ -z "$HOST" || "$HOST" == "TO_BE_DEFINED" ]]; then
+  AUTH_ENV_JSON="$(databricks auth env --profile "$PROFILE_NAME" --output json)"
+  HOST="$(printf '%s' "$AUTH_ENV_JSON" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("env",{}).get("DATABRICKS_HOST",""))')"
+fi
 
-if [[ -z "$HOST" ]]; then
-  echo "[ERROR] Não foi possível resolver DATABRICKS_HOST a partir do profile $PROFILE_NAME"
+if [[ -z "$HOST" || "$HOST" == "TO_BE_DEFINED" ]]; then
+  echo "[ERROR] Não foi possível resolver DATABRICKS_HOST para o ambiente $ENV_NAME"
+  echo "[INFO] Defina host em .databricks.official.endpoints.yml ou corrija o profile"
   return 1
 fi
 

@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ -f "/Users/brunocavallini/Unicorn.ia/.venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source /Users/brunocavallini/Unicorn.ia/.venv/bin/activate
+fi
+
+# shellcheck disable=SC1091
+source bin/use-databricks-official dev
+
+echo "[STEP] validating runtime env"
+bin/check-runtime-env dev-official
+
+echo "[STEP] running dev official smoke"
+bash -x ./bin/dbx-rag-smoke-official-dev
+rc=$?
+
+echo "[RESULT] dev official smoke exit_code=$rc"
+exit $rc

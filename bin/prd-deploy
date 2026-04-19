@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
+./bin/prd-preflight
+
+if [[ ! -f VERSION ]]; then
+  ./bin/gen-version
+fi
+
+echo "[INFO] version=$(cat VERSION)"
+echo "[INFO] aqui entra o comando real de deploy"
+echo "[INFO] exemplo:"
+echo "       databricks bundle deploy -t prd"
+
+# Quando definir o comando real, substituir este bloco.

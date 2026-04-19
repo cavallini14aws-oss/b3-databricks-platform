@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MODE="${1:-generic}"
+
+fail() {
+  echo "[ERROR] $1"
+  exit 1
+}
+
+info() {
+  echo "[INFO] $1"
+}
+
+require_non_empty() {
+  local var_name="$1"
+  local value="${!var_name:-}"
+  if [[ -z "$value" ]]; then
+    fail "$var_name ausente"
+  fi
+  info "$var_name=present"
+}
+
+info "runtime preflight mode=$MODE"
+
+require_non_empty "DATABRICKS_ENV"
+require_non_empty "DATABRICKS_HOST"
+require_non_empty "DATABRICKS_SERVING_ENDPOINT"
+require_non_empty "LLM_PROVIDER"
+
+if [[ "${LLM_PROVIDER}" != "databricks" ]]; then
+  fail "LLM_PROVIDER must be databricks"
+fi
+
+case "$MODE" in
+  dev-official|official)
+    require_non_empty "DATABRICKS_TOKEN"
+    info "auth_mode=pat_or_official_token"
+    ;;
+  prd-m2m|m2m)
+    if [[ "${DATABRICKS_AUTH_TYPE:-}" != "oauth-m2m" ]]; then
+      fail "DATABRICKS_AUTH_TYPE must be oauth-m2m"
+    fi
+    require_non_empty "DATABRICKS_CLIENT_ID"
+    require_non_empty "DATABRICKS_CLIENT_SECRET"
+    info "auth_mode=oauth-m2m"
+    ;;
+  generic)
+    if [[ -n "${DATABRICKS_TOKEN:-}" ]]; then
+      info "DATABRICKS_TOKEN=present"
+    elif [[ "${DATABRICKS_AUTH_TYPE:-}" == "oauth-m2m" ]]; then
+      require_non_empty "DATABRICKS_CLIENT_ID"
+      require_non_empty "DATABRICKS_CLIENT_SECRET"
+      info "auth_mode=oauth-m2m"
+    else
+      fail "nenhum modo de autenticação válido detectado"
+    fi
+    ;;
+  *)
+    fail "modo inválido: $MODE"
+    ;;
+esac
+
+mkdir -p .state
+cat > .state/runtime_env_state.json <<STATE
+{
+  "mode": "$MODE",
+  "databricks_env": "${DATABRICKS_ENV}",
+  "serving_endpoint": "${DATABRICKS_SERVING_ENDPOINT}",
+  "llm_provider": "${LLM_PROVIDER}",
+  "auth_type": "${DATABRICKS_AUTH_TYPE:-token}",
+  "loaded_at_utc": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+}
+STATE
+
+info "runtime env validado"
+info "state_file=.state/runtime_env_state.json"

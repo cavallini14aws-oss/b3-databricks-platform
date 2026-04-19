@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
+echo "[STEP] checking dev runtime env"
+bin/check-runtime-env dev-official
+
+if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+  echo "[INFO] Using already active virtualenv: $VIRTUAL_ENV"
+elif [[ -f ".venv/bin/activate" ]]; then
+  echo "[INFO] Activating project virtualenv: $ROOT_DIR/.venv"
+  source .venv/bin/activate
+fi
+
+echo "[INFO] Databricks RAG official DEV smoke"
+echo "[INFO] env=${DATABRICKS_ENV:-unset}"
+echo "[INFO] host=$DATABRICKS_HOST"
+echo "[INFO] endpoint=$DATABRICKS_SERVING_ENDPOINT"
+echo "[INFO] provider=$LLM_PROVIDER"
+echo "[INFO] token=[REDACTED]"
+
+echo "[STEP] running pytest"
+python -m pytest tests/databricks/test_foundation_model_client.py -q
+rc=$?
+
+echo "[RESULT] pytest exit_code=$rc"
+echo "[INFO] Databricks official DEV smoke finished successfully"
+exit $rc

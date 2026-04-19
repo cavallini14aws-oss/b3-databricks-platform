@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ -n "${ZSH_VERSION:-}" ]; then
+  SCRIPT_PATH="${(%):-%N}"
+  CALLED_DIRECTLY=0
+elif [ -n "${BASH_VERSION:-}" ]; then
+  SCRIPT_PATH="${BASH_SOURCE[0]}"
+  if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    CALLED_DIRECTLY=1
+  else
+    CALLED_DIRECTLY=0
+  fi
+else
+  SCRIPT_PATH="$0"
+  CALLED_DIRECTLY=0
+fi
+
+if [[ "${CALLED_DIRECTLY}" -eq 1 ]]; then
+  echo "[ERROR] Use: source bin/dev-official-shell"
+  exit 1
+fi
+
+ROOT_DIR="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ -f "/Users/brunocavallini/Unicorn.ia/.venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source /Users/brunocavallini/Unicorn.ia/.venv/bin/activate
+fi
+
+# shellcheck disable=SC1091
+source bin/use-databricks-official dev
+
+bin/check-runtime-env dev-official
+
+echo "[OK] dev official shell carregado"
+echo "[INFO] DATABRICKS_ENV=$DATABRICKS_ENV"
+echo "[INFO] DATABRICKS_HOST=$DATABRICKS_HOST"
+echo "[INFO] DATABRICKS_SERVING_ENDPOINT=$DATABRICKS_SERVING_ENDPOINT"
+echo "[INFO] LLM_PROVIDER=$LLM_PROVIDER"

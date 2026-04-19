@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ -x "bin/check-runtime-env" ]]; then
+  bin/check-runtime-env generic >/dev/null
+fi
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
@@ -43,6 +50,6 @@ echo "[INFO] provider=$LLM_PROVIDER"
 echo "[INFO] client_id=[REDACTED]"
 echo "[INFO] client_secret=[REDACTED]"
 
-python -m pytest tests/test_pdf_rag_llm_service_databricks.py -q
+python -m pytest tests/databricks/test_foundation_model_client.py -q
 
 echo "[INFO] Databricks official M2M smoke finished successfully"

@@ -44,6 +44,6 @@ echo "[INFO] endpoint=$DATABRICKS_SERVING_ENDPOINT"
 echo "[INFO] profile=${DATABRICKS_CONFIG_PROFILE:-unset}"
 echo "[INFO] token=[REDACTED]"
 
-python -m pytest tests/test_pdf_rag_llm_service_databricks.py -q
+python -m pytest tests/databricks/test_foundation_model_client.py -q
 
 echo "[INFO] Databricks RAG smoke finished successfully"
