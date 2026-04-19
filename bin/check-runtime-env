@@ -21,6 +21,15 @@ require_non_empty() {
   info "$var_name=present"
 }
 
+require_not_placeholder() {
+  local var_name="$1"
+  local value="${!var_name:-}"
+  if [[ "$value" == *"TO_BE_DEFINED"* || "$value" == *"COLE_AQUI"* ]]; then
+    fail "$var_name contém placeholder inválido"
+  fi
+  info "$var_name=valid"
+}
+
 info "runtime preflight mode=$MODE"
 
 require_non_empty "DATABRICKS_ENV"
@@ -35,6 +44,9 @@ fi
 case "$MODE" in
   dev-official|official)
     require_non_empty "DATABRICKS_TOKEN"
+    require_not_placeholder "DATABRICKS_HOST"
+    require_not_placeholder "DATABRICKS_TOKEN"
+    require_not_placeholder "DATABRICKS_SERVING_ENDPOINT"
     info "auth_mode=pat_or_official_token"
     ;;
   prd-m2m|m2m)
@@ -43,14 +55,23 @@ case "$MODE" in
     fi
     require_non_empty "DATABRICKS_CLIENT_ID"
     require_non_empty "DATABRICKS_CLIENT_SECRET"
+    require_not_placeholder "DATABRICKS_HOST"
+    require_not_placeholder "DATABRICKS_CLIENT_ID"
+    require_not_placeholder "DATABRICKS_CLIENT_SECRET"
+    require_not_placeholder "DATABRICKS_SERVING_ENDPOINT"
     info "auth_mode=oauth-m2m"
     ;;
   generic)
+    require_not_placeholder "DATABRICKS_HOST"
+    require_not_placeholder "DATABRICKS_SERVING_ENDPOINT"
     if [[ -n "${DATABRICKS_TOKEN:-}" ]]; then
-      info "DATABRICKS_TOKEN=present"
+      require_not_placeholder "DATABRICKS_TOKEN"
+      info "DATABRICKS_TOKEN=valid"
     elif [[ "${DATABRICKS_AUTH_TYPE:-}" == "oauth-m2m" ]]; then
       require_non_empty "DATABRICKS_CLIENT_ID"
       require_non_empty "DATABRICKS_CLIENT_SECRET"
+      require_not_placeholder "DATABRICKS_CLIENT_ID"
+      require_not_placeholder "DATABRICKS_CLIENT_SECRET"
       info "auth_mode=oauth-m2m"
     else
       fail "nenhum modo de autenticação válido detectado"
