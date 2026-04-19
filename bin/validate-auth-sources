@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "[INFO] auth sources check"
+
+if command -v databricks >/dev/null 2>&1; then
+  echo "[OK] databricks cli presente"
+else
+  echo "[ERROR] databricks cli ausente"
+fi
+
+if [[ -f ".databricks.official.endpoints.yml" ]]; then
+  echo "[OK] .databricks.official.endpoints.yml presente"
+else
+  echo "[ERROR] .databricks.official.endpoints.yml ausente"
+fi
+
+echo "[INFO] current env markers"
+env | grep -E 'DATABRICKS_(HOST|ENV|AUTH_TYPE|SERVING_ENDPOINT|CONFIG_PROFILE)|LLM_PROVIDER' | sed 's/=.*/=[REDACTED]/' || true

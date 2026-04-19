@@ -17,7 +17,7 @@ else
 fi
 
 if [[ "${CALLED_DIRECTLY}" -eq 1 ]]; then
-  echo "[ERROR] Use: source bin/use-databricks-official <dev|hml|prd> [profile] [serving-endpoint]"
+  echo "[ERROR] Use: source bin/use-databricks-official <dev|hml> [profile] [serving-endpoint]"
   exit 1
 fi
 
@@ -29,23 +29,22 @@ PROFILE_NAME_ARG="${2:-}"
 SERVING_ENDPOINT_ARG="${3:-}"
 
 if [[ -z "$ENV_NAME" ]]; then
-  echo "[ERROR] Use: source bin/use-databricks-official <dev|hml|prd> [profile] [serving-endpoint]"
+  echo "[ERROR] Use: source bin/use-databricks-official <dev|hml> [profile] [serving-endpoint]"
   return 1
 fi
 
 case "$ENV_NAME" in
-  dev|hml|prd) ;;
+  dev|hml) ;;
+  prd)
+    echo "[ERROR] Produção não pode usar bin/use-databricks-official"
+    echo "[INFO] Use: source bin/use-databricks-official-m2m prd"
+    return 1
+    ;;
   *)
     echo "[ERROR] Ambiente inválido: $ENV_NAME"
     return 1
     ;;
 esac
-
-if [[ "$ENV_NAME" == "prd" ]]; then
-  echo "[ERROR] Produção não pode usar PAT/local token via bin/use-databricks-official"
-  echo "[INFO] Use: source bin/use-databricks-official-m2m prd [serving-endpoint]"
-  return 1
-fi
 
 if ! command -v databricks >/dev/null 2>&1; then
   echo "[ERROR] Databricks CLI não encontrado"
@@ -86,61 +85,40 @@ HOST="${HOST_FROM_MAP:-}"
 SERVING_ENDPOINT="${SERVING_ENDPOINT_ARG:-$ENDPOINT_FROM_MAP}"
 
 if [[ -z "$PROFILE_NAME" || "$PROFILE_NAME" == "TO_BE_DEFINED" ]]; then
-  PROFILE_NAME="$(databricks auth profiles | awk '/\(Default\)/ { line=$0; sub(/ \(Default\)/,"",line); sub(/[[:space:]]+https:\/\/.*/,"",line); print line; exit }')"
+  echo "[ERROR] profile inválido para env=$ENV_NAME"
+  return 1
 fi
 
-if [[ -z "$PROFILE_NAME" ]]; then
-  echo "[ERROR] Não foi possível resolver um profile para o ambiente $ENV_NAME"
+if [[ -z "$HOST" || "$HOST" == "TO_BE_DEFINED" ]]; then
+  echo "[ERROR] host inválido para env=$ENV_NAME em .databricks.official.endpoints.yml"
   return 1
 fi
 
 if [[ -z "$SERVING_ENDPOINT" || "$SERVING_ENDPOINT" == "TO_BE_DEFINED" ]]; then
-  echo "[ERROR] Serving endpoint não definido para o ambiente $ENV_NAME"
-  echo "[INFO] Ajuste .databricks.official.endpoints.yml ou passe o endpoint explicitamente"
+  echo "[ERROR] serving endpoint inválido para env=$ENV_NAME"
   return 1
 fi
 
-if [[ -z "$HOST" || "$HOST" == "TO_BE_DEFINED" ]]; then
-  AUTH_ENV_JSON="$(databricks auth env --profile "$PROFILE_NAME" --output json)"
-  HOST="$(printf '%s' "$AUTH_ENV_JSON" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("env",{}).get("DATABRICKS_HOST",""))')"
-fi
+AUTH_ENV_JSON="$(databricks auth env --profile "$PROFILE_NAME" --output json)" || {
+  echo "[ERROR] Falha ao resolver auth via profile=$PROFILE_NAME"
+  echo "[FIX] Rode: databricks auth login $HOST --profile $PROFILE_NAME"
+  return 1
+}
 
-if [[ -z "$HOST" || "$HOST" == "TO_BE_DEFINED" ]]; then
-  echo "[ERROR] Não foi possível resolver DATABRICKS_HOST para o ambiente $ENV_NAME"
-  echo "[INFO] Defina host em .databricks.official.endpoints.yml ou corrija o profile"
+TOKEN="$(printf '%s' "$AUTH_ENV_JSON" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("env",{}).get("DATABRICKS_TOKEN",""))')"
+
+if [[ -z "$TOKEN" ]]; then
+  echo "[ERROR] Não foi possível resolver DATABRICKS_TOKEN via databricks auth env"
+  echo "[FIX] Rode: databricks auth login $HOST --profile $PROFILE_NAME"
   return 1
 fi
 
-SECRETS_FILE=".secrets.databricks.${ENV_NAME}.local"
-if [[ ! -f "$SECRETS_FILE" ]]; then
-  echo "[ERROR] Arquivo de segredo não encontrado: $SECRETS_FILE"
-  echo "[INFO] Copie .secrets.databricks.example para $SECRETS_FILE e preencha o token."
-  return 1
-fi
-
-set -a
-source "$SECRETS_FILE"
-set +a
-
-if [[ -z "${DATABRICKS_TOKEN:-}" ]]; then
-  echo "[ERROR] DATABRICKS_TOKEN ausente em $SECRETS_FILE"
-  return 1
-fi
-
-ENV_FILE=".env.databricks.${ENV_NAME}.local"
-umask 077
-cat > "$ENV_FILE" <<EOT
-DATABRICKS_HOST=$HOST
-DATABRICKS_TOKEN=$DATABRICKS_TOKEN
-DATABRICKS_SERVING_ENDPOINT=$SERVING_ENDPOINT
-DATABRICKS_CONFIG_PROFILE=$PROFILE_NAME
-DATABRICKS_ENV=$ENV_NAME
-LLM_PROVIDER=databricks
-EOT
-
-set -a
-source "$ENV_FILE"
-set +a
+export DATABRICKS_HOST="$HOST"
+export DATABRICKS_TOKEN="$TOKEN"
+export DATABRICKS_SERVING_ENDPOINT="$SERVING_ENDPOINT"
+export DATABRICKS_CONFIG_PROFILE="$PROFILE_NAME"
+export DATABRICKS_ENV="$ENV_NAME"
+export LLM_PROVIDER="databricks"
 
 echo "[INFO] Databricks official mode loaded"
 echo "[INFO] env=$DATABRICKS_ENV"

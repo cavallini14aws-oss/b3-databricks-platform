@@ -5,10 +5,10 @@ dev:
 
 hml:
   profile: TO_BE_DEFINED
-  host: TO_BE_DEFINED
+  host: https://TO_BE_DEFINED.cloud.databricks.com
   serving_endpoint: pdf-rag-hml-endpoint
 
 prd:
   profile: TO_BE_DEFINED
-  host: TO_BE_DEFINED
+  host: https://TO_BE_DEFINED.cloud.databricks.com
   serving_endpoint: pdf-rag-prd-endpoint

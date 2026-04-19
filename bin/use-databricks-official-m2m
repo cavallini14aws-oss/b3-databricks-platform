@@ -17,7 +17,7 @@ else
 fi
 
 if [[ "${CALLED_DIRECTLY}" -eq 1 ]]; then
-  echo "[ERROR] Use: source bin/use-databricks-official-m2m <dev|hml|prd> [serving-endpoint]"
+  echo "[ERROR] Use: source bin/use-databricks-official-m2m <prd|hml> [serving-endpoint]"
   exit 1
 fi
 
@@ -28,12 +28,16 @@ ENV_NAME="${1:-}"
 SERVING_ENDPOINT_ARG="${2:-}"
 
 if [[ -z "$ENV_NAME" ]]; then
-  echo "[ERROR] Use: source bin/use-databricks-official-m2m <dev|hml|prd> [serving-endpoint]"
+  echo "[ERROR] Use: source bin/use-databricks-official-m2m <prd|hml> [serving-endpoint]"
   return 1
 fi
 
 case "$ENV_NAME" in
-  dev|hml|prd) ;;
+  hml|prd) ;;
+  dev)
+    echo "[ERROR] dev não deve usar M2M unattended"
+    return 1
+    ;;
   *)
     echo "[ERROR] Ambiente inválido: $ENV_NAME"
     return 1
@@ -45,6 +49,14 @@ if [[ ! -f ".databricks.official.endpoints.yml" ]]; then
   return 1
 fi
 
+HOST_FROM_MAP="$(python3 - <<PY
+import yaml
+from pathlib import Path
+data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
+print(data.get("$ENV_NAME", {}).get("host", ""))
+PY
+)"
+
 ENDPOINT_FROM_MAP="$(python3 - <<PY
 import yaml
 from pathlib import Path
@@ -53,41 +65,31 @@ print(data.get("$ENV_NAME", {}).get("serving_endpoint", ""))
 PY
 )"
 
-SERVING_ENDPOINT="${SERVING_ENDPOINT_ARG:-$ENDPOINT_FROM_MAP}"
+HOST="${DATABRICKS_HOST:-$HOST_FROM_MAP}"
+SERVING_ENDPOINT="${SERVING_ENDPOINT_ARG:-${DATABRICKS_SERVING_ENDPOINT:-$ENDPOINT_FROM_MAP}}"
+
+if [[ -z "$HOST" || "$HOST" == "TO_BE_DEFINED" ]]; then
+  echo "[ERROR] DATABRICKS_HOST ausente ou inválido para env=$ENV_NAME"
+  return 1
+fi
+
+if [[ -z "${DATABRICKS_CLIENT_ID:-}" || "${DATABRICKS_CLIENT_ID}" == *"TO_BE_DEFINED"* ]]; then
+  echo "[ERROR] DATABRICKS_CLIENT_ID ausente ou inválido"
+  return 1
+fi
+
+if [[ -z "${DATABRICKS_CLIENT_SECRET:-}" || "${DATABRICKS_CLIENT_SECRET}" == *"TO_BE_DEFINED"* ]]; then
+  echo "[ERROR] DATABRICKS_CLIENT_SECRET ausente ou inválido"
+  return 1
+fi
 
 if [[ -z "$SERVING_ENDPOINT" || "$SERVING_ENDPOINT" == "TO_BE_DEFINED" ]]; then
-  echo "[ERROR] Serving endpoint não definido para o ambiente $ENV_NAME"
+  echo "[ERROR] serving endpoint inválido para env=$ENV_NAME"
   return 1
 fi
 
-SECRETS_FILE=".secrets.databricks.${ENV_NAME}.oauth.local"
-if [[ ! -f "$SECRETS_FILE" ]]; then
-  echo "[ERROR] Arquivo de segredo OAuth não encontrado: $SECRETS_FILE"
-  echo "[INFO] Copie .secrets.databricks.oauth.example para $SECRETS_FILE e preencha os valores."
-  return 1
-fi
-
-set -a
-source "$SECRETS_FILE"
-set +a
-
-if [[ -z "${DATABRICKS_HOST:-}" ]]; then
-  echo "[ERROR] DATABRICKS_HOST ausente em $SECRETS_FILE"
-  return 1
-fi
-
-if [[ -z "${DATABRICKS_CLIENT_ID:-}" ]]; then
-  echo "[ERROR] DATABRICKS_CLIENT_ID ausente em $SECRETS_FILE"
-  return 1
-fi
-
-if [[ -z "${DATABRICKS_CLIENT_SECRET:-}" ]]; then
-  echo "[ERROR] DATABRICKS_CLIENT_SECRET ausente em $SECRETS_FILE"
-  return 1
-fi
-
+export DATABRICKS_HOST="$HOST"
 export DATABRICKS_AUTH_TYPE="oauth-m2m"
-export DATABRICKS_CONFIG_PROFILE="official-${ENV_NAME}-m2m"
 export DATABRICKS_ENV="$ENV_NAME"
 export DATABRICKS_SERVING_ENDPOINT="$SERVING_ENDPOINT"
 export LLM_PROVIDER="databricks"
