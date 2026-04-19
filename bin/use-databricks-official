@@ -17,7 +17,7 @@ else
 fi
 
 if [[ "${CALLED_DIRECTLY}" -eq 1 ]]; then
-  echo "[ERROR] Use: source bin/use-databricks-official <dev|hml> [profile] [serving-endpoint]"
+  echo "[ERROR] Use: source bin/use-databricks-official <dev|hml> [serving-endpoint]"
   exit 1
 fi
 
@@ -25,11 +25,10 @@ ROOT_DIR="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
 cd "$ROOT_DIR"
 
 ENV_NAME="${1:-}"
-PROFILE_NAME_ARG="${2:-}"
-SERVING_ENDPOINT_ARG="${3:-}"
+SERVING_ENDPOINT_ARG="${2:-}"
 
 if [[ -z "$ENV_NAME" ]]; then
-  echo "[ERROR] Use: source bin/use-databricks-official <dev|hml> [profile] [serving-endpoint]"
+  echo "[ERROR] Use: source bin/use-databricks-official <dev|hml> [serving-endpoint]"
   return 1
 fi
 
@@ -56,23 +55,7 @@ if [[ ! -f ".databricks.official.endpoints.yml" ]]; then
   return 1
 fi
 
-PROFILE_FROM_MAP="$(python3 - <<PY
-import yaml
-from pathlib import Path
-data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
-print(data.get("$ENV_NAME", {}).get("profile", ""))
-PY
-)"
-
-HOST_FROM_MAP="$(python3 - <<PY
-import yaml
-from pathlib import Path
-data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
-print(data.get("$ENV_NAME", {}).get("host", ""))
-PY
-)"
-
-ENDPOINT_FROM_MAP="$(python3 - <<PY
+SERVING_ENDPOINT_FROM_MAP="$(python3 - <<PY
 import yaml
 from pathlib import Path
 data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
@@ -80,17 +63,12 @@ print(data.get("$ENV_NAME", {}).get("serving_endpoint", ""))
 PY
 )"
 
-PROFILE_NAME="${PROFILE_NAME_ARG:-$PROFILE_FROM_MAP}"
-HOST="${HOST_FROM_MAP:-}"
-SERVING_ENDPOINT="${SERVING_ENDPOINT_ARG:-$ENDPOINT_FROM_MAP}"
+SERVING_ENDPOINT="${SERVING_ENDPOINT_ARG:-${DATABRICKS_SERVING_ENDPOINT:-$SERVING_ENDPOINT_FROM_MAP}}"
+PROFILE_NAME="${DATABRICKS_CONFIG_PROFILE:-}"
 
-if [[ -z "$PROFILE_NAME" || "$PROFILE_NAME" == "TO_BE_DEFINED" ]]; then
-  echo "[ERROR] profile inválido para env=$ENV_NAME"
-  return 1
-fi
-
-if [[ -z "$HOST" || "$HOST" == "TO_BE_DEFINED" ]]; then
-  echo "[ERROR] host inválido para env=$ENV_NAME em .databricks.official.endpoints.yml"
+if [[ -z "$PROFILE_NAME" ]]; then
+  echo "[ERROR] DATABRICKS_CONFIG_PROFILE ausente"
+  echo "[FIX] Exporte DATABRICKS_CONFIG_PROFILE antes de carregar o ambiente"
   return 1
 fi
 
@@ -101,24 +79,24 @@ fi
 
 AUTH_ENV_JSON="$(databricks auth env --profile "$PROFILE_NAME" --output json)" || {
   echo "[ERROR] Falha ao resolver auth via profile=$PROFILE_NAME"
-  echo "[FIX] Rode: databricks auth login $HOST --profile $PROFILE_NAME"
+  echo "[FIX] Rode: databricks auth login <workspace-host> --profile $PROFILE_NAME"
   return 1
 }
 
-TOKEN="$(printf '%s' "$AUTH_ENV_JSON" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("env",{}).get("DATABRICKS_TOKEN",""))')"
+RESOLVED_HOST="$(printf '%s' "$AUTH_ENV_JSON" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("env",{}).get("DATABRICKS_HOST",""))')"
 
-if [[ -z "$TOKEN" ]]; then
-  echo "[ERROR] Não foi possível resolver DATABRICKS_TOKEN via databricks auth env"
-  echo "[FIX] Rode: databricks auth login $HOST --profile $PROFILE_NAME"
+if [[ -z "$RESOLVED_HOST" ]]; then
+  echo "[ERROR] databricks auth env não retornou host para profile=$PROFILE_NAME"
+  echo "[FIX] Rode: databricks auth login <workspace-host> --profile $PROFILE_NAME"
   return 1
 fi
 
-export DATABRICKS_HOST="$HOST"
-export DATABRICKS_TOKEN="$TOKEN"
-export DATABRICKS_SERVING_ENDPOINT="$SERVING_ENDPOINT"
+export DATABRICKS_HOST="$RESOLVED_HOST"
 export DATABRICKS_CONFIG_PROFILE="$PROFILE_NAME"
 export DATABRICKS_ENV="$ENV_NAME"
+export DATABRICKS_SERVING_ENDPOINT="$SERVING_ENDPOINT"
 export LLM_PROVIDER="databricks"
+unset DATABRICKS_TOKEN || true
 
 echo "[INFO] Databricks official mode loaded"
 echo "[INFO] env=$DATABRICKS_ENV"
@@ -126,4 +104,4 @@ echo "[INFO] profile=$DATABRICKS_CONFIG_PROFILE"
 echo "[INFO] host=$DATABRICKS_HOST"
 echo "[INFO] endpoint=$DATABRICKS_SERVING_ENDPOINT"
 echo "[INFO] provider=$LLM_PROVIDER"
-echo "[INFO] token=[REDACTED]"
+echo "[INFO] auth=profile-unified"

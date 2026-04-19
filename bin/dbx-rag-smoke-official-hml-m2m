@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
+echo "[STEP] checking hml m2m runtime env"
+bin/check-runtime-env prd-m2m
+
+for key in DATABRICKS_HOST DATABRICKS_CLIENT_ID DATABRICKS_CLIENT_SECRET DATABRICKS_SERVING_ENDPOINT; do
+  value="${!key:-}"
+  if [[ "$value" == *"TO_BE_DEFINED"* || "$value" == *"COLE_AQUI"* || "$value" == *"<"* ]]; then
+    echo "[ERROR] $key contém placeholder inválido para smoke hml-m2m"
+    exit 1
+  fi
+done
+
+if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+  echo "[INFO] Using already active virtualenv: $VIRTUAL_ENV"
+elif [[ -f ".venv/bin/activate" ]]; then
+  echo "[INFO] Activating project virtualenv: $ROOT_DIR/.venv"
+  source .venv/bin/activate
+fi
+
+echo "[INFO] Databricks RAG official HML M2M smoke"
+echo "[INFO] env=${DATABRICKS_ENV:-unset}"
+echo "[INFO] host=$DATABRICKS_HOST"
+echo "[INFO] endpoint=$DATABRICKS_SERVING_ENDPOINT"
+echo "[INFO] provider=$LLM_PROVIDER"
+echo "[INFO] auth_type=${DATABRICKS_AUTH_TYPE:-unset}"
+echo "[INFO] client_id=[REDACTED]"
+echo "[INFO] client_secret=[REDACTED]"
+
+echo "[STEP] running pytest"
+python -m pytest tests/databricks/test_foundation_model_client.py -q
+rc=$?
+
+echo "[RESULT] pytest exit_code=$rc"
+echo "[INFO] Databricks official HML M2M smoke finished successfully"
+exit $rc

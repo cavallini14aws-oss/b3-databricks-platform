@@ -17,7 +17,7 @@ else
 fi
 
 if [[ "${CALLED_DIRECTLY}" -eq 1 ]]; then
-  echo "[ERROR] Use: source bin/use-databricks-official-m2m <prd|hml> [serving-endpoint]"
+  echo "[ERROR] Use: source bin/use-databricks-official-m2m <hml|prd> [serving-endpoint]"
   exit 1
 fi
 
@@ -28,7 +28,7 @@ ENV_NAME="${1:-}"
 SERVING_ENDPOINT_ARG="${2:-}"
 
 if [[ -z "$ENV_NAME" ]]; then
-  echo "[ERROR] Use: source bin/use-databricks-official-m2m <prd|hml> [serving-endpoint]"
+  echo "[ERROR] Use: source bin/use-databricks-official-m2m <hml|prd> [serving-endpoint]"
   return 1
 fi
 
@@ -49,15 +49,7 @@ if [[ ! -f ".databricks.official.endpoints.yml" ]]; then
   return 1
 fi
 
-HOST_FROM_MAP="$(python3 - <<PY
-import yaml
-from pathlib import Path
-data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
-print(data.get("$ENV_NAME", {}).get("host", ""))
-PY
-)"
-
-ENDPOINT_FROM_MAP="$(python3 - <<PY
+SERVING_ENDPOINT_FROM_MAP="$(python3 - <<PY
 import yaml
 from pathlib import Path
 data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
@@ -65,20 +57,20 @@ print(data.get("$ENV_NAME", {}).get("serving_endpoint", ""))
 PY
 )"
 
-HOST="${DATABRICKS_HOST:-$HOST_FROM_MAP}"
-SERVING_ENDPOINT="${SERVING_ENDPOINT_ARG:-${DATABRICKS_SERVING_ENDPOINT:-$ENDPOINT_FROM_MAP}}"
+HOST="${DATABRICKS_HOST:-}"
+SERVING_ENDPOINT="${SERVING_ENDPOINT_ARG:-${DATABRICKS_SERVING_ENDPOINT:-$SERVING_ENDPOINT_FROM_MAP}}"
 
-if [[ -z "$HOST" || "$HOST" == "TO_BE_DEFINED" ]]; then
+if [[ -z "$HOST" || "$HOST" == *"TO_BE_DEFINED"* || "$HOST" == *"<"* ]]; then
   echo "[ERROR] DATABRICKS_HOST ausente ou inválido para env=$ENV_NAME"
   return 1
 fi
 
-if [[ -z "${DATABRICKS_CLIENT_ID:-}" || "${DATABRICKS_CLIENT_ID}" == *"TO_BE_DEFINED"* ]]; then
+if [[ -z "${DATABRICKS_CLIENT_ID:-}" || "${DATABRICKS_CLIENT_ID}" == *"TO_BE_DEFINED"* || "${DATABRICKS_CLIENT_ID}" == *"<"* ]]; then
   echo "[ERROR] DATABRICKS_CLIENT_ID ausente ou inválido"
   return 1
 fi
 
-if [[ -z "${DATABRICKS_CLIENT_SECRET:-}" || "${DATABRICKS_CLIENT_SECRET}" == *"TO_BE_DEFINED"* ]]; then
+if [[ -z "${DATABRICKS_CLIENT_SECRET:-}" || "${DATABRICKS_CLIENT_SECRET}" == *"TO_BE_DEFINED"* || "${DATABRICKS_CLIENT_SECRET}" == *"<"* ]]; then
   echo "[ERROR] DATABRICKS_CLIENT_SECRET ausente ou inválido"
   return 1
 fi

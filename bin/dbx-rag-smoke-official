@@ -4,52 +4,50 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
-if [[ -x "bin/check-runtime-env" ]]; then
-  bin/check-runtime-env generic >/dev/null
+MODE="${1:-auto}"
+
+if [[ -f "/Users/brunocavallini/Unicorn.ia/.venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source /Users/brunocavallini/Unicorn.ia/.venv/bin/activate
 fi
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT_DIR"
-
-if [[ -n "${VIRTUAL_ENV:-}" ]]; then
-  echo "[INFO] Using already active virtualenv: $VIRTUAL_ENV"
-elif [[ -f ".venv/bin/activate" ]]; then
-  echo "[INFO] Activating project virtualenv: $ROOT_DIR/.venv"
-  source .venv/bin/activate
-fi
-
-echo "[INFO] Databricks RAG official M2M smoke"
-
-if [[ "${LLM_PROVIDER:-}" != "databricks" ]]; then
-  echo "[ERROR] LLM_PROVIDER must be databricks"
-  exit 1
-fi
-
-if [[ "${DATABRICKS_AUTH_TYPE:-}" != "oauth-m2m" ]]; then
-  echo "[ERROR] DATABRICKS_AUTH_TYPE must be oauth-m2m"
-  exit 1
-fi
-
-for key in DATABRICKS_HOST DATABRICKS_CLIENT_ID DATABRICKS_CLIENT_SECRET DATABRICKS_SERVING_ENDPOINT; do
-  if [[ -z "${!key:-}" ]]; then
-    echo "[ERROR] ${key} not set"
-    exit 1
+if [[ "$MODE" == "auto" ]]; then
+  if [[ "${DATABRICKS_AUTH_TYPE:-}" == "oauth-m2m" ]]; then
+    if [[ "${DATABRICKS_ENV:-}" == "hml" ]]; then
+      MODE="hml-m2m"
+    else
+      MODE="prd-m2m"
+    fi
+  else
+    MODE="dev"
   fi
-done
-
-if [[ ! "$DATABRICKS_HOST" =~ ^https:// ]]; then
-  echo "[ERROR] DATABRICKS_HOST must start with https://"
-  exit 1
 fi
 
-echo "[INFO] env=${DATABRICKS_ENV:-unset}"
-echo "[INFO] auth_type=$DATABRICKS_AUTH_TYPE"
-echo "[INFO] host=$DATABRICKS_HOST"
-echo "[INFO] endpoint=$DATABRICKS_SERVING_ENDPOINT"
-echo "[INFO] provider=$LLM_PROVIDER"
-echo "[INFO] client_id=[REDACTED]"
-echo "[INFO] client_secret=[REDACTED]"
-
-python -m pytest tests/databricks/test_foundation_model_client.py -q
-
-echo "[INFO] Databricks official M2M smoke finished successfully"
+case "$MODE" in
+  dev)
+    echo "[INFO] loading official env: dev"
+    # shellcheck disable=SC1091
+    source bin/use-databricks-official dev
+    echo "[INFO] dispatching official smoke: dev"
+    exec ./bin/dbx-rag-smoke-official-dev
+    ;;
+  hml|hml-m2m)
+    echo "[INFO] loading official env: hml-m2m"
+    # shellcheck disable=SC1091
+    source bin/use-databricks-official-m2m hml
+    echo "[INFO] dispatching official smoke: hml-m2m"
+    exec ./bin/dbx-rag-smoke-official-hml-m2m
+    ;;
+  prd|prd-m2m|m2m)
+    echo "[INFO] loading official env: prd-m2m"
+    # shellcheck disable=SC1091
+    source bin/use-databricks-official-m2m prd
+    echo "[INFO] dispatching official smoke: prd-m2m"
+    exec ./bin/dbx-rag-smoke-official-prd-m2m
+    ;;
+  *)
+    echo "[ERROR] modo inválido para dbx-rag-smoke-official: $MODE"
+    echo "[INFO] use: ./bin/dbx-rag-smoke-official [dev|hml-m2m|prd-m2m|auto]"
+    exit 1
+    ;;
+esac

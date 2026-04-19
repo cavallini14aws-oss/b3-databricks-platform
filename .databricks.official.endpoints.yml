@@ -1,14 +1,8 @@
 dev:
-  profile: brunocavallini@hotmail.com
-  host: https://dbc-4bdce3f5-cc6b.cloud.databricks.com
   serving_endpoint: pdf-rag-dev-endpoint
 
 hml:
-  profile: TO_BE_DEFINED
-  host: https://TO_BE_DEFINED.cloud.databricks.com
   serving_endpoint: pdf-rag-hml-endpoint
 
 prd:
-  profile: TO_BE_DEFINED
-  host: https://TO_BE_DEFINED.cloud.databricks.com
   serving_endpoint: pdf-rag-prd-endpoint

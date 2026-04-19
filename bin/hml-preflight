@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ -f "/Users/brunocavallini/Unicorn.ia/.venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source /Users/brunocavallini/Unicorn.ia/.venv/bin/activate
+fi
+
+# shellcheck disable=SC1091
+source bin/use-databricks-official-m2m hml
+
+bin/check-runtime-env prd-m2m
+
+if [[ ! -f ".databricks.official.endpoints.yml" ]]; then
+  echo "[ERROR] .databricks.official.endpoints.yml ausente"
+  exit 1
+fi
+
+ENDPOINT_VALUE="$(python3 - <<PY
+import yaml
+from pathlib import Path
+data = yaml.safe_load(Path(".databricks.official.endpoints.yml").read_text(encoding="utf-8"))
+print(data.get("hml", {}).get("serving_endpoint", ""))
+PY
+)"
+
+if [[ -z "$ENDPOINT_VALUE" || "$ENDPOINT_VALUE" == "TO_BE_DEFINED" ]]; then
+  echo "[ERROR] serving_endpoint inválido para HML"
+  exit 1
+fi
+
+if [[ ! -f "VERSION" ]]; then
+  echo "[ERROR] VERSION ausente. Rode bin/gen-version"
+  exit 1
+fi
+
+echo "[OK] HML pronta para validação"
+echo "[INFO] host=$DATABRICKS_HOST"
+echo "[INFO] endpoint=$ENDPOINT_VALUE"
+echo "[INFO] version=$(cat VERSION)"
