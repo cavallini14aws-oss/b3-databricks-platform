@@ -15,6 +15,10 @@ Toda nova tabela deve nascer com:
 - example_data_bronze
 - example_data_silver
 - example_data_gold
+- example_rag_standard
+- example_rag_mlflow
+- example_ml_training
+- example_ml_inference
 
 ## Padrão esperado
 - pipeline de referência
