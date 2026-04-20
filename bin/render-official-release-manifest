@@ -60,9 +60,14 @@ for profile in profiles:
     if not ready:
         missing.append(profile)
 
+    variant = ""
+    if profile == "rag":
+        variant = "mixed"
+
     entries.append(
         {
             "profile": profile,
+            "variant": variant,
             "ready": ready,
             "deploy_plan": str(plan_file),
             "official_payload": str(payload_file),

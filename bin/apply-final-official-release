@@ -55,9 +55,12 @@ for entry in manifest["profiles"]:
         raise SystemExit(f"[ERROR] Bundle target ausente: {target_file}")
 
     target_data = yaml.safe_load(target_file.read_text(encoding="utf-8"))
+    variant = entry.get("variant", "")
+
     final_profiles.append(
         {
             "profile": profile,
+            "variant": variant,
             "bundle_target": str(target_file),
             "resources": target_data["resources"],
         }

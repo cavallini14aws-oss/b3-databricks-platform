@@ -49,9 +49,14 @@ if not final_release.get("ready"):
 
 jobs = {}
 bundle_targets = []
+profile_variants = []
 
 for entry in final_release["profiles"]:
     bundle_targets.append(entry["bundle_target"])
+    profile_variants.append({
+        "profile": entry.get("profile", ""),
+        "variant": entry.get("variant", ""),
+    })
     resources = entry["resources"]
     for job_name, job_data in resources.get("jobs", {}).items():
         jobs[job_name] = job_data
@@ -66,6 +71,7 @@ payload = {
     "env": env_name,
     "artifact_wheel": final_release["artifact_wheel"],
     "bundle_targets": bundle_targets,
+    "profile_variants": profile_variants,
     "jobs": jobs,
     "job_count": len(jobs),
     "mode": "databricks-deploy-payload",
