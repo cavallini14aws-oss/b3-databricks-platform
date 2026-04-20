@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+GIT_COMMIT="$(git rev-parse --short HEAD)"
+GIT_TAG="$(git describe --tags --exact-match 2>/dev/null || true)"
+BUILT_AT_UTC="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+if [[ -n "${GIT_TAG:-}" ]]; then
+  RELEASE_VERSION="$GIT_TAG"
+else
+  RELEASE_VERSION="0.0.0+${GIT_COMMIT}"
+fi
+
+cat <<META
+RELEASE_VERSION=${RELEASE_VERSION}
+GIT_COMMIT=${GIT_COMMIT}
+GIT_TAG=${GIT_TAG}
+BUILT_AT_UTC=${BUILT_AT_UTC}
+META

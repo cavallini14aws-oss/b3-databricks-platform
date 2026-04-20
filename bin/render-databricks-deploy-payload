@@ -58,6 +58,11 @@ for entry in final_release["profiles"]:
 
 payload = {
     "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "deploy_version": final_release["release_version"],
+    "source_release_version": final_release["release_version"],
+    "git_commit": final_release["git_commit"],
+    "git_tag": final_release["git_tag"],
+    "built_at_utc": final_release["built_at_utc"],
     "env": env_name,
     "artifact_wheel": final_release["artifact_wheel"],
     "bundle_targets": bundle_targets,

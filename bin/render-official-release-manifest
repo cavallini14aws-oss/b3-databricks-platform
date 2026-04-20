@@ -21,6 +21,8 @@ esac
 
 mkdir -p .state/releases
 
+eval "$(./bin/resolve-release-metadata)"
+
 if [[ -f ".venv-min/bin/activate" ]]; then
   # shellcheck disable=SC1091
   source .venv-min/bin/activate
@@ -70,6 +72,10 @@ for profile in profiles:
 
 manifest = {
     "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "release_version": "${RELEASE_VERSION}",
+    "git_commit": "${GIT_COMMIT}",
+    "git_tag": "${GIT_TAG}",
+    "built_at_utc": "${BUILT_AT_UTC}",
     "env": env_name,
     "artifact_wheel": artifact_wheel,
     "profiles": entries,
