@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Uso: bin/deploy-official-protected <dev|hml|prd>"
+  exit 1
+fi
+
+if [[ "$ENV_NAME" == "dev" ]]; then
+  echo "[WARN] deploy-official-protected foi desenhado para hml/prd; prosseguindo em modo controlado"
+fi
+
+HISTORY_DIR=".state/releases/history/${ENV_NAME}"
+CURRENT_DIR="${HISTORY_DIR}/current"
+
+log() {
+  echo "[INFO] $1"
+}
+
+fail() {
+  echo "[ERROR] $1"
+  exit 1
+}
+
+latest_snapshot_name() {
+  find "${HISTORY_DIR}" -mindepth 1 -maxdepth 1 -type d ! -name current -exec basename {} \; 2>/dev/null | sort | tail -n 1
+}
+
+run_smoke() {
+  ./bin/smoke-official-release-adapter "${ENV_NAME}" >/dev/null
+}
+
+apply_current_release() {
+  log "Aplicando release via adapter operacional para env=${ENV_NAME}"
+  ./bin/apply-official-release-adapter "${ENV_NAME}" >/dev/null
+}
+
+rollback_and_reapply() {
+  SNAPSHOT_NAME="$1"
+
+  if [[ -z "$SNAPSHOT_NAME" ]]; then
+    fail "rollback automatico impossivel: nenhum snapshot anterior encontrado"
+  fi
+
+  log "Iniciando rollback automatico para snapshot=${SNAPSHOT_NAME}"
+  ./bin/rollback-official-release "${ENV_NAME}" "${SNAPSHOT_NAME}"
+
+  log "Reaplicando release restaurada apos rollback"
+  apply_current_release
+
+  log "Executando smoke do rollback"
+  run_smoke
+
+  log "Rollback automatico concluido com sucesso"
+}
+
+PREVIOUS_SNAPSHOT="$(latest_snapshot_name || true)"
+
+log "Validando conflitos antes do deploy"
+./bin/check-deploy-conflicts "${ENV_NAME}"
+
+log "Salvando snapshot atual"
+./bin/snapshot-current-release "${ENV_NAME}"
+
+log "Aplicando release atual"
+if ! apply_current_release; then
+  echo "[ERROR] apply falhou; iniciando rollback automatico"
+  rollback_and_reapply "${PREVIOUS_SNAPSHOT}"
+  fail "deploy falhou e rollback foi executado"
+fi
+
+log "Executando smoke pos-deploy"
+if ! run_smoke; then
+  echo "[ERROR] smoke falhou; iniciando rollback automatico"
+  rollback_and_reapply "${PREVIOUS_SNAPSHOT}"
+  fail "smoke falhou e rollback foi executado"
+fi
+
+log "Deploy protegido concluido com sucesso para env=${ENV_NAME}"

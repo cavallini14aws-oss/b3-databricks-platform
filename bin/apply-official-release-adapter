@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Uso: bin/apply-official-release-adapter <dev|hml|prd>"
+  exit 1
+fi
+
+FINAL_RELEASE=".state/releases/final-official-release-${ENV_NAME}.yml"
+DEPLOY_PAYLOAD=".state/releases/databricks-deploy-payload-${ENV_NAME}.json"
+
+if [[ ! -f "$FINAL_RELEASE" ]]; then
+  echo "[ERROR] final release ausente: $FINAL_RELEASE"
+  exit 1
+fi
+
+if [[ ! -f "$DEPLOY_PAYLOAD" ]]; then
+  echo "[ERROR] deploy payload ausente: $DEPLOY_PAYLOAD"
+  exit 1
+fi
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import json
+import yaml
+
+env_name = "${ENV_NAME}"
+final_release = yaml.safe_load(Path("${FINAL_RELEASE}").read_text(encoding="utf-8"))
+payload = json.loads(Path("${DEPLOY_PAYLOAD}").read_text(encoding="utf-8"))
+
+result = {
+    "status": "stub_apply_success",
+    "env": env_name,
+    "release_version": final_release["release_version"],
+    "artifact_wheel": final_release["artifact_wheel"],
+    "job_count": payload["job_count"],
+    "mode": "stub",
+}
+
+print(json.dumps(result, indent=2, ensure_ascii=False))
+PY

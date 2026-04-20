@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Uso: bin/smoke-official-release-adapter <dev|hml|prd>"
+  exit 1
+fi
+
+DEPLOY_PAYLOAD=".state/releases/databricks-deploy-payload-${ENV_NAME}.json"
+
+if [[ ! -f "$DEPLOY_PAYLOAD" ]]; then
+  echo "[ERROR] deploy payload ausente: $DEPLOY_PAYLOAD"
+  exit 1
+fi
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+from datetime import datetime, timezone
+import json
+
+env_name = "${ENV_NAME}"
+payload = json.loads(Path("${DEPLOY_PAYLOAD}").read_text(encoding="utf-8"))
+
+result = {
+    "status": "stub_smoke_success",
+    "env": env_name,
+    "checked_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "release_version": payload["deploy_version"],
+    "job_count": payload["job_count"],
+    "mode": "stub",
+}
+
+print(json.dumps(result, indent=2, ensure_ascii=False))
+PY

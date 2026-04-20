@@ -1,0 +1,32 @@
+version: 1
+mode: official-operational-integration-contract
+
+apply:
+  adapter_script: "bin/apply-official-release-adapter"
+  required_inputs:
+    - env
+    - release_manifest
+    - final_release
+    - deploy_payload
+  expected_outputs:
+    - status
+    - release_version
+    - artifact_wheel
+  success_exit_code: 0
+
+smoke:
+  adapter_script: "bin/smoke-official-release-adapter"
+  required_inputs:
+    - env
+    - deploy_payload
+  expected_outputs:
+    - status
+    - checked_at_utc
+  success_exit_code: 0
+
+current_mode: "stub"
+future_mode: "databricks_official"
+
+notes:
+  - "Enquanto o ambiente oficial nao existir, os adapters operam em modo stub controlado."
+  - "Quando o ambiente oficial existir, os adapters devem manter a mesma interface e trocar apenas a implementacao interna."
