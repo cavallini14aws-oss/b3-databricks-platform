@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME=""
+PROFILE_NAME=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --env)
+      ENV_NAME="${2:-}"
+      shift 2
+      ;;
+    --profile)
+      PROFILE_NAME="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "[ERROR] Uso: bin/apply-official-profile --env <dev|hml|prd> --profile <data|api|ml|rag>"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$ENV_NAME" || -z "$PROFILE_NAME" ]]; then
+  echo "[ERROR] Uso: bin/apply-official-profile --env <dev|hml|prd> --profile <data|api|ml|rag>"
+  exit 1
+fi
+
+case "$ENV_NAME" in
+  dev|hml|prd) ;;
+  *)
+    echo "[ERROR] Ambiente invalido: $ENV_NAME"
+    exit 1
+    ;;
+esac
+
+case "$PROFILE_NAME" in
+  data|api|ml|rag) ;;
+  *)
+    echo "[ERROR] Profile invalido: $PROFILE_NAME"
+    exit 1
+    ;;
+esac
+
+PLAN_FILE=".state/deploy-plan-${ENV_NAME}-${PROFILE_NAME}.json"
+
+if [[ ! -f "$PLAN_FILE" ]]; then
+  echo "[ERROR] Plano de deploy ausente: $PLAN_FILE"
+  echo "[INFO] Gere antes com: ./bin/deploy-official-profile --env ${ENV_NAME} --profile ${PROFILE_NAME}"
+  exit 1
+fi
+
+mkdir -p .state/official
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import json
+import yaml
+from datetime import datetime, timezone
+
+plan_file = Path("${PLAN_FILE}")
+plan = json.loads(plan_file.read_text(encoding="utf-8"))
+
+artifact = Path(plan["artifact"])
+if not artifact.exists():
+    raise SystemExit(f"[ERROR] Artifact ausente: {artifact}")
+
+requirements_files = [Path(p) for p in plan["requirements"]]
+missing = [str(p) for p in requirements_files if not p.exists()]
+if missing:
+    raise SystemExit("[ERROR] Requirements ausentes: " + ", ".join(missing))
+
+requirements_compiled = []
+for req_file in requirements_files:
+    for line in req_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or line.startswith("-r "):
+            continue
+        requirements_compiled.append(line)
+
+payload = {
+    "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "env": plan["env"],
+    "profile": plan["profile"],
+    "artifact_wheel": str(artifact),
+    "requirements_files": [str(p) for p in requirements_files],
+    "requirements_compiled": requirements_compiled,
+    "profile_manifest": plan["profile_manifest"],
+    "source_plan": str(plan_file),
+    "mode": "official-apply-payload",
+}
+
+out_file = Path(".state/official") / f"official-payload-{plan['env']}-{plan['profile']}.json"
+out_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+print(f"[OK] Payload oficial gerado: {out_file}")
+print(json.dumps(payload, indent=2, ensure_ascii=False))
+PY

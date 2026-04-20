@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME=""
+PROFILE_NAME=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --env)
+      ENV_NAME="${2:-}"
+      shift 2
+      ;;
+    --profile)
+      PROFILE_NAME="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "[ERROR] Uso: bin/render-databricks-runtime-spec --env <dev|hml|prd> --profile <data|api|ml|rag>"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$ENV_NAME" || -z "$PROFILE_NAME" ]]; then
+  echo "[ERROR] Uso: bin/render-databricks-runtime-spec --env <dev|hml|prd> --profile <data|api|ml|rag>"
+  exit 1
+fi
+
+./bin/check-official-profile-gate "$ENV_NAME" "$PROFILE_NAME" >/dev/null || true
+
+PLAN_FILE=".state/deploy-plan-${ENV_NAME}-${PROFILE_NAME}.json"
+PAYLOAD_FILE=".state/official/official-payload-${ENV_NAME}-${PROFILE_NAME}.json"
+
+if [[ ! -f "$PLAN_FILE" ]]; then
+  ./bin/deploy-official-profile --env "$ENV_NAME" --profile "$PROFILE_NAME" >/dev/null
+fi
+
+if [[ ! -f "$PAYLOAD_FILE" ]]; then
+  ./bin/apply-official-profile --env "$ENV_NAME" --profile "$PROFILE_NAME" >/dev/null
+fi
+
+mkdir -p .state/databricks
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import json
+from datetime import datetime, timezone
+
+env_name = "${ENV_NAME}"
+profile_name = "${PROFILE_NAME}"
+payload_file = Path(".state/official") / f"official-payload-{env_name}-{profile_name}.json"
+payload = json.loads(payload_file.read_text(encoding="utf-8"))
+
+spec = {
+    "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "env": env_name,
+    "profile": profile_name,
+    "artifact_wheel": payload["artifact_wheel"],
+    "requirements_compiled": payload["requirements_compiled"],
+    "libraries": {
+        "whl": payload["artifact_wheel"],
+        "pypi": [{"package": req} for req in payload["requirements_compiled"]],
+    },
+    "mode": "databricks-runtime-spec",
+}
+
+out_file = Path(".state/databricks") / f"runtime-spec-{env_name}-{profile_name}.json"
+out_file.write_text(json.dumps(spec, indent=2, ensure_ascii=False), encoding="utf-8")
+
+print(f"[OK] Runtime spec gerado: {out_file}")
+print(json.dumps(spec, indent=2, ensure_ascii=False))
+PY

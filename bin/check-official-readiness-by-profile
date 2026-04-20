@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ENV_NAME="${1:-}"
+PROFILE_NAME="${2:-}"
+
+if [[ -z "$ENV_NAME" || -z "$PROFILE_NAME" ]]; then
+  echo "[ERROR] Uso: bin/check-official-readiness-by-profile <dev|hml|prd> <data|api|ml|rag>"
+  exit 1
+fi
+
+case "$ENV_NAME" in
+  dev|hml|prd) ;;
+  *)
+    echo "[ERROR] Ambiente invalido: $ENV_NAME"
+    exit 1
+    ;;
+esac
+
+case "$PROFILE_NAME" in
+  data|api|ml|rag) ;;
+  *)
+    echo "[ERROR] Profile invalido: $PROFILE_NAME"
+    exit 1
+    ;;
+esac
+
+FILES=(
+  ".state/deploy-plan-${ENV_NAME}-${PROFILE_NAME}.json"
+  ".state/official/official-payload-${ENV_NAME}-${PROFILE_NAME}.json"
+  ".state/databricks/runtime-spec-${ENV_NAME}-${PROFILE_NAME}.json"
+  ".state/databricks/job-libraries-${ENV_NAME}-${PROFILE_NAME}.json"
+  ".state/databricks/job-spec-${ENV_NAME}-${PROFILE_NAME}.json"
+  ".state/databricks/bundle-fragment-${ENV_NAME}-${PROFILE_NAME}.yml"
+  ".state/databricks/bundle-target-${ENV_NAME}-${PROFILE_NAME}.yml"
+)
+
+missing=0
+for f in "${FILES[@]}"; do
+  if [[ ! -f "$f" ]]; then
+    echo "[ERROR] Arquivo ausente: $f"
+    missing=1
+  fi
+done
+
+if [[ "$missing" -ne 0 ]]; then
+  exit 1
+fi
+
+echo "[OK] Official readiness validado para env=${ENV_NAME} profile=${PROFILE_NAME}"

@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+mkdir -p .state
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import json
+from datetime import datetime, timezone
+
+envs = ["dev", "hml", "prd"]
+profiles = ["data", "api", "ml", "rag"]
+
+def exists(path: str) -> bool:
+    return Path(path).exists()
+
+index = {
+    "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "mode": "official-readiness-index",
+    "envs": {},
+}
+
+for env in envs:
+    index["envs"][env] = {}
+    for profile in profiles:
+        checks = {
+            "deploy_plan": exists(f".state/deploy-plan-{env}-{profile}.json"),
+            "official_payload": exists(f".state/official/official-payload-{env}-{profile}.json"),
+            "runtime_spec": exists(f".state/databricks/runtime-spec-{env}-{profile}.json"),
+            "job_libraries": exists(f".state/databricks/job-libraries-{env}-{profile}.json"),
+            "job_spec": exists(f".state/databricks/job-spec-{env}-{profile}.json"),
+            "bundle_fragment": exists(f".state/databricks/bundle-fragment-{env}-{profile}.yml"),
+            "bundle_target": exists(f".state/databricks/bundle-target-{env}-{profile}.yml"),
+        }
+        checks["ready"] = all(checks.values())
+        index["envs"][env][profile] = checks
+
+out_file = Path(".state/official-readiness-index.json")
+out_file.write_text(json.dumps(index, indent=2, ensure_ascii=False), encoding="utf-8")
+
+print(f"[OK] Índice de readiness gerado: {out_file}")
+print(json.dumps(index, indent=2, ensure_ascii=False))
+PY

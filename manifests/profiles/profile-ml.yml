@@ -1,0 +1,8 @@
+version: 1
+profile: ml
+description: ML training, evaluation and mlflow workloads
+requirements:
+  - requirements-base.txt
+  - requirements-ml.txt
+artifact:
+  wheel: dist/b3_platform-0.1.0-py3-none-any.whl

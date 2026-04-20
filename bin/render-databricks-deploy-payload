@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Uso: bin/render-databricks-deploy-payload <dev|hml|prd>"
+  exit 1
+fi
+
+case "$ENV_NAME" in
+  dev|hml|prd) ;;
+  *)
+    echo "[ERROR] Ambiente invalido: $ENV_NAME"
+    exit 1
+    ;;
+esac
+
+FINAL_RELEASE_FILE=".state/releases/final-official-release-${ENV_NAME}.yml"
+
+if [[ ! -f "$FINAL_RELEASE_FILE" ]]; then
+  echo "[ERROR] Final official release ausente: $FINAL_RELEASE_FILE"
+  exit 1
+fi
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import yaml
+import json
+from datetime import datetime, timezone
+
+env_name = "${ENV_NAME}"
+final_release_file = Path(".state/releases") / f"final-official-release-{env_name}.yml"
+final_release = yaml.safe_load(final_release_file.read_text(encoding="utf-8"))
+
+if not final_release.get("ready"):
+    raise SystemExit(f"[ERROR] Final official release nao esta pronto: {final_release_file}")
+
+jobs = {}
+bundle_targets = []
+
+for entry in final_release["profiles"]:
+    bundle_targets.append(entry["bundle_target"])
+    resources = entry["resources"]
+    for job_name, job_data in resources.get("jobs", {}).items():
+        jobs[job_name] = job_data
+
+payload = {
+    "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "env": env_name,
+    "artifact_wheel": final_release["artifact_wheel"],
+    "bundle_targets": bundle_targets,
+    "jobs": jobs,
+    "job_count": len(jobs),
+    "mode": "databricks-deploy-payload",
+    "source_final_release": str(final_release_file),
+}
+
+out_file = Path(".state/releases") / f"databricks-deploy-payload-{env_name}.json"
+out_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+print(f"[OK] Databricks deploy payload gerado: {out_file}")
+print(json.dumps(payload, indent=2, ensure_ascii=False))
+PY

@@ -1,0 +1,8 @@
+version: 1
+profile: data
+description: Common data pipelines and bronze/silver/gold workloads
+requirements:
+  - requirements-base.txt
+  - requirements-data.txt
+artifact:
+  wheel: dist/b3_platform-0.1.0-py3-none-any.whl

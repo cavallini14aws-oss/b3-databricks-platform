@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME=""
+PROFILE_NAME=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --env)
+      ENV_NAME="${2:-}"
+      shift 2
+      ;;
+    --profile)
+      PROFILE_NAME="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "[ERROR] Uso: bin/render-databricks-bundle-fragment --env <dev|hml|prd> --profile <data|api|ml|rag>"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$ENV_NAME" || -z "$PROFILE_NAME" ]]; then
+  echo "[ERROR] Uso: bin/render-databricks-bundle-fragment --env <dev|hml|prd> --profile <data|api|ml|rag>"
+  exit 1
+fi
+
+./bin/render-databricks-job-spec --env "$ENV_NAME" --profile "$PROFILE_NAME" >/dev/null
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import json
+import yaml
+from datetime import datetime, timezone
+
+env_name = "${ENV_NAME}"
+profile_name = "${PROFILE_NAME}"
+
+job_spec_file = Path(".state/databricks") / f"job-spec-{env_name}-{profile_name}.json"
+job_spec = json.loads(job_spec_file.read_text(encoding="utf-8"))
+
+fragment = {
+    "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "resources": {
+        "jobs": {
+            f"b3_{env_name}_{profile_name}_job": {
+                "name": job_spec["name"],
+                "parameters": job_spec["parameters"],
+                "libraries": job_spec["libraries"],
+            }
+        }
+    },
+    "mode": "databricks-bundle-fragment",
+}
+
+out_file = Path(".state/databricks") / f"bundle-fragment-{env_name}-{profile_name}.yml"
+out_file.write_text(yaml.safe_dump(fragment, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+print(f"[OK] Bundle fragment gerado: {out_file}")
+print(yaml.safe_dump(fragment, allow_unicode=True, sort_keys=False))
+PY

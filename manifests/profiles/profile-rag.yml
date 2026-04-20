@@ -1,0 +1,9 @@
+version: 1
+profile: rag
+description: PDF RAG, embeddings and retrieval workloads
+requirements:
+  - requirements-base.txt
+  - requirements-api.txt
+  - requirements-llm.txt
+artifact:
+  wheel: dist/b3_platform-0.1.0-py3-none-any.whl

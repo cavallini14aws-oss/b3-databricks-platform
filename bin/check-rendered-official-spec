@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ENV_NAME="${1:-}"
+PROFILE_NAME="${2:-}"
+
+if [[ -z "$ENV_NAME" || -z "$PROFILE_NAME" ]]; then
+  echo "[ERROR] Uso: bin/check-rendered-official-spec <dev|hml|prd> <data|api|ml|rag>"
+  exit 1
+fi
+
+JOB_SPEC=".state/databricks/job-spec-${ENV_NAME}-${PROFILE_NAME}.json"
+BUNDLE_FRAGMENT=".state/databricks/bundle-fragment-${ENV_NAME}-${PROFILE_NAME}.yml"
+
+if [[ "$ENV_NAME" == "hml" || "$ENV_NAME" == "prd" ]]; then
+  if [[ ! -f "$JOB_SPEC" ]]; then
+    echo "[ERROR] ${ENV_NAME} exige job spec renderizado: $JOB_SPEC"
+    exit 1
+  fi
+
+  if [[ ! -f "$BUNDLE_FRAGMENT" ]]; then
+    echo "[ERROR] ${ENV_NAME} exige bundle fragment renderizado: $BUNDLE_FRAGMENT"
+    exit 1
+  fi
+fi
+
+echo "[OK] Rendered spec validado para env=${ENV_NAME} profile=${PROFILE_NAME}"

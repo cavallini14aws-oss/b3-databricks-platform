@@ -1,0 +1,8 @@
+version: 1
+profile: api
+description: FastAPI and serving workloads
+requirements:
+  - requirements-base.txt
+  - requirements-api.txt
+artifact:
+  wheel: dist/b3_platform-0.1.0-py3-none-any.whl

@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME=""
+PROFILE_NAME=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --env)
+      ENV_NAME="${2:-}"
+      shift 2
+      ;;
+    --profile)
+      PROFILE_NAME="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "[ERROR] Uso: bin/render-official-bundle-target --env <dev|hml|prd> --profile <data|api|ml|rag>"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$ENV_NAME" || -z "$PROFILE_NAME" ]]; then
+  echo "[ERROR] Uso: bin/render-official-bundle-target --env <dev|hml|prd> --profile <data|api|ml|rag>"
+  exit 1
+fi
+
+./bin/render-databricks-bundle-fragment --env "$ENV_NAME" --profile "$PROFILE_NAME" >/dev/null
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import yaml
+from datetime import datetime, timezone
+
+env_name = "${ENV_NAME}"
+profile_name = "${PROFILE_NAME}"
+
+fragment_file = Path(".state/databricks") / f"bundle-fragment-{env_name}-{profile_name}.yml"
+fragment = yaml.safe_load(fragment_file.read_text(encoding="utf-8"))
+
+target = {
+    "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "target_name": f"{env_name}_{profile_name}",
+    "env": env_name,
+    "profile": profile_name,
+    "bundle_fragment_source": str(fragment_file),
+    "resources": fragment["resources"],
+    "mode": "official-bundle-target",
+}
+
+out_file = Path(".state/databricks") / f"bundle-target-{env_name}-{profile_name}.yml"
+out_file.write_text(yaml.safe_dump(target, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+print(f"[OK] Official bundle target gerado: {out_file}")
+print(yaml.safe_dump(target, allow_unicode=True, sort_keys=False))
+PY

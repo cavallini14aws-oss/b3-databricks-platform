@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+PROFILE_NAME="${1:-}"
+
+if [[ -z "$PROFILE_NAME" ]]; then
+  echo "[ERROR] Use: bin/validate-runtime-profile <data|api|ml|rag>"
+  exit 1
+fi
+
+PROFILE_FILE="$(./bin/resolve-runtime-profile "$PROFILE_NAME")"
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import yaml
+import sys
+
+profile_file = Path("${PROFILE_FILE}")
+data = yaml.safe_load(profile_file.read_text(encoding="utf-8"))
+
+requirements = data.get("requirements", [])
+artifact = data.get("artifact", {})
+wheel = artifact.get("wheel")
+
+errors = []
+
+if not data.get("profile"):
+    errors.append("Campo 'profile' ausente.")
+
+if not requirements or not isinstance(requirements, list):
+    errors.append("Campo 'requirements' ausente ou invalido.")
+else:
+    for req in requirements:
+        if not Path(req).exists():
+            errors.append(f"Requirements ausente: {req}")
+
+if not wheel:
+    errors.append("Campo artifact.wheel ausente.")
+elif not Path(wheel).exists():
+    errors.append(f"Wheel ausente: {wheel}")
+
+if errors:
+    for err in errors:
+        print(f"[ERROR] {err}")
+    sys.exit(1)
+
+print(f"[OK] Profile valido: {profile_file}")
+print(f"[OK] Wheel: {wheel}")
+print(f"[OK] Requirements: {', '.join(requirements)}")
+PY

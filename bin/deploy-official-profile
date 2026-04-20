@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME=""
+PROFILE_NAME=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --env)
+      ENV_NAME="${2:-}"
+      shift 2
+      ;;
+    --profile)
+      PROFILE_NAME="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "[ERROR] Uso: bin/deploy-official-profile --env <dev|hml|prd> --profile <data|api|ml|rag>"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$ENV_NAME" || -z "$PROFILE_NAME" ]]; then
+  echo "[ERROR] Uso: bin/deploy-official-profile --env <dev|hml|prd> --profile <data|api|ml|rag>"
+  exit 1
+fi
+
+case "$ENV_NAME" in
+  dev|hml|prd) ;;
+  *)
+    echo "[ERROR] Ambiente invalido: $ENV_NAME"
+    exit 1
+    ;;
+esac
+
+case "$PROFILE_NAME" in
+  data|api|ml|rag) ;;
+  *)
+    echo "[ERROR] Profile invalido: $PROFILE_NAME"
+    exit 1
+    ;;
+esac
+
+./bin/validate-runtime-profile "$PROFILE_NAME" >/dev/null
+
+PROFILE_FILE="$(./bin/resolve-runtime-profile "$PROFILE_NAME")"
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+mkdir -p .state
+
+python - <<PY
+from pathlib import Path
+import yaml
+import json
+from datetime import datetime, timezone
+
+profile_file = Path("${PROFILE_FILE}")
+env_name = "${ENV_NAME}"
+profile_name = "${PROFILE_NAME}"
+
+profile_data = yaml.safe_load(profile_file.read_text(encoding="utf-8"))
+
+plan = {
+    "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "env": env_name,
+    "profile": profile_name,
+    "artifact": profile_data["artifact"]["wheel"],
+    "requirements": profile_data["requirements"],
+    "profile_manifest": str(profile_file),
+    "mode": "official-deploy-plan",
+}
+
+out_file = Path(".state") / f"deploy-plan-{env_name}-{profile_name}.json"
+out_file.write_text(json.dumps(plan, indent=2, ensure_ascii=False), encoding="utf-8")
+
+print(f"[OK] Plano de deploy gerado: {out_file}")
+print(json.dumps(plan, indent=2, ensure_ascii=False))
+PY

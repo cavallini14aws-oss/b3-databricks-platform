@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Uso: bin/apply-final-official-release <dev|hml|prd>"
+  exit 1
+fi
+
+case "$ENV_NAME" in
+  dev|hml|prd) ;;
+  *)
+    echo "[ERROR] Ambiente invalido: $ENV_NAME"
+    exit 1
+    ;;
+esac
+
+MANIFEST_FILE=".state/releases/official-release-manifest-${ENV_NAME}.yml"
+
+if [[ ! -f "$MANIFEST_FILE" ]]; then
+  echo "[ERROR] Release manifest ausente: $MANIFEST_FILE"
+  exit 1
+fi
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import yaml
+from datetime import datetime, timezone
+
+env_name = "${ENV_NAME}"
+manifest_file = Path(".state/releases") / f"official-release-manifest-{env_name}.yml"
+manifest = yaml.safe_load(manifest_file.read_text(encoding="utf-8"))
+
+if not manifest.get("ready"):
+    raise SystemExit(f"[ERROR] Release manifest nao esta pronto: {manifest_file}")
+
+final_profiles = []
+
+for entry in manifest["profiles"]:
+    profile = entry["profile"]
+    target_file = Path(entry["bundle_target"])
+    if not target_file.exists():
+        raise SystemExit(f"[ERROR] Bundle target ausente: {target_file}")
+
+    target_data = yaml.safe_load(target_file.read_text(encoding="utf-8"))
+    final_profiles.append(
+        {
+            "profile": profile,
+            "bundle_target": str(target_file),
+            "resources": target_data["resources"],
+        }
+    )
+
+final_release = {
+    "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "env": env_name,
+    "artifact_wheel": manifest["artifact_wheel"],
+    "profiles": final_profiles,
+    "ready": True,
+    "source_release_manifest": str(manifest_file),
+    "mode": "final-official-release",
+}
+
+out_file = Path(".state/releases") / f"final-official-release-{env_name}.yml"
+out_file.write_text(yaml.safe_dump(final_release, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+print(f"[OK] Final official release gerado: {out_file}")
+print(yaml.safe_dump(final_release, allow_unicode=True, sort_keys=False))
+PY
