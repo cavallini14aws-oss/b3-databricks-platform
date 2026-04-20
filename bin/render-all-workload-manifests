@@ -32,6 +32,7 @@ for workload in registry["workloads"]:
         "type": workload["type"],
         "entrypoint": workload["entrypoint"],
         "description": workload.get("description", ""),
+        "variant": workload.get("variant", ""),
         "profile": workload["type"],
         "mode": "workload-manifest",
     }

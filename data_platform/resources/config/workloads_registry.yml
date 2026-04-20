@@ -16,3 +16,14 @@ workloads:
   type: rag
   entrypoint: pipelines/rag/clientes_rag.py
   description: RAG workload for clientes domain
+  variant: standard
+- name: rag_pdf_v1
+  type: rag
+  entrypoint: pipelines/rag/rag_pdf_v1.py
+  description: PDF RAG V1 sem MLflow
+  variant: standard
+- name: rag_pdf_v2_mlflow
+  type: rag
+  entrypoint: pipelines/rag/rag_pdf_v2_mlflow.py
+  description: PDF RAG V2 com MLflow
+  variant: mlflow

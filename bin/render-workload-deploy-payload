@@ -55,6 +55,7 @@ payload = {
     "workload": workload["name"],
     "env": env_name,
     "profile": workload["profile"],
+    "variant": workload.get("variant", ""),
     "entrypoint": workload["entrypoint"],
     "artifact_wheel": job_spec["artifact_wheel"],
     "libraries": job_spec["libraries"],

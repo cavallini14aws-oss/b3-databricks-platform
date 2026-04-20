@@ -44,6 +44,11 @@ else:
         wtype = item.get("type")
         if wtype not in {"data", "api", "ml", "rag"}:
             errors.append(f"type invalido: {wtype}")
+
+        variant = item.get("variant")
+        if wtype == "rag":
+            if variant not in {"standard", "mlflow"}:
+                errors.append(f"variant invalido para rag: {variant}")
         name = item.get("name")
         if name in names:
             errors.append(f"nome duplicado: {name}")

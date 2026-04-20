@@ -66,9 +66,25 @@ from datetime import datetime, timezone
 
 workload = yaml.safe_load(Path("${MANIFEST_FILE}").read_text(encoding="utf-8"))
 profile = workload["profile"]
+variant = workload.get("variant", "")
 env_name = "${ENV_NAME}"
 
 base_job_spec = json.loads(Path(f".state/databricks/job-spec-{env_name}-{profile}.json").read_text(encoding="utf-8"))
+
+libraries = list(base_job_spec["libraries"])
+
+if workload["type"] == "rag" and variant == "mlflow":
+    mlflow_packages = [
+        {"pypi": {"package": "mlflow==3.10.1"}},
+        {"pypi": {"package": "scikit-learn==1.7.2"}},
+        {"pypi": {"package": "scipy==1.15.3"}},
+        {"pypi": {"package": "pyarrow==23.0.1"}},
+    ]
+    existing = {json.dumps(item, sort_keys=True) for item in libraries}
+    for pkg in mlflow_packages:
+        key = json.dumps(pkg, sort_keys=True)
+        if key not in existing:
+            libraries.append(pkg)
 
 job_spec = {
     "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -77,12 +93,14 @@ job_spec = {
     "description": workload.get("description", ""),
     "env": env_name,
     "profile": profile,
+    "variant": variant,
     "artifact_wheel": base_job_spec["artifact_wheel"],
-    "libraries": base_job_spec["libraries"],
+    "libraries": libraries,
     "parameters": {
         **base_job_spec["parameters"],
         "WORKLOAD_NAME": workload["name"],
         "WORKLOAD_ENTRYPOINT": workload["entrypoint"],
+        "WORKLOAD_VARIANT": variant,
     },
     "mode": "workload-job-spec",
 }
