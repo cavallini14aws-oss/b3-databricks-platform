@@ -1,8 +1,11 @@
 version: 1
 profile: api
-description: FastAPI and serving workloads
+derived_from: config/workloads_registry.yml
+workloads:
+- clientes_api
 requirements:
-  - requirements-base.txt
-  - requirements-api.txt
+- requirements-base.txt
+- requirements-api.txt
 artifact:
   wheel: dist/b3_platform-0.1.0-py3-none-any.whl
+mode: derived-profile-manifest

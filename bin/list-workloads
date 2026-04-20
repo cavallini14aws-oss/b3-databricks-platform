@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+REGISTRY_FILE="config/workloads_registry.yml"
+
+if [[ ! -f "$REGISTRY_FILE" ]]; then
+  echo "[ERROR] Registry ausente: $REGISTRY_FILE"
+  exit 1
+fi
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import yaml
+
+data = yaml.safe_load(Path("config/workloads_registry.yml").read_text(encoding="utf-8"))
+
+for item in data.get("workloads", []):
+    print(f"{item['name']} | {item['type']} | {item['entrypoint']}")
+PY

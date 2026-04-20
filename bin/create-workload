@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+NAME=""
+TYPE=""
+ENTRYPOINT=""
+DESCRIPTION=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --name)
+      NAME="${2:-}"
+      shift 2
+      ;;
+    --type)
+      TYPE="${2:-}"
+      shift 2
+      ;;
+    --entrypoint)
+      ENTRYPOINT="${2:-}"
+      shift 2
+      ;;
+    --description)
+      DESCRIPTION="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "[ERROR] Uso: bin/create-workload --name <nome> --type <data|api|ml|rag> --entrypoint <path> [--description <texto>]"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$NAME" || -z "$TYPE" || -z "$ENTRYPOINT" ]]; then
+  echo "[ERROR] Uso: bin/create-workload --name <nome> --type <data|api|ml|rag> --entrypoint <path> [--description <texto>]"
+  exit 1
+fi
+
+case "$TYPE" in
+  data|api|ml|rag) ;;
+  *)
+    echo "[ERROR] type invalido: $TYPE"
+    exit 1
+    ;;
+esac
+
+REGISTRY_FILE="config/workloads_registry.yml"
+
+if [[ ! -f "$REGISTRY_FILE" ]]; then
+  echo "[ERROR] Registry ausente: $REGISTRY_FILE"
+  exit 1
+fi
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import sys
+import yaml
+
+registry_file = Path("${REGISTRY_FILE}")
+name = "${NAME}"
+wtype = "${TYPE}"
+entrypoint = "${ENTRYPOINT}"
+description = "${DESCRIPTION}"
+
+data = yaml.safe_load(registry_file.read_text(encoding="utf-8"))
+workloads = data.setdefault("workloads", [])
+
+for item in workloads:
+    if item.get("name") == name:
+        print(f"[ERROR] workload ja existe: {name}")
+        sys.exit(1)
+
+new_item = {
+    "name": name,
+    "type": wtype,
+    "entrypoint": entrypoint,
+}
+if description:
+    new_item["description"] = description
+
+workloads.append(new_item)
+
+registry_file.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+print(f"[OK] workload adicionado ao registry: {name}")
+PY
+
+./bin/sync-workloads-registry >/dev/null
+./bin/validate-workloads-registry >/dev/null
+./bin/render-all-workload-manifests >/dev/null
+
+echo "[OK] workload criado e arquitetura derivada atualizada"

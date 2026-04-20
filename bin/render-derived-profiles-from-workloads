@@ -4,8 +4,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-./bin/render-all-workload-manifests >/dev/null
-
 mkdir -p manifests/profiles
 
 if [[ -f ".venv-min/bin/activate" ]]; then
@@ -21,6 +19,16 @@ from pathlib import Path
 import yaml
 
 registry = yaml.safe_load(Path("config/workloads_registry.yml").read_text(encoding="utf-8"))
+latest = yaml.safe_load(Path("manifests/latest-artifact.yml").read_text(encoding="utf-8"))
+
+artifact_wheel = latest["artifact"]["wheel"]
+
+requirements_map = {
+    "data": ["requirements-base.txt", "requirements-data.txt"],
+    "api": ["requirements-base.txt", "requirements-api.txt"],
+    "ml": ["requirements-base.txt", "requirements-ml.txt"],
+    "rag": ["requirements-base.txt", "requirements-api.txt", "requirements-llm.txt"],
+}
 
 profiles = {}
 for workload in registry["workloads"]:
@@ -33,6 +41,10 @@ for profile, workloads in profiles.items():
         "profile": profile,
         "derived_from": "config/workloads_registry.yml",
         "workloads": workloads,
+        "requirements": requirements_map[profile],
+        "artifact": {
+            "wheel": artifact_wheel,
+        },
         "mode": "derived-profile-manifest",
     }
     out_file = Path("manifests/profiles") / f"profile-{profile}.yml"

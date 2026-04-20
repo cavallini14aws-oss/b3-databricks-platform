@@ -1,8 +1,11 @@
 version: 1
 profile: ml
-description: ML training, evaluation and mlflow workloads
+derived_from: config/workloads_registry.yml
+workloads:
+- clientes_ml
 requirements:
-  - requirements-base.txt
-  - requirements-ml.txt
+- requirements-base.txt
+- requirements-ml.txt
 artifact:
   wheel: dist/b3_platform-0.1.0-py3-none-any.whl
+mode: derived-profile-manifest
