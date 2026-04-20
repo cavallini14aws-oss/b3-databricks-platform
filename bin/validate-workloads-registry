@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+REGISTRY_FILE="config/workloads_registry.yml"
+
+if [[ ! -f "$REGISTRY_FILE" ]]; then
+  echo "[ERROR] Registry ausente: $REGISTRY_FILE"
+  exit 1
+fi
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import sys
+import yaml
+
+registry = Path("config/workloads_registry.yml")
+data = yaml.safe_load(registry.read_text(encoding="utf-8"))
+
+errors = []
+
+if data.get("version") != 1:
+    errors.append("version deve ser 1")
+
+workloads = data.get("workloads")
+if not isinstance(workloads, list) or not workloads:
+    errors.append("workloads ausente ou invalido")
+else:
+    names = set()
+    for item in workloads:
+        for field in ("name", "type", "entrypoint"):
+            if not item.get(field):
+                errors.append(f"campo ausente em workload: {field}")
+        wtype = item.get("type")
+        if wtype not in {"data", "api", "ml", "rag"}:
+            errors.append(f"type invalido: {wtype}")
+        name = item.get("name")
+        if name in names:
+            errors.append(f"nome duplicado: {name}")
+        if name:
+            names.add(name)
+
+if errors:
+    for e in errors:
+        print(f"[ERROR] {e}")
+    sys.exit(1)
+
+print("[OK] Workloads registry validado")
+PY

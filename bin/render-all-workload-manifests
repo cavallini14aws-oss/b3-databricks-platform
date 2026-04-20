@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+./bin/validate-workloads-registry >/dev/null
+./bin/sync-workloads-registry >/dev/null
+./bin/render-derived-profiles-from-workloads >/dev/null
+
+mkdir -p .state/workloads
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import yaml
+from datetime import datetime, timezone
+
+registry = yaml.safe_load(Path("config/workloads_registry.yml").read_text(encoding="utf-8"))
+
+for workload in registry["workloads"]:
+    manifest = {
+        "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "name": workload["name"],
+        "type": workload["type"],
+        "entrypoint": workload["entrypoint"],
+        "description": workload.get("description", ""),
+        "profile": workload["type"],
+        "mode": "workload-manifest",
+    }
+
+    out_file = Path(".state/workloads") / f"{workload['name']}.yml"
+    out_file.write_text(yaml.safe_dump(manifest, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    print(f"[OK] Workload manifest gerado: {out_file}")
+PY

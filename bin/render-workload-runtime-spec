@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+WORKLOAD_NAME=""
+ENV_NAME=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --workload)
+      WORKLOAD_NAME="${2:-}"
+      shift 2
+      ;;
+    --env)
+      ENV_NAME="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "[ERROR] Uso: bin/render-workload-runtime-spec --workload <nome> --env <dev|hml|prd>"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$WORKLOAD_NAME" || -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Uso: bin/render-workload-runtime-spec --workload <nome> --env <dev|hml|prd>"
+  exit 1
+fi
+
+PROFILE_NAME="$(./bin/resolve-workload-profile "$WORKLOAD_NAME")"
+./bin/render-databricks-runtime-spec --env "$ENV_NAME" --profile "$PROFILE_NAME"

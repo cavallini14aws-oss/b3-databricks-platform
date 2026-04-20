@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+WORKLOAD_NAME=""
+ENV_NAME=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --workload)
+      WORKLOAD_NAME="${2:-}"
+      shift 2
+      ;;
+    --env)
+      ENV_NAME="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "[ERROR] Uso: bin/render-workload-job-spec --workload <nome> --env <dev|hml|prd>"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$WORKLOAD_NAME" || -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Uso: bin/render-workload-job-spec --workload <nome> --env <dev|hml|prd>"
+  exit 1
+fi
+
+./bin/render-all-workload-manifests >/dev/null
+
+MANIFEST_FILE=".state/workloads/${WORKLOAD_NAME}.yml"
+
+if [[ ! -f "$MANIFEST_FILE" ]]; then
+  echo "[ERROR] Workload manifest ausente: $MANIFEST_FILE"
+  exit 1
+fi
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+PROFILE_NAME="$(python - <<PY
+from pathlib import Path
+import yaml
+data = yaml.safe_load(Path("${MANIFEST_FILE}").read_text(encoding="utf-8"))
+print(data["profile"])
+PY
+)"
+
+./bin/render-databricks-job-spec --env "$ENV_NAME" --profile "$PROFILE_NAME" >/dev/null
+
+mkdir -p .state/workload-job-specs
+
+python - <<PY
+from pathlib import Path
+import json
+import yaml
+from datetime import datetime, timezone
+
+workload = yaml.safe_load(Path("${MANIFEST_FILE}").read_text(encoding="utf-8"))
+profile = workload["profile"]
+env_name = "${ENV_NAME}"
+
+base_job_spec = json.loads(Path(f".state/databricks/job-spec-{env_name}-{profile}.json").read_text(encoding="utf-8"))
+
+job_spec = {
+    "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "workload": workload["name"],
+    "entrypoint": workload["entrypoint"],
+    "description": workload.get("description", ""),
+    "env": env_name,
+    "profile": profile,
+    "artifact_wheel": base_job_spec["artifact_wheel"],
+    "libraries": base_job_spec["libraries"],
+    "parameters": {
+        **base_job_spec["parameters"],
+        "WORKLOAD_NAME": workload["name"],
+        "WORKLOAD_ENTRYPOINT": workload["entrypoint"],
+    },
+    "mode": "workload-job-spec",
+}
+
+out_file = Path(".state/workload-job-specs") / f"{workload['name']}-{env_name}.json"
+out_file.write_text(json.dumps(job_spec, indent=2, ensure_ascii=False), encoding="utf-8")
+
+print(f"[OK] Workload job spec gerado: {out_file}")
+print(json.dumps(job_spec, indent=2, ensure_ascii=False))
+PY

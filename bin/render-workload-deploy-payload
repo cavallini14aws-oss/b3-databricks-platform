@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+WORKLOAD_NAME=""
+ENV_NAME=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --workload)
+      WORKLOAD_NAME="${2:-}"
+      shift 2
+      ;;
+    --env)
+      ENV_NAME="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "[ERROR] Uso: bin/render-workload-deploy-payload --workload <nome> --env <dev|hml|prd>"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$WORKLOAD_NAME" || -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Uso: bin/render-workload-deploy-payload --workload <nome> --env <dev|hml|prd>"
+  exit 1
+fi
+
+./bin/render-workload-job-spec --workload "$WORKLOAD_NAME" --env "$ENV_NAME" >/dev/null
+
+MANIFEST_FILE=".state/workloads/${WORKLOAD_NAME}.yml"
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import yaml
+import json
+from datetime import datetime, timezone
+
+workload = yaml.safe_load(Path("${MANIFEST_FILE}").read_text(encoding="utf-8"))
+env_name = "${ENV_NAME}"
+
+job_spec_file = Path(".state/workload-job-specs") / f"{workload['name']}-{env_name}.json"
+job_spec = json.loads(job_spec_file.read_text(encoding="utf-8"))
+
+payload = {
+    "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "workload": workload["name"],
+    "env": env_name,
+    "profile": workload["profile"],
+    "entrypoint": workload["entrypoint"],
+    "artifact_wheel": job_spec["artifact_wheel"],
+    "libraries": job_spec["libraries"],
+    "parameters": job_spec["parameters"],
+    "mode": "workload-deploy-payload",
+}
+
+out_dir = Path(".state/workload-deploy-payloads")
+out_dir.mkdir(parents=True, exist_ok=True)
+out_file = out_dir / f"{workload['name']}-{env_name}.json"
+out_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+print(f"[OK] Workload deploy payload gerado: {out_file}")
+print(json.dumps(payload, indent=2, ensure_ascii=False))
+PY

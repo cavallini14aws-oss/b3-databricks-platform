@@ -1,0 +1,21 @@
+version: 1
+workloads:
+  - name: clientes_data
+    type: data
+    entrypoint: pipelines/data/clientes_data.py
+    description: Common data pipeline for clientes domain
+
+  - name: clientes_api
+    type: api
+    entrypoint: pipelines/api/clientes_api.py
+    description: FastAPI serving workload for clientes domain
+
+  - name: clientes_ml
+    type: ml
+    entrypoint: pipelines/ml/clientes_ml.py
+    description: ML workload for clientes domain
+
+  - name: clientes_rag
+    type: rag
+    entrypoint: pipelines/rag/clientes_rag.py
+    description: RAG workload for clientes domain

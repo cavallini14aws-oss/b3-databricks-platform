@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+./bin/render-all-workload-manifests >/dev/null
+
+mkdir -p manifests/profiles
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import yaml
+
+registry = yaml.safe_load(Path("config/workloads_registry.yml").read_text(encoding="utf-8"))
+
+profiles = {}
+for workload in registry["workloads"]:
+    p = workload["type"]
+    profiles.setdefault(p, []).append(workload["name"])
+
+for profile, workloads in profiles.items():
+    out = {
+        "version": 1,
+        "profile": profile,
+        "derived_from": "config/workloads_registry.yml",
+        "workloads": workloads,
+        "mode": "derived-profile-manifest",
+    }
+    out_file = Path("manifests/profiles") / f"profile-{profile}.yml"
+    out_file.write_text(yaml.safe_dump(out, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    print(f"[OK] derived profile manifest gerado: {out_file}")
+PY

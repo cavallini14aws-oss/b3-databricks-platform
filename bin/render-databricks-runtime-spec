@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# INTERFACE INTERNA
+# Este script por profile permanece por compatibilidade e uso interno.
+# A interface recomendada para desenvolvedores e times de entrega e --workload.
+# Nao editar arquitetura manualmente a partir daqui.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
