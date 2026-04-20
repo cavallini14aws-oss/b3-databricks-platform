@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_NAME=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --env)
+      ENV_NAME="$2"
+      shift 2
+      ;;
+    *)
+      echo "[ERRO] Uso: $0 --env <dev|hml|prd>"
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "${ENV_NAME}" ]]; then
+  echo "[ERRO] Uso: $0 --env <dev|hml|prd>"
+  exit 1
+fi
+
+case "${ENV_NAME}" in
+  dev|hml|prd) ;;
+  *)
+    echo "[ERRO] Ambiente inválido: ${ENV_NAME}"
+    exit 1
+    ;;
+esac
+
+OUT_DIR="${ROOT_DIR}/generated/pdf_rag/${ENV_NAME}"
+mkdir -p "${OUT_DIR}"
+
+python3 - <<PY2
+from pathlib import Path
+import yaml
+
+root = Path("${ROOT_DIR}")
+env_name = "${ENV_NAME}"
+out_dir = Path("${OUT_DIR}")
+
+runtime_cfg = root / "databricks/pdf_rag/config/pdf_rag_runtime.yml"
+official_map = {
+    "dev": root / "config/official_readiness_dev.yml",
+    "hml": root / "config/official_readiness_hml.yml",
+    "prd": root / "config/official_readiness_prd.yml",
+}
+
+data = {}
+if runtime_cfg.exists():
+    data["runtime_source"] = yaml.safe_load(runtime_cfg.read_text(encoding="utf-8")) or {}
+
+official_file = official_map[env_name]
+if official_file.exists():
+    data["official_readiness"] = yaml.safe_load(official_file.read_text(encoding="utf-8")) or {}
+else:
+    data["official_readiness"] = {}
+
+data["env"] = env_name
+
+out_file = out_dir / "runtime.yml"
+out_file.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+print(f"[OK] Runtime gerado em: {out_file}")
+PY2

@@ -1,0 +1,13 @@
+version: 1
+project: b3-platform
+artifact_policy:
+  official_envs_require_versioned_artifact: true
+  manual_pip_install_forbidden: true
+  notebook_percent_pip_forbidden: true
+
+runtime:
+  requirements_file: requirements-runtime.txt
+
+dev:
+  minimum_requirements_file: requirements-dev-min.txt
+  full_requirements_file: requirements-dev.txt

@@ -1,6 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+
+reject_placeholder() {
+  local value="$1"
+  local label="$2"
+
+  if [[ -z "$value" ]]; then
+    return 0
+  fi
+
+  case "$value" in
+    HOST_REAL_*|CLIENT_ID_REAL_*|CLIENT_SECRET_REAL_*|SEU_*|NOME_REAL_*|TO_BE_DEFINED|CHANGEME|CHANGE_ME)
+      echo "[ERRO] ${label} contem placeholder invalido: $value"
+      exit 1
+      ;;
+  esac
+}
+
+reject_placeholder "${DATABRICKS_HOST:-}" "DATABRICKS_HOST"
+reject_placeholder "${DATABRICKS_CLIENT_ID:-}" "DATABRICKS_CLIENT_ID"
+reject_placeholder "${DATABRICKS_CLIENT_SECRET:-}" "DATABRICKS_CLIENT_SECRET"
+
+
 MODE="${1:-generic}"
 
 fail() {
@@ -43,11 +65,10 @@ fi
 
 case "$MODE" in
   dev-official|official)
-    require_non_empty "DATABRICKS_TOKEN"
+    require_non_empty "DATABRICKS_CONFIG_PROFILE"
     require_not_placeholder "DATABRICKS_HOST"
-    require_not_placeholder "DATABRICKS_TOKEN"
     require_not_placeholder "DATABRICKS_SERVING_ENDPOINT"
-    info "auth_mode=pat_or_official_token"
+    info "auth_mode=profile-unified"
     ;;
   prd-m2m|m2m)
     if [[ "${DATABRICKS_AUTH_TYPE:-}" != "oauth-m2m" ]]; then
@@ -64,15 +85,14 @@ case "$MODE" in
   generic)
     require_not_placeholder "DATABRICKS_HOST"
     require_not_placeholder "DATABRICKS_SERVING_ENDPOINT"
-    if [[ -n "${DATABRICKS_TOKEN:-}" ]]; then
-      require_not_placeholder "DATABRICKS_TOKEN"
-      info "DATABRICKS_TOKEN=valid"
-    elif [[ "${DATABRICKS_AUTH_TYPE:-}" == "oauth-m2m" ]]; then
+    if [[ -n "${DATABRICKS_AUTH_TYPE:-}" && "${DATABRICKS_AUTH_TYPE}" == "oauth-m2m" ]]; then
       require_non_empty "DATABRICKS_CLIENT_ID"
       require_non_empty "DATABRICKS_CLIENT_SECRET"
       require_not_placeholder "DATABRICKS_CLIENT_ID"
       require_not_placeholder "DATABRICKS_CLIENT_SECRET"
       info "auth_mode=oauth-m2m"
+    elif [[ -n "${DATABRICKS_CONFIG_PROFILE:-}" ]]; then
+      info "auth_mode=profile-unified"
     else
       fail "nenhum modo de autenticação válido detectado"
     fi
@@ -89,7 +109,7 @@ cat > .state/runtime_env_state.json <<STATE
   "databricks_env": "${DATABRICKS_ENV}",
   "serving_endpoint": "${DATABRICKS_SERVING_ENDPOINT}",
   "llm_provider": "${LLM_PROVIDER}",
-  "auth_type": "${DATABRICKS_AUTH_TYPE:-token}",
+  "auth_type": "${DATABRICKS_AUTH_TYPE:-profile-unified}",
   "loaded_at_utc": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }
 STATE

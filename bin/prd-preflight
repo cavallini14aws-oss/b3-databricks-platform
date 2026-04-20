@@ -1,12 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ -n "${DATABRICKS_CONFIG_PROFILE:-}" ]]; then
+  echo "[ERRO] prd nao aceita DATABRICKS_CONFIG_PROFILE. Use oauth-m2m."
+  exit 1
+fi
+
+if [[ "${DATABRICKS_AUTH_TYPE:-}" != "oauth-m2m" ]]; then
+  echo "[ERRO] prd exige DATABRICKS_AUTH_TYPE=oauth-m2m."
+  exit 1
+fi
+
+for required_var in DATABRICKS_HOST DATABRICKS_CLIENT_ID DATABRICKS_CLIENT_SECRET; do
+  if [[ -z "${!required_var:-}" ]]; then
+    echo "[ERRO] prd exige $required_var."
+    exit 1
+  fi
+done
+
+
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
-if [[ -f "/Users/brunocavallini/Unicorn.ia/.venv/bin/activate" ]]; then
+if [[ -f ".venv/bin/activate" ]]; then
   # shellcheck disable=SC1091
-  source /Users/brunocavallini/Unicorn.ia/.venv/bin/activate
+  source .venv/bin/activate
 fi
 
 # shellcheck disable=SC1091

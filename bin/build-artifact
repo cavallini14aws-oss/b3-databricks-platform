@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+rm -rf build dist *.egg-info
+python -m build
+
+ARTIFACT_FILE="$(ls -1 dist/*.whl | head -n 1)"
+if [[ -z "${ARTIFACT_FILE:-}" ]]; then
+  echo "[ERRO] Wheel nao gerada."
+  exit 1
+fi
+
+cat > manifests/latest-artifact.yml <<MANIFEST
+version: 1
+project: b3-platform
+artifact:
+  wheel: ${ARTIFACT_FILE}
+  built_at_utc: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+runtime:
+  requirements_file: requirements-runtime.txt
+MANIFEST
+
+echo "[OK] Artifact gerado: ${ARTIFACT_FILE}"
+echo "[OK] Manifest atualizado: manifests/latest-artifact.yml"

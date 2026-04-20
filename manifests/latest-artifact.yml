@@ -1,0 +1,7 @@
+version: 1
+project: b3-platform
+artifact:
+  wheel: dist/b3_platform-0.1.0-py3-none-any.whl
+  built_at_utc: 2026-04-20T00:50:38Z
+runtime:
+  requirements_file: requirements-runtime.txt
