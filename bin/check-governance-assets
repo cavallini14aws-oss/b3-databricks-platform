@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+TARGET_ROOT="${1:-examples/databricks}"
+
+if [[ ! -d "$TARGET_ROOT" ]]; then
+  echo "[ERROR] diretorio inexistente: $TARGET_ROOT"
+  exit 1
+fi
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import sys
+
+root = Path("${TARGET_ROOT}")
+errors = []
+
+example_dirs = sorted(
+    p for p in root.iterdir()
+    if p.is_dir() and p.name.startswith("example_")
+)
+
+if not example_dirs:
+    errors.append("nenhum diretorio example_ encontrado")
+
+for example_dir in example_dirs:
+    readme = example_dir / "README.md"
+    main_py = example_dir / "main.py"
+    create_sql = example_dir / "create_table.sql"
+    apply_tags = example_dir / "apply_tags.py"
+    masking = example_dir / "masking_policy_example.py"
+
+    required = [readme, main_py, create_sql, apply_tags]
+    for req in required:
+        if not req.exists():
+            errors.append(f"{example_dir.name}: arquivo obrigatorio ausente: {req.name}")
+
+    if not create_sql.exists() or not apply_tags.exists():
+        continue
+
+    create_text = create_sql.read_text(encoding="utf-8")
+    tags_text = apply_tags.read_text(encoding="utf-8")
+
+    if "COMMENT" not in create_text:
+        errors.append(f"{example_dir.name}: create_table.sql sem COMMENT")
+
+    if "SET TAGS" not in tags_text:
+        errors.append(f"{example_dir.name}: apply_tags.py sem SET TAGS")
+
+    if "descricao_tabela" not in tags_text:
+        errors.append(f"{example_dir.name}: apply_tags.py sem tag descricao_tabela")
+
+    if "'pii'" not in tags_text and '"pii"' not in tags_text:
+        errors.append(f"{example_dir.name}: apply_tags.py sem tag pii")
+
+    if "'classificacao'" not in tags_text and '"classificacao"' not in tags_text:
+        errors.append(f"{example_dir.name}: apply_tags.py sem tag classificacao")
+
+    if "'mascaramento'" not in tags_text and '"mascaramento"' not in tags_text:
+        errors.append(f"{example_dir.name}: apply_tags.py sem tag mascaramento")
+
+    lower_tags = tags_text.lower()
+    sensitive_markers = [
+        "'pii'                     = 'true'",
+        '"pii"                     = "true"',
+        "'sensivel'                = 'sim'",
+        '"sensivel"                = "sim"',
+        "('sim', 'confidencial', 'mascarado')",
+        '("sim", "confidencial", "mascarado")',
+        "('sim', 'confidencial', 'controlado')",
+        '("sim", "confidencial", "controlado")',
+    ]
+
+    needs_masking = any(marker.lower() in lower_tags for marker in sensitive_markers)
+
+    if needs_masking and not masking.exists():
+        errors.append(f"{example_dir.name}: exemplo sensivel sem masking_policy_example.py")
+
+if errors:
+    print("[ERROR] governance enforcement falhou")
+    for err in errors:
+        print(" - " + err)
+    sys.exit(1)
+
+print("[OK] governance assets validados com sucesso")
+PY

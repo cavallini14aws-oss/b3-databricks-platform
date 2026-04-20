@@ -1,0 +1,47 @@
+version: 1
+mode: official-environment-contract
+
+workspace:
+  host: "__FILL_OFFICIAL_WORKSPACE_HOST__"
+  root_path: "/Workspace/Shared/b3-platform"
+
+catalogs:
+  primary: "__FILL_PRIMARY_CATALOG__"
+
+schemas:
+  required:
+    - brz
+    - slv
+    - gld
+    - ml
+    - qlt
+
+volumes:
+  required:
+    - raw
+    - curated
+    - artifacts
+
+secret_scopes:
+  required:
+    - "__FILL_SECRET_SCOPE_PLATFORM__"
+    - "__FILL_SECRET_SCOPE_DATA__"
+
+groups:
+  required:
+    - "__FILL_GROUP_AUTOMATION__"
+    - "__FILL_GROUP_DATA_GOV__"
+    - "__FILL_GROUP_DATA_ENGINEERING__"
+
+cluster_policies:
+  required:
+    - "__FILL_CLUSTER_POLICY_DEFAULT__"
+
+service_principals:
+  required:
+    - "__FILL_SP_DEPLOY__"
+    - "__FILL_SP_RUNTIME__"
+
+notes:
+  - "Preencher todos os placeholders antes da integração com o ambiente oficial."
+  - "Nenhum deploy oficial deve ocorrer com placeholder remanescente."

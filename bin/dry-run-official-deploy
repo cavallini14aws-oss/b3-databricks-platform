@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Uso: bin/dry-run-official-deploy <dev|hml|prd>"
+  exit 1
+fi
+
+RELEASE_MANIFEST=".state/releases/official-release-manifest-${ENV_NAME}.yml"
+FINAL_RELEASE=".state/releases/final-official-release-${ENV_NAME}.yml"
+DEPLOY_PAYLOAD=".state/releases/databricks-deploy-payload-${ENV_NAME}.json"
+
+for file in "$RELEASE_MANIFEST" "$FINAL_RELEASE" "$DEPLOY_PAYLOAD"; do
+  if [[ ! -f "$file" ]]; then
+    echo "[ERROR] arquivo obrigatorio ausente: $file"
+    exit 1
+  fi
+done
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import json
+import sys
+import yaml
+
+env_name = "${ENV_NAME}"
+
+release_manifest = yaml.safe_load(Path("${RELEASE_MANIFEST}").read_text(encoding="utf-8"))
+final_release = yaml.safe_load(Path("${FINAL_RELEASE}").read_text(encoding="utf-8"))
+deploy_payload = json.loads(Path("${DEPLOY_PAYLOAD}").read_text(encoding="utf-8"))
+
+errors = []
+
+# release manifest
+for key in ["release_version", "artifact_wheel", "profiles", "ready"]:
+    if key not in release_manifest:
+        errors.append(f"official release manifest sem campo obrigatorio: {key}")
+
+# final release
+for key in ["release_version", "artifact_wheel", "profiles", "ready"]:
+    if key not in final_release:
+        errors.append(f"final release sem campo obrigatorio: {key}")
+
+# deploy payload
+for key in ["deploy_version", "source_release_version", "artifact_wheel", "bundle_targets", "jobs", "job_count", "profile_variants"]:
+    if key not in deploy_payload:
+        errors.append(f"deploy payload sem campo obrigatorio: {key}")
+
+# coerencias
+if release_manifest.get("release_version") != final_release.get("release_version"):
+    errors.append("release_version divergente entre official release manifest e final release")
+
+if final_release.get("release_version") != deploy_payload.get("deploy_version"):
+    errors.append("release_version/do deploy_version divergente entre final release e deploy payload")
+
+if final_release.get("release_version") != deploy_payload.get("source_release_version"):
+    errors.append("source_release_version divergente em relacao ao final release")
+
+if final_release.get("artifact_wheel") != deploy_payload.get("artifact_wheel"):
+    errors.append("artifact_wheel divergente entre final release e deploy payload")
+
+jobs = deploy_payload.get("jobs", {})
+job_count = deploy_payload.get("job_count")
+if int(job_count) != len(jobs):
+    errors.append("job_count divergente da quantidade real de jobs no payload")
+
+profiles = final_release.get("profiles", [])
+bundle_targets = deploy_payload.get("bundle_targets", [])
+if len(profiles) != len(bundle_targets):
+    errors.append("quantidade de profiles no final release diverge da quantidade de bundle_targets")
+
+profile_variants = deploy_payload.get("profile_variants", [])
+if len(profile_variants) != len(profiles):
+    errors.append("profile_variants divergente da quantidade de profiles do final release")
+
+if final_release.get("ready") is not True:
+    errors.append("final release nao esta ready=true")
+
+if release_manifest.get("ready") is not True:
+    errors.append("official release manifest nao esta ready=true")
+
+if errors:
+    print("[ERROR] dry-run falhou para env=" + env_name)
+    for err in errors:
+        print(" - " + err)
+    sys.exit(1)
+
+summary = {
+    "env": env_name,
+    "release_version": final_release["release_version"],
+    "artifact_wheel": final_release["artifact_wheel"],
+    "profiles": [p["profile"] for p in profiles],
+    "profile_variants": profile_variants,
+    "job_count": len(jobs),
+    "mode": "dry-run-official-deploy",
+}
+
+print("[OK] dry-run oficial validado para env=" + env_name)
+print(json.dumps(summary, indent=2, ensure_ascii=False))
+PY

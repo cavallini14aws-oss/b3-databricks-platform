@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+CONTRACT_FILE="config/official_environment_contract.yml"
+
+if [[ ! -f "$CONTRACT_FILE" ]]; then
+  echo "[ERROR] contrato ausente: $CONTRACT_FILE"
+  exit 1
+fi
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import sys
+import yaml
+
+path = Path("${CONTRACT_FILE}")
+data = yaml.safe_load(path.read_text(encoding="utf-8"))
+
+errors = []
+
+if data.get("mode") != "official-environment-contract":
+    errors.append("mode invalido ou ausente")
+
+workspace = data.get("workspace", {})
+if "host" not in workspace:
+    errors.append("workspace.host ausente")
+if "root_path" not in workspace:
+    errors.append("workspace.root_path ausente")
+
+catalogs = data.get("catalogs", {})
+if "primary" not in catalogs:
+    errors.append("catalogs.primary ausente")
+
+schemas = data.get("schemas", {}).get("required", [])
+volumes = data.get("volumes", {}).get("required", [])
+secret_scopes = data.get("secret_scopes", {}).get("required", [])
+groups = data.get("groups", {}).get("required", [])
+cluster_policies = data.get("cluster_policies", {}).get("required", [])
+service_principals = data.get("service_principals", {}).get("required", [])
+
+for name, value in [
+    ("schemas.required", schemas),
+    ("volumes.required", volumes),
+    ("secret_scopes.required", secret_scopes),
+    ("groups.required", groups),
+    ("cluster_policies.required", cluster_policies),
+    ("service_principals.required", service_principals),
+]:
+    if not isinstance(value, list) or not value:
+        errors.append(f"{name} ausente ou vazio")
+
+def has_placeholder(obj):
+    if isinstance(obj, str):
+        return "__FILL_" in obj
+    if isinstance(obj, list):
+        return any(has_placeholder(x) for x in obj)
+    if isinstance(obj, dict):
+        return any(has_placeholder(v) for v in obj.values())
+    return False
+
+if has_placeholder(data):
+    errors.append("contrato ainda possui placeholders __FILL_...__")
+
+if errors:
+    print("[ERROR] contrato de ambiente oficial invalido")
+    for err in errors:
+        print(" - " + err)
+    sys.exit(1)
+
+print("[OK] contrato de ambiente oficial valido")
+PY

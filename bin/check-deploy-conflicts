@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Uso: bin/check-deploy-conflicts <dev|hml|prd>"
+  exit 1
+fi
+
+NEW_FINAL=".state/releases/final-official-release-${ENV_NAME}.yml"
+NEW_PAYLOAD=".state/releases/databricks-deploy-payload-${ENV_NAME}.json"
+CURRENT_DIR=".state/releases/history/${ENV_NAME}/current"
+CURRENT_FINAL="${CURRENT_DIR}/final-official-release.yml"
+CURRENT_PAYLOAD="${CURRENT_DIR}/databricks-deploy-payload.json"
+
+if [[ ! -f "$NEW_FINAL" ]]; then
+  echo "[ERROR] final release ausente: $NEW_FINAL"
+  exit 1
+fi
+
+if [[ ! -f "$NEW_PAYLOAD" ]]; then
+  echo "[ERROR] deploy payload ausente: $NEW_PAYLOAD"
+  exit 1
+fi
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import json
+import sys
+import yaml
+
+env_name = "${ENV_NAME}"
+
+new_final = yaml.safe_load(Path("${NEW_FINAL}").read_text(encoding="utf-8"))
+new_payload = json.loads(Path("${NEW_PAYLOAD}").read_text(encoding="utf-8"))
+
+errors = []
+
+required_final = ["release_version", "artifact_wheel", "profiles"]
+for key in required_final:
+    if key not in new_final:
+        errors.append(f"final release sem campo obrigatorio: {key}")
+
+required_payload = ["deploy_version", "artifact_wheel", "bundle_targets", "job_count"]
+for key in required_payload:
+    if key not in new_payload:
+        errors.append(f"deploy payload sem campo obrigatorio: {key}")
+
+current_final_path = Path("${CURRENT_FINAL}")
+current_payload_path = Path("${CURRENT_PAYLOAD}")
+
+if current_final_path.exists() and current_payload_path.exists():
+    current_final = yaml.safe_load(current_final_path.read_text(encoding="utf-8"))
+    current_payload = json.loads(current_payload_path.read_text(encoding="utf-8"))
+
+    if new_final.get("release_version") == current_final.get("release_version"):
+        if new_final.get("artifact_wheel") != current_final.get("artifact_wheel"):
+            errors.append(
+                "conflito: mesma release_version com artifact_wheel diferente"
+            )
+
+    if new_payload.get("deploy_version") == current_payload.get("deploy_version"):
+        if new_payload.get("artifact_wheel") != current_payload.get("artifact_wheel"):
+            errors.append(
+                "conflito: mesmo deploy_version com artifact_wheel diferente"
+            )
+
+    if sorted(new_payload.get("bundle_targets", [])) != sorted(current_payload.get("bundle_targets", [])):
+        errors.append("conflito: bundle_targets divergentes em relacao ao current snapshot")
+
+    if int(new_payload.get("job_count", -1)) != int(current_payload.get("job_count", -2)):
+        errors.append("conflito: job_count divergente em relacao ao current snapshot")
+
+if errors:
+    print("[ERROR] conflitos detectados para env=" + env_name)
+    for err in errors:
+        print(" - " + err)
+    sys.exit(1)
+
+print(f"[OK] Nenhum conflito detectado para env={env_name}")
+PY

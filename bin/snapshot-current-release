@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Uso: bin/snapshot-current-release <dev|hml|prd>"
+  exit 1
+fi
+
+FINAL_FILE=".state/releases/final-official-release-${ENV_NAME}.yml"
+PAYLOAD_FILE=".state/releases/databricks-deploy-payload-${ENV_NAME}.json"
+
+if [[ ! -f "$FINAL_FILE" ]]; then
+  echo "[ERROR] final release ausente: $FINAL_FILE"
+  exit 1
+fi
+
+if [[ ! -f "$PAYLOAD_FILE" ]]; then
+  echo "[ERROR] deploy payload ausente: $PAYLOAD_FILE"
+  exit 1
+fi
+
+SNAPSHOT_TS="$(date -u +"%Y%m%dT%H%M%SZ")"
+HISTORY_DIR=".state/releases/history/${ENV_NAME}"
+SNAPSHOT_DIR="${HISTORY_DIR}/${SNAPSHOT_TS}"
+CURRENT_DIR="${HISTORY_DIR}/current"
+
+mkdir -p "$SNAPSHOT_DIR" "$CURRENT_DIR"
+
+cp "$FINAL_FILE" "${SNAPSHOT_DIR}/final-official-release.yml"
+cp "$PAYLOAD_FILE" "${SNAPSHOT_DIR}/databricks-deploy-payload.json"
+
+cp "$FINAL_FILE" "${CURRENT_DIR}/final-official-release.yml"
+cp "$PAYLOAD_FILE" "${CURRENT_DIR}/databricks-deploy-payload.json"
+
+echo "[OK] snapshot salvo em ${SNAPSHOT_DIR}"
+echo "[OK] current snapshot atualizado em ${CURRENT_DIR}"

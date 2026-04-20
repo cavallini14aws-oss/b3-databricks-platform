@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-}"
+SNAPSHOT_NAME="${2:-}"
+
+if [[ -z "$ENV_NAME" || -z "$SNAPSHOT_NAME" ]]; then
+  echo "[ERROR] Uso: bin/rollback-official-release <dev|hml|prd> <snapshot_name>"
+  exit 1
+fi
+
+SNAPSHOT_DIR=".state/releases/history/${ENV_NAME}/${SNAPSHOT_NAME}"
+FINAL_SRC="${SNAPSHOT_DIR}/final-official-release.yml"
+PAYLOAD_SRC="${SNAPSHOT_DIR}/databricks-deploy-payload.json"
+
+FINAL_DST=".state/releases/final-official-release-${ENV_NAME}.yml"
+PAYLOAD_DST=".state/releases/databricks-deploy-payload-${ENV_NAME}.json"
+CURRENT_DIR=".state/releases/history/${ENV_NAME}/current"
+
+if [[ ! -f "$FINAL_SRC" ]]; then
+  echo "[ERROR] snapshot final release ausente: $FINAL_SRC"
+  exit 1
+fi
+
+if [[ ! -f "$PAYLOAD_SRC" ]]; then
+  echo "[ERROR] snapshot deploy payload ausente: $PAYLOAD_SRC"
+  exit 1
+fi
+
+cp "$FINAL_SRC" "$FINAL_DST"
+cp "$PAYLOAD_SRC" "$PAYLOAD_DST"
+
+mkdir -p "$CURRENT_DIR"
+cp "$FINAL_SRC" "${CURRENT_DIR}/final-official-release.yml"
+cp "$PAYLOAD_SRC" "${CURRENT_DIR}/databricks-deploy-payload.json"
+
+echo "[OK] rollback restaurado para env=${ENV_NAME} a partir de snapshot=${SNAPSHOT_NAME}"
+echo "[WARN] Este rollback restaura manifests/payloads. O apply operacional e smoke devem ser executados em seguida."
