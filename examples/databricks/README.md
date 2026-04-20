@@ -20,6 +20,25 @@ Toda nova tabela deve nascer com:
 - example_ml_training
 - example_ml_inference
 
+## Escolha rápida
+
+### Dados
+- ingestão bruta → `example_data_bronze`
+- limpeza / padronização → `example_data_silver`
+- consumo consolidado → `example_data_gold`
+
+### RAG
+- sem trilha MLflow → `example_rag_standard`
+- com tracking/registry/serving → `example_rag_mlflow`
+
+### ML
+- treino → `example_ml_training`
+- inferência / scoring → `example_ml_inference`
+
+## Leitura obrigatória
+Antes de iniciar uma implementação nova, consultar:
+- `docs/ONBOARDING_PLATFORM_EXAMPLES.md`
+
 ## Padrão esperado
 - pipeline de referência
 - DDL de tabela
