@@ -1,0 +1,40 @@
+pipeline:
+  name: clientes_ai_pipeline_local
+  project: clientes
+  type: ai
+  enabled: true
+
+storage:
+  mode: path
+  base_path: artifacts/ai_local/clientes
+
+knowledge:
+  source_path: data/sample_ai/clientes_knowledge
+  format: parquet
+  id_column: document_id
+  text_column: document_text
+  metadata_columns:
+    - source_type
+    - segmento
+    - dh_referencia
+
+chunking:
+  enabled: true
+  chunk_size: 120
+  chunk_overlap: 20
+
+embeddings:
+  enabled: true
+  provider: internal
+  model_name: text-embedding-3-large
+  output_table: tb_clientes_ai_embeddings
+
+index:
+  enabled: true
+  index_type: vector
+  output_table: tb_clientes_ai_index
+
+evaluation:
+  enabled: true
+  evaluation_type: rag_basic
+  output_table: tb_clientes_ai_rag_eval

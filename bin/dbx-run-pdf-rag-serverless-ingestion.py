@@ -8,7 +8,7 @@ import sys
 import time
 
 
-DBX_PROFILE = os.environ.get("DBX_PROFILE", "brunocavallini@hotmail.com")
+DBX_PROFILE = os.environ.get("DBX_PROFILE", "DEFAULT_DATABRICKS_PROFILE")
 DBX_WS_ROOT = os.environ.get("DBX_WS_ROOT", "/Workspace/Shared/pdf_rag")
 
 

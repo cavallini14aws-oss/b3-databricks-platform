@@ -6,9 +6,9 @@ cd "$ROOT_DIR"
 
 MODE="${1:-auto}"
 
-if [[ -f "/Users/brunocavallini/Unicorn.ia/.venv/bin/activate" ]]; then
+if [[ -f ".venv/bin/activate" ]]; then
   # shellcheck disable=SC1091
-  source /Users/brunocavallini/Unicorn.ia/.venv/bin/activate
+  source .venv/bin/activate
 fi
 
 if [[ "$MODE" == "auto" ]]; then

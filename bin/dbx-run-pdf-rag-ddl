@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DBX_PROFILE="${DBX_PROFILE:-brunocavallini@hotmail.com}"
+DBX_PROFILE="${DBX_PROFILE:-DEFAULT_DATABRICKS_PROFILE}"
 DATABRICKS_SQL_WAREHOUSE_ID="${DATABRICKS_SQL_WAREHOUSE_ID:-2398740caa0672b7}"
 SQL_FILE="databricks/pdf_rag/sql/create_pdf_rag_tables.sql"
 

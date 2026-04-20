@@ -3,3 +3,8 @@ pipelines:
     module: pipelines.examples.clientes.orchestration.run_clientes_end_to_end
     function: run_clientes_end_to_end
     config_path: /Workspace/Repos/b3-databricks-platform/b3-databricks-platform/config/clientes_pipeline.yml
+
+clientes_ai:
+  module: pipelines.examples.clientes.ai.run_clientes_ai_end_to_end
+  function: run_clientes_ai_end_to_end
+  config_path: config/clientes_ai_pipeline.yml

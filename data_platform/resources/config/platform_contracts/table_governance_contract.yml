@@ -1,0 +1,24 @@
+table_governance:
+  sql_template_required: true
+  table_spec_required: true
+  using_format_required: delta
+
+  mandatory_table_fields:
+    - catalog
+    - schema
+    - table_name
+    - table_description
+    - columns
+
+  mandatory_column_fields:
+    - name
+    - data_type
+    - comment
+
+  mandatory_delta_properties:
+    - delta.enableDeletionVectors
+    - delta.feature.appendOnly
+    - delta.feature.deletionVectors
+    - delta.feature.invariants
+    - delta.minReaderVersion
+    - delta.minWriterVersion

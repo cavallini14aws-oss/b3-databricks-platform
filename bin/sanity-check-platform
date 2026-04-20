@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+if [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python -m pytest -q \
+  tests/databricks/test_no_local_hardcoded_runtime.py \
+  tests/databricks/test_packaged_config_sync.py \
+  tests/databricks/test_pdf_rag_isolation.py \
+  tests/databricks/test_pdf_rag_databricks_configs.py \
+  tests/databricks/test_hml_prd_m2m_guards.py \
+  tests/databricks/test_placeholder_rejection.py \
+  tests/databricks/test_no_manual_pip_install_official.py

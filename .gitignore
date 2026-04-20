@@ -70,3 +70,4 @@ pdf_rag_input/
 
 # Generated release/version file
 VERSION
+generated/

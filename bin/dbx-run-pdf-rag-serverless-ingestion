@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DBX_PROFILE="${DBX_PROFILE:-brunocavallini@hotmail.com}"
+DBX_PROFILE="${DBX_PROFILE:-DEFAULT_DATABRICKS_PROFILE}"
 DBX_WS_ROOT="${DBX_WS_ROOT:-/Workspace/Shared/pdf_rag}"
 
 require_json() {

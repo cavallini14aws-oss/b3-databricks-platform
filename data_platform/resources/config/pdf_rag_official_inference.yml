@@ -1,0 +1,21 @@
+realtime:
+  provider: databricks
+  mode: foundation_model_api
+  serving_endpoint_type: foundation
+  ollama_enabled: false
+
+batch:
+  provider: databricks
+  mode: ai_query
+  ai_query_enabled: true
+
+governance:
+  ai_gateway_enabled: true
+  inference_tables_enabled: true
+  endpoint_telemetry_enabled: false
+  endpoint_telemetry_scope: custom_only
+
+notes:
+  - Ollama remains available only as a local fallback path in code.
+  - Official target path is Databricks native.
+  - Endpoint telemetry is planned only for custom model serving endpoints.
