@@ -1,8 +1,0 @@
-pipeline:
-  name: template_serving_pipeline
-  domain: template
-  layer: serving
-  enabled: true
-
-execution:
-  mode: batch
