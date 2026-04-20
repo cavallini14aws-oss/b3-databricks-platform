@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+TARGETS=(
+  ".pytest_cache"
+  ".databricks"
+  ".state"
+  "dist"
+  "generated"
+  "artifacts"
+  ".trash_pdf_rag_raw"
+  "pdf_rag_input"
+  "b3_platform.egg-info"
+  "derby.log"
+)
+
+for target in "${TARGETS[@]}"; do
+  if [[ -e "$target" ]]; then
+    rm -rf "$target"
+    echo "[OK] removido: $target"
+  else
+    echo "[INFO] ausente: $target"
+  fi
+done
+
+while IFS= read -r file; do
+  if [[ -n "$file" ]]; then
+    rm -f "$file"
+    echo "[OK] removido: $file"
+  fi
+done < <(find . -name ".DS_Store" | sed 's#^\./##' | sort)

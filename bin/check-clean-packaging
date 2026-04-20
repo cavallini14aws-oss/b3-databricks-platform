@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+MODE="${1:-workspace}"
+
+errors=()
+
+BAD_PATHS_WORKSPACE=()
+BAD_PATHS_REVIEW=(
+  ".pytest_cache"
+  ".databricks"
+  ".state"
+  "dist"
+  "generated"
+  "artifacts"
+  ".trash_pdf_rag_raw"
+  "pdf_rag_input"
+  "b3_platform.egg-info"
+  "derby.log"
+)
+BAD_PATHS_PACKAGE=(
+  ".git"
+)
+
+case "$MODE" in
+  workspace)
+    ;;
+  review)
+    for path in "${BAD_PATHS_REVIEW[@]}"; do
+      [[ -e "$path" ]] && errors+=("caminho nao permitido em review limpo: $path")
+    done
+    ;;
+  package)
+    for path in "${BAD_PATHS_REVIEW[@]}"; do
+      [[ -e "$path" ]] && errors+=("caminho nao permitido em pacote limpo: $path")
+    done
+    for path in "${BAD_PATHS_PACKAGE[@]}"; do
+      [[ -e "$path" ]] && errors+=("caminho nao permitido em pacote limpo: $path")
+    done
+    ;;
+  *)
+    echo "[ERROR] modo invalido: $MODE"
+    echo "Uso: bin/check-clean-packaging <workspace|review|package>"
+    exit 1
+    ;;
+esac
+
+while IFS= read -r file; do
+  [[ -n "$file" ]] && errors+=("arquivo local sensivel presente: $file")
+done < <(
+  find . -maxdepth 1 -type f \( -name ".env.*.local" -o -name ".secrets.*.local" -o -name ".secrets.*.oauth.local" \) \
+  | sed 's#^\./##' \
+  | sort
+)
+
+while IFS= read -r file; do
+  [[ -n "$file" ]] && errors+=("lixo de sistema presente: $file")
+done < <(
+  find . -name ".DS_Store" | sed 's#^\./##' | sort
+)
+
+if ((${#errors[@]} > 0)); then
+  echo "[ERROR] clean packaging check falhou (mode=${MODE})"
+  for err in "${errors[@]}"; do
+    echo " - $err"
+  done
+  exit 1
+fi
+
+echo "[OK] clean packaging check aprovado (mode=${MODE})"

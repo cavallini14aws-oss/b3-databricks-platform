@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+POLICY_DOC="docs/LOCAL_SENSITIVE_FILES_POLICY.md"
+AUDIT_SCRIPT="bin/audit-sensitive-local-files"
+
+if [[ ! -f "$POLICY_DOC" ]]; then
+  echo "[ERROR] politica ausente: $POLICY_DOC"
+  exit 1
+fi
+
+if [[ ! -x "$AUDIT_SCRIPT" ]]; then
+  echo "[ERROR] script ausente ou sem execucao: $AUDIT_SCRIPT"
+  exit 1
+fi
+
+errors=()
+
+while IFS= read -r file; do
+  [[ -z "$file" ]] && continue
+  example="${file}.example"
+  if [[ ! -f "$example" ]]; then
+    errors+=("arquivo sensivel sem template example correspondente: $file -> $example")
+  fi
+done < <(
+  find . -maxdepth 1 -type f \( -name ".env.*.local" -o -name ".secrets.*.local" -o -name ".secrets.*.oauth.local" \) \
+  | sed 's#^\./##' \
+  | sort
+)
+
+if ((${#errors[@]} > 0)); then
+  echo "[ERROR] sensitive local files policy check falhou"
+  for err in "${errors[@]}"; do
+    echo " - $err"
+  done
+  exit 1
+fi
+
+echo "[OK] sensitive local files policy check aprovado"

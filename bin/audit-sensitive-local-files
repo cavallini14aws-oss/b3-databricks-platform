@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+echo "===== LOCAL SENSITIVE FILES ====="
+find . -maxdepth 1 -type f \( \
+  -name ".env.*.local" -o \
+  -name ".secrets.*.local" -o \
+  -name ".secrets.*.oauth.local" \
+\) | sed 's#^\./##' | sort
+
+echo
+echo "[WARN] Se qualquer arquivo acima contiver valor real, trate como sensivel e avalie rotacao."

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-dev}"
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+if [[ ! -f "dist/b3_platform-0.1.0-py3-none-any.whl" ]]; then
+  echo "[INFO] artifact ausente; executando build"
+  ./bin/build-artifact
+fi
+
+echo "[INFO] renderizando manifests de workload"
+./bin/render-all-workload-manifests
+
+echo "[INFO] renderizando base databricks job spec para rag"
+./bin/render-databricks-job-spec --env "${ENV_NAME}" --profile rag
+
+echo "[INFO] renderizando workload job specs"
+./bin/render-workload-job-spec --workload rag_pdf_v1 --env "${ENV_NAME}"
+./bin/render-workload-job-spec --workload rag_pdf_v2_mlflow --env "${ENV_NAME}"
+
+echo "[INFO] renderizando workload deploy payloads"
+./bin/render-workload-deploy-payload --workload rag_pdf_v1 --env "${ENV_NAME}"
+./bin/render-workload-deploy-payload --workload rag_pdf_v2_mlflow --env "${ENV_NAME}"
+
+echo "[OK] bootstrap-rag-workload-state concluido para env=${ENV_NAME}"

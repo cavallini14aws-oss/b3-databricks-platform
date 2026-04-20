@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+MODULES=(
+  config_loader
+  context
+  env
+  flags
+  logger
+  naming
+  secrets
+  utils
+)
+
+errors=()
+
+normalize_file() {
+  python - "$1" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8").strip()
+print(text)
+PY
+}
+
+is_explicit_wrapper() {
+  local file_path="$1"
+  local mod="$2"
+
+  python - "$file_path" "$mod" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+file_path = Path(sys.argv[1])
+mod = sys.argv[2]
+
+text = file_path.read_text(encoding="utf-8").strip()
+
+pattern = re.compile(
+    rf'^"""Compatibility wrapper for data_platform\.core\.{re.escape(mod)}\."""\s+from data_platform\.core\.{re.escape(mod)} import \*  # noqa: F401,F403$',
+    re.DOTALL
+)
+
+if pattern.match(text):
+    print("YES")
+else:
+    print("NO")
+PY
+}
+
+for mod in "${MODULES[@]}"; do
+  root_file="data_platform/${mod}.py"
+  core_file="data_platform/core/${mod}.py"
+
+  if [[ -f "$root_file" && -f "$core_file" ]]; then
+    if cmp -s "$root_file" "$core_file"; then
+      echo "[OK] modulo ${mod}: raiz e core identicos"
+      continue
+    fi
+
+    wrapper_status="$(is_explicit_wrapper "$root_file" "$mod")"
+    if [[ "$wrapper_status" == "YES" ]]; then
+      echo "[OK] modulo ${mod}: raiz em wrapper explicito"
+      continue
+    fi
+
+    errors+=("duplicacao ambigua: $root_file e $core_file possuem conteudo diferente e raiz nao e wrapper explicito")
+  fi
+done
+
+if ((${#errors[@]} > 0)); then
+  echo "[ERROR] python layout duplicates check falhou"
+  for err in "${errors[@]}"; do
+    echo " - $err"
+  done
+  exit 1
+fi
+
+echo "[OK] python layout duplicates check aprovado"

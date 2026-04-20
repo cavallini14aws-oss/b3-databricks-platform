@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+echo "===== LOCAL RUNTIME / BUILD ARTIFACTS ====="
+find . -maxdepth 2 \( \
+  -name ".pytest_cache" -o \
+  -name ".databricks" -o \
+  -name ".state" -o \
+  -name "dist" -o \
+  -name "generated" -o \
+  -name "artifacts" -o \
+  -name ".trash_pdf_rag_raw" -o \
+  -name "pdf_rag_input" -o \
+  -name "*.egg-info" -o \
+  -name "derby.log" \
+\) | sed 's#^\./##' | sort
+
+echo
+echo "===== LOCAL SENSITIVE FILES ====="
+find . -maxdepth 1 -type f \( \
+  -name ".env.*.local" -o \
+  -name ".secrets.*.local" -o \
+  -name ".secrets.*.oauth.local" \
+\) | sed 's#^\./##' | sort
+
+echo
+echo "===== METADATA / OS LITTER ====="
+find . -name ".DS_Store" | sed 's#^\./##' | sort

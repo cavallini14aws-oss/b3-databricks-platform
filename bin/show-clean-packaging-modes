@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cat <<'TXT'
+Modos de clean packaging:
+
+- workspace
+  Uso: desenvolvimento local
+  Permite artefatos locais de build/teste/estado
+  Continua bloqueando arquivos locais sensíveis e lixo de sistema
+
+- review
+  Uso: revisão, ZIP limpo, snapshot limpo para integração
+  Bloqueia:
+    .pytest_cache
+    .databricks
+    .state
+    dist
+    generated
+    artifacts
+    .trash_pdf_rag_raw
+    pdf_rag_input
+    b3_platform.egg-info
+    derby.log
+  Também bloqueia arquivos locais sensíveis e lixo de sistema
+
+- package
+  Uso: pacote máximo de higiene
+  Tudo do modo review
+  + bloqueia .git
+TXT

@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+MODULES=(
+  config_loader
+  context
+  env
+  flags
+  logger
+  naming
+  secrets
+  utils
+)
+
+if [[ -f ".venv-min/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv-min/bin/activate
+elif [[ -f ".venv/bin/activate" ]]; then
+  # shellcheck disable=SC1091
+  source .venv/bin/activate
+fi
+
+python - <<PY
+from pathlib import Path
+import json
+import re
+
+modules = [
+    "config_loader",
+    "context",
+    "env",
+    "flags",
+    "logger",
+    "naming",
+    "secrets",
+    "utils",
+]
+
+root = Path(".")
+py_files = [
+    p for p in root.rglob("*.py")
+    if ".venv" not in p.parts
+    and ".venv-min" not in p.parts
+    and ".git" not in p.parts
+    and "build" not in p.parts
+    and "dist" not in p.parts
+    and "__pycache__" not in p.parts
+]
+
+report = {}
+
+for mod in modules:
+    root_hits = []
+    core_hits = []
+
+    pattern_root_import = re.compile(rf"^\\s*import\\s+data_platform\\.{mod}(\\s|$|,)", re.MULTILINE)
+    pattern_root_from = re.compile(rf"^\\s*from\\s+data_platform\\.{mod}\\s+import\\s+", re.MULTILINE)
+
+    pattern_core_import = re.compile(rf"^\\s*import\\s+data_platform\\.core\\.{mod}(\\s|$|,)", re.MULTILINE)
+    pattern_core_from = re.compile(rf"^\\s*from\\s+data_platform\\.core\\.{mod}\\s+import\\s+", re.MULTILINE)
+
+    for file in py_files:
+        try:
+            text = file.read_text(encoding="utf-8")
+        except Exception:
+            continue
+
+        if pattern_root_import.search(text) or pattern_root_from.search(text):
+            root_hits.append(str(file))
+
+        if pattern_core_import.search(text) or pattern_core_from.search(text):
+            core_hits.append(str(file))
+
+    report[mod] = {
+        "root_module_imports": sorted(root_hits),
+        "core_module_imports": sorted(core_hits),
+        "root_count": len(root_hits),
+        "core_count": len(core_hits),
+    }
+
+print(json.dumps(report, indent=2, ensure_ascii=False))
+PY
