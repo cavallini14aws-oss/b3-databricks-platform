@@ -1,0 +1,34 @@
+runtime_install_governance:
+  dev:
+    manual_pip_install_allowed: true
+    approved_exception_required: false
+
+  hml:
+    manual_pip_install_allowed: false
+    approved_exception_required: true
+
+  prd:
+    manual_pip_install_allowed: false
+    approved_exception_required: true
+
+  forbidden_manual_install_patterns:
+    - "%pip install "
+    - "pip install "
+
+  approved_requirements_install_patterns:
+    - "%pip install -r requirements"
+    - "pip install -r requirements"
+
+  scan_targets:
+    - notebooks
+    - pipelines
+    - data_platform
+    - bin
+
+  ignore_paths:
+    - .git
+    - .venv
+    - __pycache__
+    - tests_obsolete
+
+  exceptions_file: config/platform_contracts/runtime_install_exceptions.yml
