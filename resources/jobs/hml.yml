@@ -2,8 +2,16 @@ resources:
   jobs:
     clientes_ml_hml:
       name: clientes-ml-hml
+      job_clusters:
+        - job_cluster_key: clientes_ml_job_cluster
+          new_cluster:
+            spark_version: ${var.default_spark_version}
+            node_type_id: ${var.default_node_type_id}
+            num_workers: 1
+            data_security_mode: SINGLE_USER
       tasks:
         - task_key: clientes_ml_pipeline_hml
+          job_cluster_key: clientes_ml_job_cluster
           spark_python_task:
             python_file: ${workspace.root_path}/pipelines/examples/clientes/ml/run_clientes_ml_end_to_end.py
             parameters:
@@ -13,7 +21,6 @@ resources:
               - config/clientes_ml_pipeline.yml
               - --use-catalog
               - "true"
-          existing_cluster_id: ${var.hml_cluster_id}
       tags:
         environment: hml
         project: clientes

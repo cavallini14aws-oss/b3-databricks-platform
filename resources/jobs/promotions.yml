@@ -2,8 +2,16 @@ resources:
   jobs:
     promote_dev_to_hml:
       name: promote-dev-to-hml
+      job_clusters:
+        - job_cluster_key: promotion_job_cluster
+          new_cluster:
+            spark_version: ${var.default_spark_version}
+            node_type_id: ${var.default_node_type_id}
+            num_workers: 1
+            data_security_mode: SINGLE_USER
       tasks:
         - task_key: promote_dev_to_hml_task
+          job_cluster_key: promotion_job_cluster
           spark_python_task:
             python_file: ${workspace.root_path}/data_platform/governance/promote_and_deploy_ml.py
             parameters:
@@ -27,7 +35,6 @@ resources:
               - "true"
               - --manual-approval
               - "false"
-          existing_cluster_id: ${var.dev_cluster_id}
       tags:
         environment: dev
         transition: dev_to_hml
@@ -35,8 +42,16 @@ resources:
 
     promote_hml_to_prd:
       name: promote-hml-to-prd
+      job_clusters:
+        - job_cluster_key: promotion_job_cluster
+          new_cluster:
+            spark_version: ${var.default_spark_version}
+            node_type_id: ${var.default_node_type_id}
+            num_workers: 1
+            data_security_mode: SINGLE_USER
       tasks:
         - task_key: promote_hml_to_prd_task
+          job_cluster_key: promotion_job_cluster
           spark_python_task:
             python_file: ${workspace.root_path}/data_platform/governance/promote_and_deploy_ml.py
             parameters:
@@ -60,7 +75,6 @@ resources:
               - "true"
               - --manual-approval
               - "true"
-          existing_cluster_id: ${var.hml_cluster_id}
       tags:
         environment: hml
         transition: hml_to_prd

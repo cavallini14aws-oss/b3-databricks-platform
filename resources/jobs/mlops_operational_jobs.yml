@@ -3,35 +3,63 @@ resources:
     mlops_drift_cycle:
       name: mlops-drift-cycle-${bundle.target}
       max_concurrent_runs: 1
+      job_clusters:
+        - job_cluster_key: mlops_job_cluster
+          new_cluster:
+            spark_version: ${var.default_spark_version}
+            node_type_id: ${var.default_node_type_id}
+            num_workers: 1
+            data_security_mode: SINGLE_USER
       tasks:
         - task_key: run_mlops_drift_cycle
-          notebook_task:
-            notebook_path: ../../notebooks/free_edition/mlops_drift_cycle.py
-            source: WORKSPACE
+          job_cluster_key: mlops_job_cluster
+          spark_python_task:
+            python_file: ${workspace.root_path}/notebooks/free_edition/mlops_drift_cycle.py
 
     mlops_postprod_cycle:
       name: mlops-postprod-cycle-${bundle.target}
       max_concurrent_runs: 1
+      job_clusters:
+        - job_cluster_key: mlops_job_cluster
+          new_cluster:
+            spark_version: ${var.default_spark_version}
+            node_type_id: ${var.default_node_type_id}
+            num_workers: 1
+            data_security_mode: SINGLE_USER
       tasks:
         - task_key: run_mlops_postprod_cycle
-          notebook_task:
-            notebook_path: ../../notebooks/free_edition/mlops_postprod_cycle.py
-            source: WORKSPACE
+          job_cluster_key: mlops_job_cluster
+          spark_python_task:
+            python_file: ${workspace.root_path}/notebooks/free_edition/mlops_postprod_cycle.py
 
     mlops_retraining_cycle:
       name: mlops-retraining-cycle-${bundle.target}
       max_concurrent_runs: 1
+      job_clusters:
+        - job_cluster_key: mlops_job_cluster
+          new_cluster:
+            spark_version: ${var.default_spark_version}
+            node_type_id: ${var.default_node_type_id}
+            num_workers: 1
+            data_security_mode: SINGLE_USER
       tasks:
         - task_key: run_mlops_retraining_cycle
-          notebook_task:
-            notebook_path: ../../notebooks/free_edition/mlops_retraining_cycle.py
-            source: WORKSPACE
+          job_cluster_key: mlops_job_cluster
+          spark_python_task:
+            python_file: ${workspace.root_path}/notebooks/free_edition/mlops_retraining_cycle.py
 
     mlops_operational_cycle:
       name: mlops-operational-cycle-${bundle.target}
       max_concurrent_runs: 1
+      job_clusters:
+        - job_cluster_key: mlops_job_cluster
+          new_cluster:
+            spark_version: ${var.default_spark_version}
+            node_type_id: ${var.default_node_type_id}
+            num_workers: 1
+            data_security_mode: SINGLE_USER
       tasks:
         - task_key: run_mlops_operational_cycle
-          notebook_task:
-            notebook_path: ../../notebooks/free_edition/mlops_operational_cycle.py
-            source: WORKSPACE
+          job_cluster_key: mlops_job_cluster
+          spark_python_task:
+            python_file: ${workspace.root_path}/notebooks/free_edition/mlops_operational_cycle.py

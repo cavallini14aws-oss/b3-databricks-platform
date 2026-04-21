@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TARGET="${1:-}"
+PROFILE="${2:-}"
+DEPLOY_USER="${3:-}"
+
+if [[ -z "${TARGET}" || -z "${PROFILE}" || -z "${DEPLOY_USER}" ]]; then
+  echo "uso: bin/dbx-bundle-deploy <target> <profile> <deploy_user>"
+  echo "exemplo: bin/dbx-bundle-deploy hml hml-real user@example.com"
+  exit 1
+fi
+
+databricks bundle deploy -t "${TARGET}" -p "${PROFILE}" --var="deploy_user=${DEPLOY_USER}"
