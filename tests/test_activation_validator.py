@@ -30,7 +30,7 @@ def test_validate_activation_environment_returns_warning_for_pending_ready_flags
             "databricks": {
                 "workspace_host_key": "DEV_WORKSPACE_HOST",
                 "databricks_token_key": "DEV_DATABRICKS_TOKEN",
-                "cluster_id_key": "DEV_CLUSTER_ID",
+                "compute_mode_key": "DEV_COMPUTE_MODE",
                 "secret_scope": "keyvault-dev-datahub",
             },
             "notifications": {

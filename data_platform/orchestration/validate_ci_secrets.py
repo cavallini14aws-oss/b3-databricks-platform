@@ -2,7 +2,6 @@ import argparse
 import json
 import os
 
-
 from data_platform.orchestration.ci_secrets_contract import get_provider_all_secrets
 
 
@@ -43,11 +42,11 @@ def _validate_variable(variable_name: str, value: str | None) -> tuple[bool, str
             return False, "DATABRICKS_TOKEN parece placeholder."
         return True, None
 
-    if variable_name.endswith("_COMPUTE_MODE"):
+    if variable_name.endswith("_DEPLOY_USER"):
         if len(normalized) < 3:
-            return False, "CLUSTER_ID muito curto."
+            return False, "DEPLOY_USER muito curto."
         if _looks_like_placeholder(normalized):
-            return False, "CLUSTER_ID parece placeholder."
+            return False, "DEPLOY_USER parece placeholder."
         return True, None
 
     if _looks_like_placeholder(normalized):

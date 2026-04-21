@@ -10,7 +10,7 @@ environments:
       use_catalog: false
       workspace_host_key: DEV_WORKSPACE_HOST
       databricks_token_key: DEV_DATABRICKS_TOKEN
-      cluster_id_key: DEV_CLUSTER_ID
+      compute_mode_key: DEV_COMPUTE_MODE
       secret_scope: keyvault-dev-datahub
       ready: false
     notifications:
@@ -117,7 +117,7 @@ environments:
       use_catalog: true
       workspace_host_key: HML_WORKSPACE_HOST
       databricks_token_key: HML_DATABRICKS_TOKEN
-      cluster_id_key: HML_CLUSTER_ID
+      compute_mode_key: HML_COMPUTE_MODE
       secret_scope: keyvault-hml-datahub
       ready: false
     notifications:
@@ -226,7 +226,7 @@ environments:
       use_catalog: true
       workspace_host_key: PRD_WORKSPACE_HOST
       databricks_token_key: PRD_DATABRICKS_TOKEN
-      cluster_id_key: PRD_CLUSTER_ID
+      compute_mode_key: PRD_COMPUTE_MODE
       secret_scope: keyvault-prd-datahub
       ready: false
     notifications:

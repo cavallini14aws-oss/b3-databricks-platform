@@ -22,13 +22,13 @@ jobs:
     env:
       DEV_WORKSPACE_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
       DEV_DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
-      DEV_COMPUTE_MODE: ${{ secrets.DEV_COMPUTE_MODE }}
+      DEV_DEPLOY_USER: ${{ secrets.DEV_DEPLOY_USER }}
       HML_WORKSPACE_HOST: ${{ secrets.HML_WORKSPACE_HOST }}
       HML_DATABRICKS_TOKEN: ${{ secrets.HML_DATABRICKS_TOKEN }}
-      HML_COMPUTE_MODE: ${{ secrets.HML_COMPUTE_MODE }}
+      HML_DEPLOY_USER: ${{ secrets.HML_DEPLOY_USER }}
       PRD_WORKSPACE_HOST: ${{ secrets.PRD_WORKSPACE_HOST }}
       PRD_DATABRICKS_TOKEN: ${{ secrets.PRD_DATABRICKS_TOKEN }}
-      PRD_COMPUTE_MODE: ${{ secrets.PRD_COMPUTE_MODE }}
+      PRD_DEPLOY_USER: ${{ secrets.PRD_DEPLOY_USER }}
 
     steps:
       - uses: actions/checkout@v4
@@ -65,7 +65,7 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
-        run: databricks bundle validate -t dev
+        run: databricks bundle validate -t dev --var="deploy_user=${{ secrets.DEV_DEPLOY_USER }}"
 
   deploy-dev:
     if: github.ref == 'refs/heads/main'
@@ -95,8 +95,8 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
-          DEV_COMPUTE_MODE: ${{ secrets.DEV_COMPUTE_MODE }}
-        run: databricks bundle deploy -t dev
+          DEV_DEPLOY_USER: ${{ secrets.DEV_DEPLOY_USER }}
+        run: databricks bundle deploy -t dev --var="deploy_user=${{ secrets.DEV_DEPLOY_USER }}"
 
   deploy-hml:
     if: github.ref == 'refs/heads/main'
@@ -126,8 +126,8 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.HML_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.HML_DATABRICKS_TOKEN }}
-          HML_COMPUTE_MODE: ${{ secrets.HML_COMPUTE_MODE }}
-        run: databricks bundle deploy -t hml
+          HML_DEPLOY_USER: ${{ secrets.HML_DEPLOY_USER }}
+        run: databricks bundle deploy -t hml --var="deploy_user=${{ secrets.HML_DEPLOY_USER }}"
 
   deploy-prd:
     if: github.ref == 'refs/heads/main'
@@ -157,8 +157,8 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.PRD_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.PRD_DATABRICKS_TOKEN }}
-          PRD_COMPUTE_MODE: ${{ secrets.PRD_COMPUTE_MODE }}
-        run: databricks bundle deploy -t prd
+          PRD_DEPLOY_USER: ${{ secrets.PRD_DEPLOY_USER }}
+        run: databricks bundle deploy -t prd --var="deploy_user=${{ secrets.PRD_DEPLOY_USER }}"
 """
 
 AZURE_DEVOPS_TEMPLATE = """trigger:
@@ -193,7 +193,7 @@ stages:
               python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
               python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
           - script: pip install databricks-cli
-          - script: databricks bundle validate -t dev
+          - script: databricks bundle validate -t dev --var="deploy_user=$(DEV_DEPLOY_USER)"
             env:
               DATABRICKS_HOST: $(DEV_WORKSPACE_HOST)
               DATABRICKS_TOKEN: $(DEV_DATABRICKS_TOKEN)
@@ -214,11 +214,11 @@ stages:
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-                - script: databricks bundle deploy -t dev
+                - script: databricks bundle deploy -t dev --var="deploy_user=$(DEV_DEPLOY_USER)"
                   env:
                     DATABRICKS_HOST: $(DEV_WORKSPACE_HOST)
                     DATABRICKS_TOKEN: $(DEV_DATABRICKS_TOKEN)
-                    DEV_COMPUTE_MODE: $(DEV_COMPUTE_MODE)
+                    DEV_DEPLOY_USER: $(DEV_DEPLOY_USER)
 
   - stage: DeployHml
     dependsOn: DeployDev
@@ -236,11 +236,11 @@ stages:
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-                - script: databricks bundle deploy -t hml
+                - script: databricks bundle deploy -t hml --var="deploy_user=$(HML_DEPLOY_USER)"
                   env:
                     DATABRICKS_HOST: $(HML_WORKSPACE_HOST)
                     DATABRICKS_TOKEN: $(HML_DATABRICKS_TOKEN)
-                    HML_COMPUTE_MODE: $(HML_COMPUTE_MODE)
+                    HML_DEPLOY_USER: $(HML_DEPLOY_USER)
 
   - stage: DeployPrd
     dependsOn: DeployHml
@@ -258,11 +258,11 @@ stages:
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-                - script: databricks bundle deploy -t prd
+                - script: databricks bundle deploy -t prd --var="deploy_user=$(PRD_DEPLOY_USER)"
                   env:
                     DATABRICKS_HOST: $(PRD_WORKSPACE_HOST)
                     DATABRICKS_TOKEN: $(PRD_DATABRICKS_TOKEN)
-                    PRD_COMPUTE_MODE: $(PRD_COMPUTE_MODE)
+                    PRD_DEPLOY_USER: $(PRD_DEPLOY_USER)
 """
 
 BITBUCKET_TEMPLATE = """image: python:3.12

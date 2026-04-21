@@ -23,8 +23,8 @@ def validate_activation_environment(
         errors.append("databricks.workspace_host_key vazio")
     if not databricks_cfg.get("databricks_token_key"):
         errors.append("databricks.databricks_token_key vazio")
-    if not databricks_cfg.get("cluster_id_key"):
-        errors.append("databricks.cluster_id_key vazio")
+    if not databricks_cfg.get("compute_mode_key"):
+        errors.append("databricks.compute_mode_key vazio")
     if not databricks_cfg.get("secret_scope"):
         errors.append("databricks.secret_scope vazio")
 
