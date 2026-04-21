@@ -21,6 +21,10 @@ def test_apply_adapter_exists():
 def test_smoke_adapter_exists():
     text = read("bin/smoke-official-release-adapter")
     assert "databricks bundle summary" in text
+    assert "--force-pull" in text
+    assert "databricks bundle run" in text
+    assert "BUNDLE_SMOKE_JOB e obrigatorio para" in text
+    assert "smoke_assertions.json" in text
     assert "smoke_success" in text
     assert "stub_smoke_success" not in text
 
@@ -32,3 +36,17 @@ def test_operational_contract_mode_updated():
     assert cfg["current_mode"] == "databricks_official_cli"
     assert res["current_mode"] == "databricks_official_cli"
     assert cfg == res
+
+
+def test_operational_contract_smoke_hardening():
+    cfg = load_yaml("config/official_operational_integration_contract.yml")
+    smoke = cfg["smoke"]
+
+    assert "bundle_profile" in smoke["required_inputs"]
+    assert "bundle_deploy_user" in smoke["required_inputs"]
+    assert smoke["conditional_required_inputs"]["hml"] == ["bundle_smoke_job"]
+    assert smoke["conditional_required_inputs"]["prd"] == ["bundle_smoke_job"]
+    assert "smoke_job_required" in smoke["expected_outputs"]
+    assert "summary_before_force_pull_log" in smoke["expected_outputs"]
+    assert "summary_after_force_pull_log" in smoke["expected_outputs"]
+    assert "assertions_json" in smoke["expected_outputs"]

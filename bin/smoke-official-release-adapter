@@ -24,6 +24,21 @@ if [[ -z "$DEPLOY_USER" ]]; then
   exit 1
 fi
 
+case "$ENV_NAME" in
+  dev|hml|prd) ;;
+  *)
+    echo "[ERROR] Ambiente invalido: $ENV_NAME"
+    exit 1
+    ;;
+esac
+
+if [[ "$ENV_NAME" == "hml" || "$ENV_NAME" == "prd" ]]; then
+  if [[ -z "$SMOKE_JOB" ]]; then
+    echo "[ERROR] BUNDLE_SMOKE_JOB e obrigatorio para $ENV_NAME"
+    exit 1
+  fi
+fi
+
 DEPLOY_PAYLOAD=".state/releases/databricks-deploy-payload-${ENV_NAME}.json"
 
 mkdir -p .state/releases
@@ -33,9 +48,11 @@ RUN_TS="$(date -u +"%Y%m%dT%H%M%SZ")"
 RUN_DIR=".state/logs/smoke_${ENV_NAME}_${RUN_TS}"
 mkdir -p "$RUN_DIR"
 
-SUMMARY_LOG="${RUN_DIR}/bundle_summary.log"
+SUMMARY_BEFORE_LOG="${RUN_DIR}/bundle_summary_before_force_pull.log"
+SUMMARY_AFTER_LOG="${RUN_DIR}/bundle_summary_after_force_pull.log"
 RUN_LOG="${RUN_DIR}/bundle_run.log"
 TRACE_LOG="${RUN_DIR}/trace.log"
+ASSERTIONS_JSON="${RUN_DIR}/smoke_assertions.json"
 RESULT_JSON="${RUN_DIR}/result.json"
 
 log() {
@@ -80,6 +97,8 @@ PY
 log "run_dir=${RUN_DIR}"
 log "env=${ENV_NAME}"
 log "profile=${PROFILE}"
+log "deploy_user=${DEPLOY_USER}"
+log "smoke_job=${SMOKE_JOB:-<none>}"
 
 run_step "bootstrap_official_release_state" ./bin/bootstrap-official-release-state "$ENV_NAME"
 run_step "render_official_release_manifest" ./bin/render-official-release-manifest "$ENV_NAME"
@@ -88,15 +107,18 @@ run_step "render_databricks_deploy_payload" ./bin/render-databricks-deploy-paylo
 
 [[ -f "$DEPLOY_PAYLOAD" ]] || fail "deploy payload ausente mesmo apos bootstrap: $DEPLOY_PAYLOAD"
 
-run_step "bundle_summary" bash -c \
-  "databricks bundle summary -t \"$ENV_NAME\" -p \"$PROFILE\" --var=\"deploy_user=${DEPLOY_USER}\" >\"$SUMMARY_LOG\" 2>&1"
+run_step "bundle_summary_before_force_pull" bash -c \
+  "databricks bundle summary -t \"$ENV_NAME\" -p \"$PROFILE\" --force-pull --var=\"deploy_user=${DEPLOY_USER}\" >\"$SUMMARY_BEFORE_LOG\" 2>&1"
 
-RUN_STATUS="not_executed"
+RUN_STATUS="not_required"
 if [[ -n "$SMOKE_JOB" ]]; then
   run_step "bundle_run_${SMOKE_JOB}" bash -c \
     "databricks bundle run -t \"$ENV_NAME\" -p \"$PROFILE\" --var=\"deploy_user=${DEPLOY_USER}\" \"$SMOKE_JOB\" >\"$RUN_LOG\" 2>&1"
   RUN_STATUS="executed"
 fi
+
+run_step "bundle_summary_after_force_pull" bash -c \
+  "databricks bundle summary -t \"$ENV_NAME\" -p \"$PROFILE\" --force-pull --var=\"deploy_user=${DEPLOY_USER}\" >\"$SUMMARY_AFTER_LOG\" 2>&1"
 
 python3 - <<PY
 from pathlib import Path
@@ -104,21 +126,47 @@ from datetime import datetime, timezone
 import json
 
 env_name = "${ENV_NAME}"
+profile = "${PROFILE}"
+smoke_job = "${SMOKE_JOB}"
+deploy_user = "${DEPLOY_USER}"
 payload = json.loads(Path("${DEPLOY_PAYLOAD}").read_text(encoding="utf-8"))
+
+assertions = {
+    "env": env_name,
+    "profile": profile,
+    "deploy_user": deploy_user,
+    "smoke_job_required": env_name in {"hml", "prd"},
+    "smoke_job_present": bool(smoke_job),
+    "smoke_job_status": "${RUN_STATUS}",
+    "summary_before_force_pull_exists": Path("${SUMMARY_BEFORE_LOG}").exists(),
+    "summary_after_force_pull_exists": Path("${SUMMARY_AFTER_LOG}").exists(),
+    "run_log_exists": Path("${RUN_LOG}").exists(),
+    "trace_log_exists": Path("${TRACE_LOG}").exists(),
+    "payload_exists": Path("${DEPLOY_PAYLOAD}").exists(),
+}
+
+Path("${ASSERTIONS_JSON}").write_text(
+    json.dumps(assertions, indent=2, ensure_ascii=False) + "\n",
+    encoding="utf-8",
+)
 
 result = {
     "status": "smoke_success",
     "env": env_name,
+    "profile": profile,
     "checked_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "release_version": payload["deploy_version"],
     "job_count": payload["job_count"],
     "mode": "databricks_official_cli",
+    "smoke_job_required": env_name in {"hml", "prd"},
     "smoke_job_status": "${RUN_STATUS}",
-    "smoke_job_name": "${SMOKE_JOB}",
+    "smoke_job_name": smoke_job,
     "run_dir": "${RUN_DIR}",
-    "summary_log": "${SUMMARY_LOG}",
+    "summary_before_force_pull_log": "${SUMMARY_BEFORE_LOG}",
+    "summary_after_force_pull_log": "${SUMMARY_AFTER_LOG}",
     "run_log": "${RUN_LOG}",
     "trace_log": "${TRACE_LOG}",
+    "assertions_json": "${ASSERTIONS_JSON}",
     "result_json": "${RESULT_JSON}",
 }
 

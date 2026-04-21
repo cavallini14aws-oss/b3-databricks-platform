@@ -19,9 +19,21 @@ smoke:
   required_inputs:
     - env
     - deploy_payload
+    - bundle_profile
+    - bundle_deploy_user
+  conditional_required_inputs:
+    hml:
+      - bundle_smoke_job
+    prd:
+      - bundle_smoke_job
   expected_outputs:
     - status
     - checked_at_utc
+    - smoke_job_required
+    - smoke_job_status
+    - summary_before_force_pull_log
+    - summary_after_force_pull_log
+    - assertions_json
   success_exit_code: 0
 
 current_mode: "databricks_official_cli"
@@ -30,4 +42,5 @@ future_mode: "databricks_official_runtime"
 notes:
   - "Os adapters executam validate/deploy/summary reais via Databricks CLI."
   - "BUNDLE_PROFILE e BUNDLE_DEPLOY_USER devem ser fornecidos em runtime."
-  - "BUNDLE_SMOKE_JOB e opcional para smoke ativo com bundle run."
+  - "BUNDLE_SMOKE_JOB e obrigatorio em hml/prd e opcional em dev."
+  - "O smoke persiste summary before/after com --force-pull e smoke_assertions.json."
