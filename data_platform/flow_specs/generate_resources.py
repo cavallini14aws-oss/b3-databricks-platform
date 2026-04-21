@@ -21,7 +21,6 @@ def build_resources_payload(environment: str) -> dict:
                 "flow_name": job["flow_name"],
                 "flow_type": job["flow_type"],
                 "task_key": f"{job['flow_name']}_{environment}_task",
-                "cluster_key": job["cluster_key"],
                 "spec_module": job["spec_module"],
                 "entrypoint": job["entrypoint"],
                 "callable_name": job["callable_name"],
@@ -32,7 +31,7 @@ def build_resources_payload(environment: str) -> dict:
         )
 
     return {
-        "resources_version": 1,
+        "resources_version": 2,
         "environment": environment,
         "resource_count": len(resources),
         "resources": resources,

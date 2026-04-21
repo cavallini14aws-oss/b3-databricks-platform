@@ -22,13 +22,13 @@ jobs:
     env:
       DEV_WORKSPACE_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
       DEV_DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
-      DEV_CLUSTER_ID: ${{ secrets.DEV_CLUSTER_ID }}
+      DEV_COMPUTE_MODE: ${{ secrets.DEV_COMPUTE_MODE }}
       HML_WORKSPACE_HOST: ${{ secrets.HML_WORKSPACE_HOST }}
       HML_DATABRICKS_TOKEN: ${{ secrets.HML_DATABRICKS_TOKEN }}
-      HML_CLUSTER_ID: ${{ secrets.HML_CLUSTER_ID }}
+      HML_COMPUTE_MODE: ${{ secrets.HML_COMPUTE_MODE }}
       PRD_WORKSPACE_HOST: ${{ secrets.PRD_WORKSPACE_HOST }}
       PRD_DATABRICKS_TOKEN: ${{ secrets.PRD_DATABRICKS_TOKEN }}
-      PRD_CLUSTER_ID: ${{ secrets.PRD_CLUSTER_ID }}
+      PRD_COMPUTE_MODE: ${{ secrets.PRD_COMPUTE_MODE }}
 
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +95,7 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
-          DEV_CLUSTER_ID: ${{ secrets.DEV_CLUSTER_ID }}
+          DEV_COMPUTE_MODE: ${{ secrets.DEV_COMPUTE_MODE }}
         run: databricks bundle deploy -t dev
 
   deploy-hml:
@@ -126,7 +126,7 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.HML_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.HML_DATABRICKS_TOKEN }}
-          HML_CLUSTER_ID: ${{ secrets.HML_CLUSTER_ID }}
+          HML_COMPUTE_MODE: ${{ secrets.HML_COMPUTE_MODE }}
         run: databricks bundle deploy -t hml
 
   deploy-prd:
@@ -157,7 +157,7 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.PRD_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.PRD_DATABRICKS_TOKEN }}
-          PRD_CLUSTER_ID: ${{ secrets.PRD_CLUSTER_ID }}
+          PRD_COMPUTE_MODE: ${{ secrets.PRD_COMPUTE_MODE }}
         run: databricks bundle deploy -t prd
 """
 
@@ -218,7 +218,7 @@ stages:
                   env:
                     DATABRICKS_HOST: $(DEV_WORKSPACE_HOST)
                     DATABRICKS_TOKEN: $(DEV_DATABRICKS_TOKEN)
-                    DEV_CLUSTER_ID: $(DEV_CLUSTER_ID)
+                    DEV_COMPUTE_MODE: $(DEV_COMPUTE_MODE)
 
   - stage: DeployHml
     dependsOn: DeployDev
@@ -240,7 +240,7 @@ stages:
                   env:
                     DATABRICKS_HOST: $(HML_WORKSPACE_HOST)
                     DATABRICKS_TOKEN: $(HML_DATABRICKS_TOKEN)
-                    HML_CLUSTER_ID: $(HML_CLUSTER_ID)
+                    HML_COMPUTE_MODE: $(HML_COMPUTE_MODE)
 
   - stage: DeployPrd
     dependsOn: DeployHml
@@ -262,7 +262,7 @@ stages:
                   env:
                     DATABRICKS_HOST: $(PRD_WORKSPACE_HOST)
                     DATABRICKS_TOKEN: $(PRD_DATABRICKS_TOKEN)
-                    PRD_CLUSTER_ID: $(PRD_CLUSTER_ID)
+                    PRD_COMPUTE_MODE: $(PRD_COMPUTE_MODE)
 """
 
 BITBUCKET_TEMPLATE = """image: python:3.12

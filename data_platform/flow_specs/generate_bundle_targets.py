@@ -15,13 +15,10 @@ def build_bundle_targets_payload() -> dict:
         targets[env] = {
             "default": env == "dev",
             "workspace": {
-                "host_placeholder": f"${{{env.upper()}_WORKSPACE_HOST}}",
-                "profile_placeholder": f"${{{env.upper()}_PROFILE}}",
-                "root_path": f"/Workspace/Shared/.bundle/b3-databricks-platform/{env}",
+                "root_path": f"/Workspace/Users/${{workspace.current_user.userName}}/.bundle/b3_databricks_platform/{env}",
             },
             "bundle_variables": {
                 "environment": env,
-                "cluster_key": job_cfg.cluster_key,
                 "use_catalog": job_cfg.use_catalog,
                 "default_config_path": job_cfg.default_config_path,
                 "workspace_root": job_cfg.workspace_root,
@@ -29,14 +26,14 @@ def build_bundle_targets_payload() -> dict:
         }
 
     return {
-        "bundle_targets_version": 1,
+        "bundle_targets_version": 2,
         "targets": targets,
     }
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Gera targets de bundle com placeholders para workspaces reais."
+        description="Gera targets de bundle com root_path dinâmico por ambiente."
     )
     parser.add_argument(
         "--output-path",

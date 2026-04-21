@@ -5,32 +5,56 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 ENV_NAME="${1:-}"
+PROFILE="${BUNDLE_PROFILE:-}"
+DEPLOY_USER="${BUNDLE_DEPLOY_USER:-}"
 
 if [[ -z "$ENV_NAME" ]]; then
   echo "[ERROR] Uso: bin/apply-official-release-adapter <dev|hml|prd>"
   exit 1
 fi
 
+if [[ -z "$PROFILE" ]]; then
+  echo "[ERROR] BUNDLE_PROFILE nao definido"
+  exit 1
+fi
+
+if [[ -z "$DEPLOY_USER" ]]; then
+  echo "[ERROR] BUNDLE_DEPLOY_USER nao definido"
+  exit 1
+fi
+
 FINAL_RELEASE=".state/releases/final-official-release-${ENV_NAME}.yml"
 DEPLOY_PAYLOAD=".state/releases/databricks-deploy-payload-${ENV_NAME}.json"
 
+mkdir -p .state/releases
+
+./bin/bootstrap-official-release-state "$ENV_NAME"
+./bin/render-official-release-manifest "$ENV_NAME" >/dev/null
+./bin/apply-final-official-release "$ENV_NAME" >/dev/null
+./bin/render-databricks-deploy-payload "$ENV_NAME" >/dev/null
+
 if [[ ! -f "$FINAL_RELEASE" ]]; then
-  echo "[ERROR] final release ausente: $FINAL_RELEASE"
+  echo "[ERROR] final release ausente mesmo apos bootstrap: $FINAL_RELEASE"
   exit 1
 fi
 
 if [[ ! -f "$DEPLOY_PAYLOAD" ]]; then
-  echo "[ERROR] deploy payload ausente: $DEPLOY_PAYLOAD"
+  echo "[ERROR] deploy payload ausente mesmo apos bootstrap: $DEPLOY_PAYLOAD"
   exit 1
 fi
 
-if [[ -f ".venv-min/bin/activate" ]]; then
-  source .venv-min/bin/activate
-elif [[ -f ".venv/bin/activate" ]]; then
-  source .venv/bin/activate
-fi
+VALIDATE_LOG="$(mktemp)"
+DEPLOY_LOG="$(mktemp)"
 
-python - <<PY
+cleanup() {
+  rm -f "$VALIDATE_LOG" "$DEPLOY_LOG"
+}
+trap cleanup EXIT
+
+databricks bundle validate -t "$ENV_NAME" -p "$PROFILE" --var="deploy_user=${DEPLOY_USER}" >"$VALIDATE_LOG"
+databricks bundle deploy -t "$ENV_NAME" -p "$PROFILE" --var="deploy_user=${DEPLOY_USER}" >"$DEPLOY_LOG"
+
+python3 - <<PY
 from pathlib import Path
 import json
 import yaml
@@ -40,12 +64,12 @@ final_release = yaml.safe_load(Path("${FINAL_RELEASE}").read_text(encoding="utf-
 payload = json.loads(Path("${DEPLOY_PAYLOAD}").read_text(encoding="utf-8"))
 
 result = {
-    "status": "stub_apply_success",
+    "status": "apply_success",
     "env": env_name,
     "release_version": final_release["release_version"],
     "artifact_wheel": final_release["artifact_wheel"],
     "job_count": payload["job_count"],
-    "mode": "stub",
+    "mode": "databricks_official_cli",
 }
 
 print(json.dumps(result, indent=2, ensure_ascii=False))

@@ -1,0 +1,18 @@
+version: 1
+
+defaults:
+  mode: auto
+  classic: {}
+  serverless:
+    environment_key: "default"
+    environment_version: "2"
+
+targets:
+  dev:
+    mode: auto
+
+  hml:
+    mode: auto
+
+  prd:
+    mode: auto

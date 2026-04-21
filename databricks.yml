@@ -1,66 +1,59 @@
 bundle:
-  name: b3_databricks_platform
-
-artifacts:
-  default:
-    type: whl
-    build: python3 -m build --wheel
-    path: .
+  name: "b3_databricks_platform"
 
 include:
-  - resources/jobs/mlops_operational_jobs.yml
-  - resources/jobs/dev.yml
-  - resources/jobs/hml.yml
-  - resources/jobs/prd.yml
-  - resources/jobs/promotions.yml
-
-sync:
-  include:
-    - notebooks/free_edition/*.py
+  - "artifacts/generated_resources_dev.yml"
+  - "artifacts/generated_resources_hml.yml"
+  - "artifacts/generated_resources_prd.yml"
 
 variables:
   deploy_user:
-    description: Current deployment identity for bundle permissions
+    description: "Current deployment identity for bundle permissions"
     default: ""
-
   hml_run_sp:
-    description: Service principal app id for HML run_as
+    description: "Service principal app id for HML run_as"
     default: "<app-id-hml>"
-
   prd_run_sp:
-    description: Service principal app id for PRD run_as
+    description: "Service principal app id for PRD run_as"
     default: "<app-id-prd>"
-
   hml_admin_group:
-    description: Admin group for HML bundle permissions
+    description: "Admin group for HML bundle permissions"
     default: "<group-hml-admin>"
-
   prd_admin_group:
-    description: Admin group for PRD bundle permissions
+    description: "Admin group for PRD bundle permissions"
     default: "<group-prd-admin>"
-
-  default_spark_version:
-    description: Default Databricks Runtime version
-    default: "15.4.x-scala2.12"
-
-  default_node_type_id:
-    description: Default node type id
-    default: "Standard_DS3_v2"
+  environment:
+    description: "Resolved deployment environment"
+    default: "dev"
+  use_catalog:
+    description: "Whether target uses Unity Catalog"
+    default: false
+  default_config_path:
+    description: "Default config path for flows"
+    default: "config/clientes_ml_pipeline.yml"
+  workspace_root:
+    description: "Workspace root for project files"
+    default: "/Workspace/Repos/b3-databricks-platform/b3-databricks-platform"
 
 targets:
   dev:
     default: true
     mode: development
     workspace:
-      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+      root_path: "/Workspace/Users/${workspace.current_user.userName}/.bundle/b3_databricks_platform/dev"
     permissions:
       - user_name: ${var.deploy_user}
         level: CAN_MANAGE
-
+    variables:
+      environment: "dev"
+      use_catalog: false
+      default_config_path: "config/clientes_ml_pipeline.yml"
+      workspace_root: "/Workspace/Repos/b3-databricks-platform/b3-databricks-platform"
   hml:
+    default: false
     mode: production
     workspace:
-      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+      root_path: "/Workspace/Users/${workspace.current_user.userName}/.bundle/b3_databricks_platform/hml"
     run_as:
       service_principal_name: ${var.hml_run_sp}
     permissions:
@@ -70,11 +63,16 @@ targets:
         group_name: ${var.hml_admin_group}
       - level: CAN_MANAGE
         service_principal_name: ${var.hml_run_sp}
-
+    variables:
+      environment: "hml"
+      use_catalog: true
+      default_config_path: "config/clientes_ml_pipeline.yml"
+      workspace_root: "/Workspace/Repos/b3-databricks-platform/b3-databricks-platform"
   prd:
+    default: false
     mode: production
     workspace:
-      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+      root_path: "/Workspace/Users/${workspace.current_user.userName}/.bundle/b3_databricks_platform/prd"
     run_as:
       service_principal_name: ${var.prd_run_sp}
     permissions:
@@ -84,3 +82,8 @@ targets:
         group_name: ${var.prd_admin_group}
       - level: CAN_MANAGE
         service_principal_name: ${var.prd_run_sp}
+    variables:
+      environment: "prd"
+      use_catalog: true
+      default_config_path: "config/clientes_ml_pipeline.yml"
+      workspace_root: "/Workspace/Repos/b3-databricks-platform/b3-databricks-platform"

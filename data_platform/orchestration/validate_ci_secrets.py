@@ -43,7 +43,7 @@ def _validate_variable(variable_name: str, value: str | None) -> tuple[bool, str
             return False, "DATABRICKS_TOKEN parece placeholder."
         return True, None
 
-    if variable_name.endswith("_CLUSTER_ID"):
+    if variable_name.endswith("_COMPUTE_MODE"):
         if len(normalized) < 3:
             return False, "CLUSTER_ID muito curto."
         if _looks_like_placeholder(normalized):

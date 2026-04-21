@@ -24,9 +24,10 @@ smoke:
     - checked_at_utc
   success_exit_code: 0
 
-current_mode: "stub"
-future_mode: "databricks_official"
+current_mode: "databricks_official_cli"
+future_mode: "databricks_official_runtime"
 
 notes:
-  - "Enquanto o ambiente oficial nao existir, os adapters operam em modo stub controlado."
-  - "Quando o ambiente oficial existir, os adapters devem manter a mesma interface e trocar apenas a implementacao interna."
+  - "Os adapters executam validate/deploy/summary reais via Databricks CLI."
+  - "BUNDLE_PROFILE e BUNDLE_DEPLOY_USER devem ser fornecidos em runtime."
+  - "BUNDLE_SMOKE_JOB e opcional para smoke ativo com bundle run."

@@ -1,12 +1,68 @@
 import argparse
 import json
+from copy import deepcopy
 from pathlib import Path
+
+import yaml
 
 from data_platform.flow_specs.generate_resources import build_resources_payload
 
 
+def _load_compute_matrix() -> dict:
+    path = Path("config/databricks/compute_matrix.yml")
+    if not path.exists():
+        return {
+            "version": 1,
+            "defaults": {
+                "mode": "auto",
+                "classic": {},
+                "serverless": {"environment_key": "default"},
+            },
+            "targets": {},
+        }
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    result = deepcopy(base)
+    for key, value in (override or {}).items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = deepcopy(value)
+    return result
+
+
+def _resolve_compute(environment: str) -> dict:
+    matrix = _load_compute_matrix()
+    defaults = matrix.get("defaults", {})
+    targets = matrix.get("targets", {})
+    target_cfg = targets.get(environment, {})
+
+    merged = _deep_merge(defaults, target_cfg)
+
+    requested_mode = merged.get("mode", "auto")
+    classic_cfg = merged.get("classic", {}) or {}
+    serverless_cfg = merged.get("serverless", {}) or {"environment_key": "default"}
+
+    if requested_mode == "serverless":
+        resolved_mode = "serverless"
+    elif requested_mode == "classic":
+        resolved_mode = "classic"
+    else:
+        resolved_mode = "classic" if classic_cfg else "serverless"
+
+    return {
+        "requested_mode": requested_mode,
+        "resolved_mode": resolved_mode,
+        "classic": classic_cfg,
+        "serverless": serverless_cfg,
+    }
+
+
 def build_bundle_resources_payload(environment: str) -> dict:
     resources_payload = build_resources_payload(environment)
+    compute = _resolve_compute(environment)
 
     jobs = {}
 
@@ -14,29 +70,30 @@ def build_bundle_resources_payload(environment: str) -> dict:
         if item["resource_type"] != "job":
             continue
 
+        task = {
+            "task_key": item["task_key"],
+            "spark_python_task": {
+                "python_file": "${workspace.root_path}/data_platform/flow_specs/run_flow_by_path.py",
+                "parameters": [
+                    "--spec-module", item["spec_module"],
+                    "--project", item["project"],
+                    "--use-catalog", str(item["use_catalog"]).lower(),
+                    "--config-path", item["config_path"],
+                ],
+            },
+            "compute": deepcopy(compute),
+        }
+
         jobs[item["job_name"]] = {
             "name": item["job_name"],
             "tags": item["tags"],
-            "tasks": [
-                {
-                    "task_key": item["task_key"],
-                    "spark_python_task": {
-                        "python_file_placeholder": "${workspace.root_path}/data_platform/flow_specs/run_flow_by_path.py",
-                        "parameters": [
-                            "--spec-module", item["spec_module"],
-                            "--project", item["project"],
-                            "--use-catalog", str(item["use_catalog"]).lower(),
-                            "--config-path", item["config_path"],
-                        ],
-                    },
-                    "existing_cluster_id_placeholder": f"${{{environment.upper()}_CLUSTER_ID}}",
-                }
-            ],
+            "tasks": [task],
         }
 
     return {
-        "bundle_resources_version": 1,
+        "bundle_resources_version": 2,
         "environment": environment,
+        "compute": compute,
         "resources": {
             "jobs": jobs,
         },
