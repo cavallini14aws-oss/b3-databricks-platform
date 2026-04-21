@@ -54,15 +54,9 @@ targets:
     mode: production
     workspace:
       root_path: "/Workspace/Users/${workspace.current_user.userName}/.bundle/b3_databricks_platform/hml"
-    run_as:
-      service_principal_name: ${var.hml_run_sp}
     permissions:
       - user_name: ${var.deploy_user}
         level: CAN_MANAGE
-      - level: CAN_MANAGE
-        group_name: ${var.hml_admin_group}
-      - level: CAN_MANAGE
-        service_principal_name: ${var.hml_run_sp}
     variables:
       environment: "hml"
       use_catalog: true
@@ -73,15 +67,9 @@ targets:
     mode: production
     workspace:
       root_path: "/Workspace/Users/${workspace.current_user.userName}/.bundle/b3_databricks_platform/prd"
-    run_as:
-      service_principal_name: ${var.prd_run_sp}
     permissions:
       - user_name: ${var.deploy_user}
         level: CAN_MANAGE
-      - level: CAN_MANAGE
-        group_name: ${var.prd_admin_group}
-      - level: CAN_MANAGE
-        service_principal_name: ${var.prd_run_sp}
     variables:
       environment: "prd"
       use_catalog: true

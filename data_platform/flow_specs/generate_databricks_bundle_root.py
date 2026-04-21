@@ -15,8 +15,18 @@ def _yaml_scalar(value):
     return f'"{text}"'
 
 
+def _is_placeholder(value: str) -> bool:
+    lowered = str(value).strip().lower()
+    return lowered.startswith("<") and lowered.endswith(">")
+
+
 def build_bundle_root_yaml() -> str:
     targets_payload = build_bundle_targets_payload()
+
+    hml_run_sp_default = "<app-id-hml>"
+    prd_run_sp_default = "<app-id-prd>"
+    hml_admin_group_default = "<group-hml-admin>"
+    prd_admin_group_default = "<group-prd-admin>"
 
     lines = []
     lines.append("bundle:")
@@ -33,16 +43,16 @@ def build_bundle_root_yaml() -> str:
     lines.append('    default: ""')
     lines.append("  hml_run_sp:")
     lines.append('    description: "Service principal app id for HML run_as"')
-    lines.append('    default: "<app-id-hml>"')
+    lines.append(f"    default: {_yaml_scalar(hml_run_sp_default)}")
     lines.append("  prd_run_sp:")
     lines.append('    description: "Service principal app id for PRD run_as"')
-    lines.append('    default: "<app-id-prd>"')
+    lines.append(f"    default: {_yaml_scalar(prd_run_sp_default)}")
     lines.append("  hml_admin_group:")
     lines.append('    description: "Admin group for HML bundle permissions"')
-    lines.append('    default: "<group-hml-admin>"')
+    lines.append(f"    default: {_yaml_scalar(hml_admin_group_default)}")
     lines.append("  prd_admin_group:")
     lines.append('    description: "Admin group for PRD bundle permissions"')
-    lines.append('    default: "<group-prd-admin>"')
+    lines.append(f"    default: {_yaml_scalar(prd_admin_group_default)}")
     lines.append("  environment:")
     lines.append('    description: "Resolved deployment environment"')
     lines.append('    default: "dev"')
@@ -64,30 +74,49 @@ def build_bundle_root_yaml() -> str:
         lines.append(f"    mode: {'development' if env == 'dev' else 'production'}")
         lines.append("    workspace:")
         lines.append(f"      root_path: {_yaml_scalar(target['workspace']['root_path'])}")
+
         if env == "dev":
             lines.append("    permissions:")
             lines.append("      - user_name: ${var.deploy_user}")
             lines.append("        level: CAN_MANAGE")
+
         elif env == "hml":
-            lines.append("    run_as:")
-            lines.append("      service_principal_name: ${var.hml_run_sp}")
             lines.append("    permissions:")
             lines.append("      - user_name: ${var.deploy_user}")
             lines.append("        level: CAN_MANAGE")
-            lines.append("      - level: CAN_MANAGE")
-            lines.append("        group_name: ${var.hml_admin_group}")
-            lines.append("      - level: CAN_MANAGE")
-            lines.append("        service_principal_name: ${var.hml_run_sp}")
+            if not _is_placeholder(hml_admin_group_default):
+                lines.append("      - level: CAN_MANAGE")
+                lines.append("        group_name: ${var.hml_admin_group}")
+            if not _is_placeholder(hml_run_sp_default):
+                lines.append("    run_as:")
+                lines.append("      service_principal_name: ${var.hml_run_sp}")
+                lines.append("    permissions:")
+                lines.append("      - user_name: ${var.deploy_user}")
+                lines.append("        level: CAN_MANAGE")
+                if not _is_placeholder(hml_admin_group_default):
+                    lines.append("      - level: CAN_MANAGE")
+                    lines.append("        group_name: ${var.hml_admin_group}")
+                lines.append("      - level: CAN_MANAGE")
+                lines.append("        service_principal_name: ${var.hml_run_sp}")
+
         elif env == "prd":
-            lines.append("    run_as:")
-            lines.append("      service_principal_name: ${var.prd_run_sp}")
             lines.append("    permissions:")
             lines.append("      - user_name: ${var.deploy_user}")
             lines.append("        level: CAN_MANAGE")
-            lines.append("      - level: CAN_MANAGE")
-            lines.append("        group_name: ${var.prd_admin_group}")
-            lines.append("      - level: CAN_MANAGE")
-            lines.append("        service_principal_name: ${var.prd_run_sp}")
+            if not _is_placeholder(prd_admin_group_default):
+                lines.append("      - level: CAN_MANAGE")
+                lines.append("        group_name: ${var.prd_admin_group}")
+            if not _is_placeholder(prd_run_sp_default):
+                lines.append("    run_as:")
+                lines.append("      service_principal_name: ${var.prd_run_sp}")
+                lines.append("    permissions:")
+                lines.append("      - user_name: ${var.deploy_user}")
+                lines.append("        level: CAN_MANAGE")
+                if not _is_placeholder(prd_admin_group_default):
+                    lines.append("      - level: CAN_MANAGE")
+                    lines.append("        group_name: ${var.prd_admin_group}")
+                lines.append("      - level: CAN_MANAGE")
+                lines.append("        service_principal_name: ${var.prd_run_sp}")
 
         lines.append("    variables:")
         for key, value in target["bundle_variables"].items():
