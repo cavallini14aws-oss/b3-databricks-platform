@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 
-from data_platform.core.activation_control import get_activation_databricks_config, get_activation_jobs_config
+from data_platform.core.activation_control import (
+    get_activation_databricks_config,
+    get_activation_jobs_config,
+)
 from data_platform.core.config_loader import load_yaml_config
 from data_platform.core.env import get_env
 
@@ -35,16 +38,14 @@ class JobConfig:
     ml_quality_gates: MlQualityGates
 
 
-def load_job_config(env: str | None = None) -> JobConfig:
-    resolved_env = env or get_env()
-    config = load_yaml_config(f"config/jobs/{resolved_env}.yml")
+def _load_legacy_job_yaml(env: str) -> dict:
+    return load_yaml_config(f"config/jobs/{env}.yml")
 
-    job = config.get("job", {})
+
+def _build_promotion_rules(config: dict) -> list[PromotionRule]:
     promotion = config.get("promotion", {})
-    quality_gates = config.get("quality_gates", {})
-    ml = quality_gates.get("ml", {})
-
     rules = []
+
     for item in promotion.get("rules", []):
         rules.append(
             PromotionRule(
@@ -56,21 +57,70 @@ def load_job_config(env: str | None = None) -> JobConfig:
             )
         )
 
+    return rules
+
+
+def _build_ml_quality_gates(config: dict) -> MlQualityGates:
+    quality_gates = config.get("quality_gates", {})
+    ml = quality_gates.get("ml", {})
+
+    return MlQualityGates(
+        minimum_accuracy=float(ml.get("minimum_accuracy", 0.0)),
+        minimum_f1=float(ml.get("minimum_f1", 0.0)),
+        minimum_auc=float(ml.get("minimum_auc", 0.0)),
+    )
+
+
+def load_job_config(
+    env: str | None = None,
+    activation_config_path: str = "config/activation/operational_control.yml",
+) -> JobConfig:
+    resolved_env = env or get_env()
+
+    legacy_config = _load_legacy_job_yaml(resolved_env)
+    legacy_job = legacy_config.get("job", {})
+
+    activation_databricks = get_activation_databricks_config(
+        env=resolved_env,
+        config_path=activation_config_path,
+    )
+    activation_jobs = get_activation_jobs_config(
+        env=resolved_env,
+        config_path=activation_config_path,
+    )
+
+    environment = legacy_job.get("environment", resolved_env)
+    cluster_key = legacy_job.get("cluster_key", f"{resolved_env}-cluster")
+    cluster_mode = legacy_job.get("cluster_mode", "existing_or_job_cluster")
+    workspace_root = legacy_job.get("workspace_root", "/Workspace/Repos")
+    default_timeout_seconds = int(legacy_job.get("default_timeout_seconds", 3600))
+    max_retries = int(legacy_job.get("max_retries", 0))
+    default_config_path = legacy_job.get("default_config_path")
+
+    activation_use_catalog = activation_databricks.get("use_catalog")
+    if activation_use_catalog is None:
+        use_catalog = bool(legacy_job.get("use_catalog", False))
+    else:
+        use_catalog = bool(activation_use_catalog)
+
+    operational_cycle = activation_jobs.get("operational_cycle", {})
+    if operational_cycle:
+        default_timeout_seconds = int(
+            operational_cycle.get("timeout_seconds", default_timeout_seconds)
+        )
+        max_retries = int(operational_cycle.get("retries", max_retries))
+
     return JobConfig(
-        environment=job.get("environment", resolved_env),
-        cluster_key=job.get("cluster_key", f"{resolved_env}-cluster"),
-        cluster_mode=job.get("cluster_mode", "existing_or_job_cluster"),
-        workspace_root=job.get("workspace_root", "/Workspace/Repos"),
-        default_timeout_seconds=int(job.get("default_timeout_seconds", 3600)),
-        max_retries=int(job.get("max_retries", 0)),
-        use_catalog=bool(job.get("use_catalog", False)),
-        default_config_path=job.get("default_config_path"),
-        promotion_rules=rules,
-        ml_quality_gates=MlQualityGates(
-            minimum_accuracy=float(ml.get("minimum_accuracy", 0.0)),
-            minimum_f1=float(ml.get("minimum_f1", 0.0)),
-            minimum_auc=float(ml.get("minimum_auc", 0.0)),
-        ),
+        environment=environment,
+        cluster_key=cluster_key,
+        cluster_mode=cluster_mode,
+        workspace_root=workspace_root,
+        default_timeout_seconds=default_timeout_seconds,
+        max_retries=max_retries,
+        use_catalog=use_catalog,
+        default_config_path=default_config_path,
+        promotion_rules=_build_promotion_rules(legacy_config),
+        ml_quality_gates=_build_ml_quality_gates(legacy_config),
     )
 
 
