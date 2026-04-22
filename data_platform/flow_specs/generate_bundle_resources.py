@@ -44,6 +44,7 @@ def _normalize_cluster_mode(mode: str | None) -> str | None:
         "existing": "classic",
         "job": "classic",
         "job_cluster": "classic",
+        "generic": "classic",
         "classic": "classic",
         "serverless": "serverless",
         "auto": "auto",
@@ -135,7 +136,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--environment",
         required=True,
-        choices=["dev", "hml", "prd"],
+        help="Nome do ambiente a ser resolvido dinamicamente pela compute_matrix.",
     )
     parser.add_argument(
         "--output-path",
