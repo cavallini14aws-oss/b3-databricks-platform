@@ -61,6 +61,9 @@ def _emit_task(task: dict, indent: int = 8) -> list[str]:
         env_key = compute["serverless"].get("environment_key", "default")
         lines.append(f"{prefix}  environment_key: {_yaml_scalar(env_key)}")
 
+    lines.append(
+        f"{prefix}  description: {_yaml_scalar('cluster_mode=' + task.get('cluster_mode', mode))}"
+    )
     lines.append(f"{prefix}  spark_python_task:")
     lines.append(
         f"{prefix}    python_file: {_yaml_scalar(task['spark_python_task']['python_file'])}"
