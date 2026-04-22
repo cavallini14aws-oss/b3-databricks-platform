@@ -91,7 +91,7 @@ def load_job_config(
 
     environment = legacy_job.get("environment", resolved_env)
     cluster_key = legacy_job.get("cluster_key", f"{resolved_env}-cluster")
-    cluster_mode = legacy_job.get("cluster_mode", "existing_or_job_cluster")
+    cluster_mode = activation_databricks.get("cluster_mode", legacy_job.get("cluster_mode", "existing_or_job_cluster"))
     workspace_root = legacy_job.get("workspace_root", "/Workspace/Repos")
     default_timeout_seconds = int(legacy_job.get("default_timeout_seconds", 3600))
     max_retries = int(legacy_job.get("max_retries", 0))
