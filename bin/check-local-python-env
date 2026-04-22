@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+echo "PWD=$PWD"
+echo "VIRTUAL_ENV=${VIRTUAL_ENV:-<empty>}"
+echo "PYTHON=$(which python3)"
+echo "PIP=$(which pip || true)"
+
+if [[ -z "${VIRTUAL_ENV:-}" ]]; then
+  echo "[ERROR] Nenhuma venv ativa"
+  exit 1
+fi
+
+if [[ "${VIRTUAL_ENV}" != "$PROJECT_ROOT/.venv" ]]; then
+  echo "[ERROR] Venv ativa nao pertence ao projeto"
+  echo "[ERROR] Esperado: $PROJECT_ROOT/.venv"
+  exit 1
+fi
+
+"$PROJECT_ROOT/.venv/bin/python" - <<'PY'
+import sys
+from pathlib import Path
+
+project_root = Path.cwd().resolve()
+bad = []
+
+for p in sys.path:
+    try:
+        resolved = Path(p).resolve()
+    except Exception:
+        continue
+    if ".venv" in str(resolved) and project_root.as_posix() not in resolved.as_posix():
+        bad.append(str(resolved))
+
+if bad:
+    print("[ERROR] Caminhos indevidos no sys.path:")
+    for p in bad:
+        print(" -", p)
+    raise SystemExit(1)
+
+print("[OK] sys.path sem contaminacao externa")
+PY
+
+echo "[OK] Ambiente Python local valido"

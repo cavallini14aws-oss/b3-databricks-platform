@@ -9,13 +9,30 @@ identity:
   execution_principal_type: service_principal
   execution_principal_name: TO_BE_DEFINED
   execution_group: TO_BE_DEFINED
+  allowed_executor_types:
+    - service_principal
+  expected_group: TO_BE_DEFINED
 
 storage:
+  mode: path
   catalog: b3_prd
+  schema: ai
   schema_ai: ai
   schema_ops: ops
+  volume_catalog: b3_prd
+  volume_schema: ai
   volume_name: pdf_rag_lab_docs
   volume_path: /Volumes/b3_prd/ai/pdf_rag_lab_docs
+
+grants:
+  required_table_permissions:
+    - USE CATALOG
+    - USE SCHEMA
+    - SELECT
+    - MODIFY
+  required_volume_permissions:
+    - READ VOLUME
+    - WRITE VOLUME
 
 serving:
   llm_provider: databricks
@@ -31,6 +48,16 @@ compute:
   access_mode: TO_BE_DEFINED
   runtime: TO_BE_DEFINED
   unity_catalog_required: true
+  allowed_cluster_modes:
+    - job
+    - serverless
+  min_runtime: "13.3"
+  requires_uc_access: true
+
+naming:
+  expected_catalog: b3_prd
+  expected_schema: ai
+  expected_volume_schema: ai
 
 governance:
   branch_protection_required: true
@@ -40,3 +67,4 @@ governance:
 notes:
   - PRD requires auditable and approved execution path.
   - Secrets, grants, endpoint ownership and compute ownership must be defined before go-live.
+  - Smoke job obrigatorio em prd.
