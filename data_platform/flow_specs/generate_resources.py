@@ -25,6 +25,7 @@ def build_resources_payload(environment: str) -> dict:
                 "entrypoint": job["entrypoint"],
                 "callable_name": job["callable_name"],
                 "config_path": job["config_path"],
+                "cluster_mode": job.get("cluster_mode", "existing_or_job_cluster"),
                 "use_catalog": job["use_catalog"],
                 "tags": job["tags"],
             }
