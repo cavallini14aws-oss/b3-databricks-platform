@@ -103,6 +103,12 @@ def load_job_config(
     else:
         use_catalog = bool(activation_use_catalog)
 
+    workspace_root = activation_databricks.get("workspace_root", workspace_root)
+    default_config_path = activation_databricks.get(
+        "default_config_path",
+        default_config_path,
+    )
+
     operational_cycle = activation_jobs.get("operational_cycle", {})
     if operational_cycle:
         default_timeout_seconds = int(
