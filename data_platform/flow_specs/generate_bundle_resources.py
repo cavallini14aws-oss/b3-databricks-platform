@@ -33,6 +33,25 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return result
 
 
+def _normalize_cluster_mode(mode: str | None) -> str | None:
+    if mode is None:
+        return None
+
+    normalized = str(mode).strip().lower()
+
+    mapping = {
+        "existing_or_job_cluster": "classic",
+        "existing": "classic",
+        "job": "classic",
+        "job_cluster": "classic",
+        "classic": "classic",
+        "serverless": "serverless",
+        "auto": "auto",
+    }
+
+    return mapping.get(normalized, normalized)
+
+
 def _resolve_compute(environment: str, resource_cluster_mode: str | None = None) -> dict:
     matrix = _load_compute_matrix()
     defaults = matrix.get("defaults", {})
@@ -41,7 +60,9 @@ def _resolve_compute(environment: str, resource_cluster_mode: str | None = None)
 
     merged = _deep_merge(defaults, target_cfg)
 
-    requested_mode = resource_cluster_mode or merged.get("mode", "auto")
+    requested_mode = _normalize_cluster_mode(resource_cluster_mode) or _normalize_cluster_mode(
+        merged.get("mode", "auto")
+    ) or "auto"
     classic_cfg = merged.get("classic", {}) or {}
     serverless_cfg = merged.get("serverless", {}) or {"environment_key": "default"}
 
@@ -76,7 +97,7 @@ def build_bundle_resources_payload(environment: str) -> dict:
 
         task = {
             "task_key": item["task_key"],
-            "cluster_mode": item.get("cluster_mode", compute["resolved_mode"]),
+            "cluster_mode": _normalize_cluster_mode(item.get("cluster_mode")) or compute["resolved_mode"],
             "spark_python_task": {
                 "python_file": "${workspace.root_path}/data_platform/flow_specs/run_flow_by_path.py",
                 "parameters": [
