@@ -2,7 +2,11 @@ version: 1
 
 defaults:
   mode: auto
-  classic: {}
+  classic:
+    spark_version: "15.4.x-scala2.12"
+    node_type_id: "i3.xlarge"
+    driver_node_type_id: "i3.xlarge"
+    num_workers: 0
   serverless:
     environment_key: "default"
     environment_version: "2"
