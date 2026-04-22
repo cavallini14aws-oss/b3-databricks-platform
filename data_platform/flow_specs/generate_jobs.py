@@ -28,6 +28,7 @@ def build_jobs_payload(environment: str) -> dict:
                 "entrypoint": flow["entrypoint"],
                 "callable_name": flow["callable_name"],
                 "cluster_key": env_cfg.cluster_key,
+                "cluster_mode": env_cfg.cluster_mode,
                 "use_catalog": env_cfg.use_catalog,
                 "config_path": env_cfg.default_config_path,
                 "tags": flow["tags"],
