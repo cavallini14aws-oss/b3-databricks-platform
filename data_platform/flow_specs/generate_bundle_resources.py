@@ -33,7 +33,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return result
 
 
-def _resolve_compute(environment: str) -> dict:
+def _resolve_compute(environment: str, resource_cluster_mode: str | None = None) -> dict:
     matrix = _load_compute_matrix()
     defaults = matrix.get("defaults", {})
     targets = matrix.get("targets", {})
@@ -41,7 +41,7 @@ def _resolve_compute(environment: str) -> dict:
 
     merged = _deep_merge(defaults, target_cfg)
 
-    requested_mode = merged.get("mode", "auto")
+    requested_mode = resource_cluster_mode or merged.get("mode", "auto")
     classic_cfg = merged.get("classic", {}) or {}
     serverless_cfg = merged.get("serverless", {}) or {"environment_key": "default"}
 
@@ -62,7 +62,6 @@ def _resolve_compute(environment: str) -> dict:
 
 def build_bundle_resources_payload(environment: str) -> dict:
     resources_payload = build_resources_payload(environment)
-    compute = _resolve_compute(environment)
 
     jobs = {}
 
@@ -70,8 +69,14 @@ def build_bundle_resources_payload(environment: str) -> dict:
         if item["resource_type"] != "job":
             continue
 
+        compute = _resolve_compute(
+            environment,
+            resource_cluster_mode=item.get("cluster_mode"),
+        )
+
         task = {
             "task_key": item["task_key"],
+            "cluster_mode": item.get("cluster_mode", compute["resolved_mode"]),
             "spark_python_task": {
                 "python_file": "${workspace.root_path}/data_platform/flow_specs/run_flow_by_path.py",
                 "parameters": [
@@ -90,10 +95,12 @@ def build_bundle_resources_payload(environment: str) -> dict:
             "tasks": [task],
         }
 
+    environment_compute = _resolve_compute(environment)
+
     return {
         "bundle_resources_version": 2,
         "environment": environment,
-        "compute": compute,
+        "compute": environment_compute,
         "resources": {
             "jobs": jobs,
         },
