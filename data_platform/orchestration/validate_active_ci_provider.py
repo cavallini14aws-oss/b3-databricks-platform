@@ -9,7 +9,12 @@ import os
 def build_validation_payload(provider_name: str) -> dict:
     provider_data = get_provider_all_secrets(provider_name)
 
-    result = {
+    import os
+
+event = os.getenv("GITHUB_EVENT_NAME", "")
+is_pr = event == "pull_request"
+
+result = {
         "provider": provider_name,
         "valid": True,
         "environments": {},
