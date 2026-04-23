@@ -202,3 +202,21 @@ Critérios mínimos antes de ativação real:
 - smoke do fluxo RAG standard definido
 - smoke do fluxo RAG MLflow definido
 - variáveis e contratos alinhados ao ambiente official
+
+
+### Smoke contracts dos fluxos RAG
+
+Antes de ativar smoke real dos fluxos RAG, validar:
+
+- `./bin/check-rag-standard-smoke-contract soft`
+- `./bin/check-rag-mlflow-smoke-contract soft`
+
+Quando houver endpoints reais de embedding e LLM, validar também:
+
+- `./bin/check-rag-standard-smoke-contract strict`
+- `./bin/check-rag-mlflow-smoke-contract strict`
+
+Objetivo:
+- separar readiness estrutural de smoke operacional
+- garantir critérios mínimos para RAG standard
+- garantir critérios mínimos para RAG MLflow
