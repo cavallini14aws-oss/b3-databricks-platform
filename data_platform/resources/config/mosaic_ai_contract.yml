@@ -1,0 +1,19 @@
+version: 1
+serving:
+  enabled: false
+  endpoint_name: TO_BE_DEFINED
+  route_optimized: false
+  scale_to_zero: true
+vector_search:
+  enabled: false
+  endpoint_name: TO_BE_DEFINED
+  index_name: TO_BE_DEFINED
+rag:
+  standard_enabled: true
+  mlflow_enabled: true
+  embedding_endpoint: TO_BE_DEFINED
+  llm_endpoint: TO_BE_DEFINED
+monitoring:
+  enabled: false
+  inference_table: TO_BE_DEFINED
+  quality_dashboard: TO_BE_DEFINED

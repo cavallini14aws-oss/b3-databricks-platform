@@ -161,3 +161,23 @@ Antes de official real, validar explicitamente:
 - [ ] sem drift de config
 - [ ] sem sujeira local no pacote
 - [ ] suite verde
+
+
+## Mosaic AI readiness
+
+Antes de ativar Mosaic AI real no ambiente official, validar:
+
+- `./bin/check-mosaic-ai-readiness soft`
+
+Quando serving, vector search ou monitoring forem habilitados com valores reais, validar também:
+
+- `./bin/check-mosaic-ai-readiness strict`
+
+Contrato relacionado:
+
+- `config/mosaic_ai_contract.yml`
+
+Objetivo:
+- preparar serving sem improviso
+- preparar vector search sem drift
+- preparar os fluxos RAG standard e MLflow sem quebrar a esteira atual
