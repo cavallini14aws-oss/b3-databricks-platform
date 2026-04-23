@@ -64,12 +64,24 @@ Campos que podem existir como placeholder durante preparação estrutural:
 ### 1. Validar working tree
 Garantir branch limpa e sem arquivos locais relevantes fora do Git.
 
-### 2. Validar empacotamento clean
+### 2. Validar contrato official
+Executar:
+
+- `./bin/check-official-readiness-contract dev soft`
+- `./bin/check-official-readiness-contract hml soft`
+- `./bin/check-official-readiness-contract prd soft`
+
+Quando houver dados reais de produção preenchidos, executar também:
+
+- `./bin/check-official-readiness-contract hml strict`
+- `./bin/check-official-readiness-contract prd strict`
+
+### 3. Validar empacotamento clean
 Executar:
 
 - `./bin/check-official-release-clean`
 
-### 3. Gerar release clean
+### 4. Gerar release clean
 Executar:
 
 - `./bin/package-official-release-clean`
