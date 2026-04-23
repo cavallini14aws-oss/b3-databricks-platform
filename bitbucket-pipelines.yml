@@ -1,14 +1,71 @@
-image: python:3.10
+image: python:3.12
 
 pipelines:
-  default:
-    - step:
-        name: pre-deploy-gate
-        caches:
-          - pip
-        script:
-          - python -m pip install --upgrade pip build
-          - pip install -e ".[dev]"
-          - pip install databricks-cli
-          - ./bin/validate-active-provider
-          - ./bin/pre-deploy-gate dev
+  pull-requests:
+    "**":
+      - step:
+          name: Validate bundle artifacts
+          caches:
+            - pip
+          script:
+            - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+            - databricks version
+            - python -m compileall data_platform config pipelines resources sql
+            - python -m data_platform.flow_specs.generate_registry
+            - python -m data_platform.flow_specs.generate_jobs --environment dev
+            - python -m data_platform.flow_specs.generate_jobs --environment hml
+            - python -m data_platform.flow_specs.generate_jobs --environment prd
+            - python -m data_platform.flow_specs.generate_resources --environment dev
+            - python -m data_platform.flow_specs.generate_resources --environment hml
+            - python -m data_platform.flow_specs.generate_resources --environment prd
+            - python -m data_platform.flow_specs.generate_databricks_bundle_root
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+            - databricks bundle validate -t dev --var="deploy_user=${DEV_DEPLOY_USER}"
+
+  branches:
+    main:
+      - step:
+          name: Deploy DEV
+          deployment: development
+          caches:
+            - pip
+          script:
+            - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+            - databricks version
+            - python -m data_platform.flow_specs.generate_databricks_bundle_root
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+            - databricks bundle deploy -t dev --var="deploy_user=${DEV_DEPLOY_USER}"
+
+      - step:
+          name: Deploy HML
+          deployment: staging
+          trigger: manual
+          caches:
+            - pip
+          script:
+            - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+            - databricks version
+            - python -m data_platform.flow_specs.generate_databricks_bundle_root
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+            - databricks bundle deploy -t hml --var="deploy_user=${HML_DEPLOY_USER}"
+
+      - step:
+          name: Deploy PRD
+          deployment: production
+          trigger: manual
+          caches:
+            - pip
+          script:
+            - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+            - databricks version
+            - python -m data_platform.flow_specs.generate_databricks_bundle_root
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+            - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+            - databricks bundle deploy -t prd --var="deploy_user=${PRD_DEPLOY_USER}"

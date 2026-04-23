@@ -1,8 +1,9 @@
 dev:
   serving_endpoint: pdf-rag-dev-endpoint
-
+  profile: DEV
 hml:
   serving_endpoint: pdf-rag-hml-endpoint
-
+  profile: HML
 prd:
   serving_endpoint: pdf-rag-prd-endpoint
+  profile: PRD

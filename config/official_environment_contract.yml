@@ -1,47 +1,101 @@
 version: 1
-mode: official-environment-contract
-
-workspace:
-  host: "__FILL_OFFICIAL_WORKSPACE_HOST__"
-  root_path: "/Workspace/Shared/b3-platform"
-
-catalogs:
-  primary: "__FILL_PRIMARY_CATALOG__"
-
-schemas:
-  required:
-    - brz
-    - slv
-    - gld
-    - ml
-    - qlt
-
-volumes:
-  required:
-    - raw
-    - curated
-    - artifacts
-
-secret_scopes:
-  required:
-    - "__FILL_SECRET_SCOPE_PLATFORM__"
-    - "__FILL_SECRET_SCOPE_DATA__"
-
-groups:
-  required:
-    - "__FILL_GROUP_AUTOMATION__"
-    - "__FILL_GROUP_DATA_GOV__"
-    - "__FILL_GROUP_DATA_ENGINEERING__"
-
-cluster_policies:
-  required:
-    - "__FILL_CLUSTER_POLICY_DEFAULT__"
-
-service_principals:
-  required:
-    - "__FILL_SP_DEPLOY__"
-    - "__FILL_SP_RUNTIME__"
-
-notes:
-  - "Preencher todos os placeholders antes da integração com o ambiente oficial."
-  - "Nenhum deploy oficial deve ocorrer com placeholder remanescente."
+targets:
+  dev:
+    mode: development
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/b3_databricks_platform/dev
+    run_as:
+      type: user_name
+      value: CURRENT_USER
+    deploy_user_mode: current_user
+    catalogs:
+      default: b3_dev
+      ai: b3_dev
+    schemas:
+      default: default
+      ai: ai
+    volumes:
+      artifacts: TO_BE_DEFINED
+      checkpoints: TO_BE_DEFINED
+    secret_scopes:
+      default: TO_BE_DEFINED
+      serving: TO_BE_DEFINED
+    groups:
+      readers:
+      - TO_BE_DEFINED
+      operators:
+      - TO_BE_DEFINED
+      admins:
+      - TO_BE_DEFINED
+    cluster_policies:
+      default: TO_BE_DEFINED
+      jobs: TO_BE_DEFINED
+    service_principals:
+      deploy: TO_BE_DEFINED
+      run_as: TO_BE_DEFINED
+  hml:
+    mode: production
+    workspace:
+      root_path: /Workspace/Shared/.bundle/b3_databricks_platform/hml
+    run_as:
+      type: service_principal_name
+      value: TO_BE_DEFINED
+    deploy_user_mode: explicit
+    catalogs:
+      default: b3_hml
+      ai: b3_hml
+    schemas:
+      default: default
+      ai: ai
+    volumes:
+      artifacts: TO_BE_DEFINED
+      checkpoints: TO_BE_DEFINED
+    secret_scopes:
+      default: TO_BE_DEFINED
+      serving: TO_BE_DEFINED
+    groups:
+      readers:
+      - TO_BE_DEFINED
+      operators:
+      - TO_BE_DEFINED
+      admins:
+      - TO_BE_DEFINED
+    cluster_policies:
+      default: TO_BE_DEFINED
+      jobs: TO_BE_DEFINED
+    service_principals:
+      deploy: TO_BE_DEFINED
+      run_as: TO_BE_DEFINED
+  prd:
+    mode: production
+    workspace:
+      root_path: /Workspace/Shared/.bundle/b3_databricks_platform/prd
+    run_as:
+      type: service_principal_name
+      value: TO_BE_DEFINED
+    deploy_user_mode: explicit
+    catalogs:
+      default: b3_prd
+      ai: b3_prd
+    schemas:
+      default: default
+      ai: ai
+    volumes:
+      artifacts: TO_BE_DEFINED
+      checkpoints: TO_BE_DEFINED
+    secret_scopes:
+      default: TO_BE_DEFINED
+      serving: TO_BE_DEFINED
+    groups:
+      readers:
+      - TO_BE_DEFINED
+      operators:
+      - TO_BE_DEFINED
+      admins:
+      - TO_BE_DEFINED
+    cluster_policies:
+      default: TO_BE_DEFINED
+      jobs: TO_BE_DEFINED
+    service_principals:
+      deploy: TO_BE_DEFINED
+      run_as: TO_BE_DEFINED

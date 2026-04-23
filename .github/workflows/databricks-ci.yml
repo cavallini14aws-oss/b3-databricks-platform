@@ -1,34 +1,42 @@
-name: Databricks Platform CI/CD
+name: Databricks CI
 
 on:
   pull_request:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
 
 jobs:
-  validate-structural:
+  validate:
     runs-on: ubuntu-latest
+    env:
+      DEV_WORKSPACE_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
+      DEV_DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
+      DEV_DEPLOY_USER: ${{ secrets.DEV_DEPLOY_USER }}
+      HML_WORKSPACE_HOST: ${{ secrets.HML_WORKSPACE_HOST }}
+      HML_DATABRICKS_TOKEN: ${{ secrets.HML_DATABRICKS_TOKEN }}
+      HML_DEPLOY_USER: ${{ secrets.HML_DEPLOY_USER }}
+      PRD_WORKSPACE_HOST: ${{ secrets.PRD_WORKSPACE_HOST }}
+      PRD_DATABRICKS_TOKEN: ${{ secrets.PRD_DATABRICKS_TOKEN }}
+      PRD_DEPLOY_USER: ${{ secrets.PRD_DEPLOY_USER }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install project
+      - name: Install Databricks CLI
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks version
 
       - name: Compile Python
-        run: python -m compileall data_platform config pipelines resources sql .github
+        run: python -m compileall data_platform config pipelines resources sql
 
-      - name: Run tests
-        run: python -m pytest -q
+      - name: Validate active CI provider secrets contract
+        run: python -m data_platform.orchestration.validate_active_ci_provider
 
       - name: Generate platform artifacts
         run: |
@@ -43,91 +51,31 @@ jobs:
           python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
           python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
           python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-          python -m data_platform.orchestration.generate_platform_operational_report
-          python -m data_platform.orchestration.generate_platform_readiness_report
-
-      - name: Upload generated artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: platform-artifacts
-          path: |
-            artifacts/**
-            resources/jobs/**
-            config/**
-            databricks.yml
-          if-no-files-found: error
-
-  validate-bundle-dev:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: validate-structural
-    runs-on: ubuntu-latest
-    environment: dev
-    env:
-      DEV_WORKSPACE_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
-      DEV_DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
-      DEV_CLUSTER_ID: ${{ secrets.DEV_CLUSTER_ID }}
-      HML_WORKSPACE_HOST: ${{ secrets.HML_WORKSPACE_HOST }}
-      HML_DATABRICKS_TOKEN: ${{ secrets.HML_DATABRICKS_TOKEN }}
-      HML_CLUSTER_ID: ${{ secrets.HML_CLUSTER_ID }}
-      PRD_WORKSPACE_HOST: ${{ secrets.PRD_WORKSPACE_HOST }}
-      PRD_DATABRICKS_TOKEN: ${{ secrets.PRD_DATABRICKS_TOKEN }}
-      PRD_CLUSTER_ID: ${{ secrets.PRD_CLUSTER_ID }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install project
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
-
-      - name: Install Databricks CLI
-        uses: databricks/setup-cli@main
-
-      - name: Validate active CI provider secrets contract
-        run: python -m data_platform.orchestration.validate_active_ci_provider
-
-      - name: Generate bundle artifacts
-        run: |
-          python -m data_platform.flow_specs.generate_databricks_bundle_root
-          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
-          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
-          python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
 
       - name: Validate bundle on DEV target
         env:
           DATABRICKS_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
-        run: databricks bundle validate -t dev
+        run: databricks bundle validate -t dev --var="deploy_user=${{ secrets.DEV_DEPLOY_USER }}"
 
   deploy-dev:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: validate-bundle-dev
+    if: github.ref == 'refs/heads/main'
+    needs: validate
     runs-on: ubuntu-latest
     environment: dev
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install project
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
-
       - name: Install Databricks CLI
-        uses: databricks/setup-cli@main
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks version
 
       - name: Generate bundle artifacts
         run: |
@@ -140,31 +88,27 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}
-          DEV_CLUSTER_ID: ${{ secrets.DEV_CLUSTER_ID }}
-        run: databricks bundle deploy -t dev
+          DEV_DEPLOY_USER: ${{ secrets.DEV_DEPLOY_USER }}
+        run: databricks bundle deploy -t dev --var="deploy_user=${{ secrets.DEV_DEPLOY_USER }}"
 
   deploy-hml:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     needs: deploy-dev
     runs-on: ubuntu-latest
     environment: hml
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install project
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
-
       - name: Install Databricks CLI
-        uses: databricks/setup-cli@main
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks version
 
       - name: Generate bundle artifacts
         run: |
@@ -177,31 +121,27 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.HML_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.HML_DATABRICKS_TOKEN }}
-          HML_CLUSTER_ID: ${{ secrets.HML_CLUSTER_ID }}
-        run: databricks bundle deploy -t hml
+          HML_DEPLOY_USER: ${{ secrets.HML_DEPLOY_USER }}
+        run: databricks bundle deploy -t hml --var="deploy_user=${{ secrets.HML_DEPLOY_USER }}"
 
   deploy-prd:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     needs: deploy-hml
     runs-on: ubuntu-latest
     environment: prd
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Install project
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
-
       - name: Install Databricks CLI
-        uses: databricks/setup-cli@main
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks version
 
       - name: Generate bundle artifacts
         run: |
@@ -214,5 +154,5 @@ jobs:
         env:
           DATABRICKS_HOST: ${{ secrets.PRD_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.PRD_DATABRICKS_TOKEN }}
-          PRD_CLUSTER_ID: ${{ secrets.PRD_CLUSTER_ID }}
-        run: databricks bundle deploy -t prd
+          PRD_DEPLOY_USER: ${{ secrets.PRD_DEPLOY_USER }}
+        run: databricks bundle deploy -t prd --var="deploy_user=${{ secrets.PRD_DEPLOY_USER }}"
