@@ -181,3 +181,24 @@ Objetivo:
 - preparar serving sem improviso
 - preparar vector search sem drift
 - preparar os fluxos RAG standard e MLflow sem quebrar a esteira atual
+
+
+### Smoke e readiness específicos de Mosaic AI
+
+Antes de ativar Mosaic AI real, validar:
+
+- `./bin/check-mosaic-ai-serving-contract soft`
+- `./bin/check-mosaic-ai-rag-contract soft`
+
+Quando houver endpoints reais e serving habilitado, validar também:
+
+- `./bin/check-mosaic-ai-serving-contract strict`
+- `./bin/check-mosaic-ai-rag-contract strict`
+
+Critérios mínimos antes de ativação real:
+- endpoint de serving definido
+- endpoint de embeddings definido
+- endpoint LLM definido
+- smoke do fluxo RAG standard definido
+- smoke do fluxo RAG MLflow definido
+- variáveis e contratos alinhados ao ambiente official

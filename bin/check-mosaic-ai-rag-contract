@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+MODE="${1:-soft}"
+
+if [[ "$MODE" != "soft" && "$MODE" != "strict" ]]; then
+  echo "[ERROR] Uso: bin/check-mosaic-ai-rag-contract [soft|strict]"
+  exit 1
+fi
+
+python - <<PY
+from pathlib import Path
+import sys
+import yaml
+
+mode = "${MODE}"
+path = Path("config/mosaic_ai_contract.yml")
+
+if not path.exists():
+    print("[ERROR] contrato Mosaic AI ausente")
+    sys.exit(1)
+
+data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+rag = data.get("rag", {})
+
+if not rag:
+    print("[ERROR] secao rag ausente no contrato")
+    sys.exit(1)
+
+errors = []
+warnings = []
+
+standard_enabled = rag.get("standard_enabled")
+mlflow_enabled = rag.get("mlflow_enabled")
+embedding_endpoint = rag.get("embedding_endpoint")
+llm_endpoint = rag.get("llm_endpoint")
+
+if not isinstance(standard_enabled, bool):
+    errors.append("rag.standard_enabled deve ser boolean")
+if not isinstance(mlflow_enabled, bool):
+    errors.append("rag.mlflow_enabled deve ser boolean")
+
+rag_enabled = bool(standard_enabled) or bool(mlflow_enabled)
+
+if rag_enabled:
+    if mode == "soft":
+        if embedding_endpoint == "TO_BE_DEFINED":
+            warnings.append("embedding_endpoint ainda indefinido para rag habilitado")
+        if llm_endpoint == "TO_BE_DEFINED":
+            warnings.append("llm_endpoint ainda indefinido para rag habilitado")
+    else:
+        if embedding_endpoint == "TO_BE_DEFINED":
+            errors.append("embedding_endpoint proibido como TO_BE_DEFINED em modo strict")
+        if llm_endpoint == "TO_BE_DEFINED":
+            errors.append("llm_endpoint proibido como TO_BE_DEFINED em modo strict")
+
+if errors:
+    for e in errors:
+        print(f"[ERROR] {e}")
+    sys.exit(1)
+
+for w in warnings:
+    print(f"[WARN] {w}")
+
+print(f"[OK] contrato Mosaic AI RAG validado em modo {mode}")
+PY
