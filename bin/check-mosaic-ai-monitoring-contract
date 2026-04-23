@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+MODE="${1:-soft}"
+
+if [[ "$MODE" != "soft" && "$MODE" != "strict" ]]; then
+  echo "[ERROR] Uso: bin/check-mosaic-ai-monitoring-contract [soft|strict]"
+  exit 1
+fi
+
+python - <<PY
+from pathlib import Path
+import sys
+import yaml
+
+mode = "${MODE}"
+path = Path("config/mosaic_ai_contract.yml")
+
+if not path.exists():
+    print("[ERROR] contrato Mosaic AI ausente")
+    sys.exit(1)
+
+data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+monitoring = data.get("monitoring", {})
+
+if not monitoring:
+    print("[ERROR] secao monitoring ausente no contrato")
+    sys.exit(1)
+
+errors = []
+warnings = []
+
+enabled = monitoring.get("enabled")
+inference_table = monitoring.get("inference_table")
+quality_dashboard = monitoring.get("quality_dashboard")
+
+if not isinstance(enabled, bool):
+    errors.append("monitoring.enabled deve ser boolean")
+
+if enabled:
+    if mode == "soft":
+        if inference_table == "TO_BE_DEFINED":
+            warnings.append("monitoring ainda sem inference_table definida")
+        if quality_dashboard == "TO_BE_DEFINED":
+            warnings.append("monitoring ainda sem quality_dashboard definido")
+    else:
+        if inference_table == "TO_BE_DEFINED":
+            errors.append("monitoring exige inference_table em modo strict")
+        if quality_dashboard == "TO_BE_DEFINED":
+            errors.append("monitoring exige quality_dashboard em modo strict")
+
+if errors:
+    for e in errors:
+        print(f"[ERROR] {e}")
+    sys.exit(1)
+
+for w in warnings:
+    print(f"[WARN] {w}")
+
+print(f"[OK] contrato Mosaic AI monitoring validado em modo {mode}")
+PY

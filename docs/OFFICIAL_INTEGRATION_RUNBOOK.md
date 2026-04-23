@@ -220,3 +220,20 @@ Objetivo:
 - separar readiness estrutural de smoke operacional
 - garantir critérios mínimos para RAG standard
 - garantir critérios mínimos para RAG MLflow
+
+
+### Monitoring readiness de Mosaic AI
+
+Antes de ativar monitoring real, validar:
+
+- `./bin/check-mosaic-ai-monitoring-contract soft`
+
+Quando inference table e quality dashboard forem definidos de verdade, validar também:
+
+- `./bin/check-mosaic-ai-monitoring-contract strict`
+
+Critérios mínimos antes de ativação real:
+- inference table definida
+- quality dashboard definido
+- contrato Mosaic AI alinhado ao ambiente official
+- smoke e serving já definidos quando aplicável
