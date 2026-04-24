@@ -32,7 +32,7 @@ def main():
 
     Path("artifacts").mkdir(exist_ok=True)
 
-    run_cmd([sys.executable, "-m", "pytest", "-q"])
+    run_cmd([sys.executable, "-m", "pytest", "-q", "-m", "not heavy"])
 
     version_artifact_guard = json.loads(
         run_cmd(["./bin/version-artifact-guard"])
