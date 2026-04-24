@@ -1,4 +1,9 @@
 import pytest
+pytestmark = pytest.mark.heavy
+
+import pytest
+
+import pytest
 
 from data_platform.mlops.mlflow_utils import (
     build_mlflow_experiment_path,

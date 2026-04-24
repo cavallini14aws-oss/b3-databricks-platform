@@ -2,27 +2,109 @@ trigger:
   branches:
     include:
       - main
-      - master
-      - dry-run-free-edition
 
-pool:
-  vmImage: ubuntu-latest
+pr:
+  branches:
+    include:
+      - "*"
 
-steps:
-  - checkout: self
+stages:
+  - stage: Validate
+    jobs:
+      - job: validate_bundle
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+          - script: |
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+              databricks version
+          - script: python -m compileall data_platform config pipelines resources sql
+          - script: |
+              python -m data_platform.flow_specs.generate_registry
+              python -m data_platform.flow_specs.generate_jobs --environment dev
+              python -m data_platform.flow_specs.generate_jobs --environment hml
+              python -m data_platform.flow_specs.generate_jobs --environment prd
+              python -m data_platform.flow_specs.generate_resources --environment dev
+              python -m data_platform.flow_specs.generate_resources --environment hml
+              python -m data_platform.flow_specs.generate_resources --environment prd
+              python -m data_platform.flow_specs.generate_databricks_bundle_root
+              python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+              python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+              python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+          - script: databricks bundle validate -t dev --var="deploy_user=$(DEV_DEPLOY_USER)"
+            env:
+              DATABRICKS_HOST: $(DEV_WORKSPACE_HOST)
+              DATABRICKS_TOKEN: $(DEV_DATABRICKS_TOKEN)
 
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.10'
+  - stage: DeployDev
+    dependsOn: Validate
+    jobs:
+      - deployment: deploy_dev
+        environment: databricks-dev
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - script: |
+                    curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+                    databricks version
+                - script: |
+                    python -m data_platform.flow_specs.generate_databricks_bundle_root
+                    python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+                    python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+                    python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+                - script: databricks bundle deploy -t dev --var="deploy_user=$(DEV_DEPLOY_USER)"
+                  env:
+                    DATABRICKS_HOST: $(DEV_WORKSPACE_HOST)
+                    DATABRICKS_TOKEN: $(DEV_DATABRICKS_TOKEN)
+                    DEV_DEPLOY_USER: $(DEV_DEPLOY_USER)
 
-  - script: |
-      python -m pip install --upgrade pip build
-      pip install -e ".[dev]"
-      pip install databricks-cli
-    displayName: Install dependencies
+  - stage: DeployHml
+    dependsOn: DeployDev
+    jobs:
+      - deployment: deploy_hml
+        environment: databricks-hml
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - script: |
+                    curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+                    databricks version
+                - script: |
+                    python -m data_platform.flow_specs.generate_databricks_bundle_root
+                    python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+                    python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+                    python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+                - script: databricks bundle deploy -t hml --var="deploy_user=$(HML_DEPLOY_USER)"
+                  env:
+                    DATABRICKS_HOST: $(HML_WORKSPACE_HOST)
+                    DATABRICKS_TOKEN: $(HML_DATABRICKS_TOKEN)
+                    HML_DEPLOY_USER: $(HML_DEPLOY_USER)
 
-  - script: ./bin/validate-active-provider
-    displayName: Validate active provider
-
-  - script: ./bin/pre-deploy-gate dev
-    displayName: Run hard gate
+  - stage: DeployPrd
+    dependsOn: DeployHml
+    jobs:
+      - deployment: deploy_prd
+        environment: databricks-prd
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - script: |
+                    curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+                    databricks version
+                - script: |
+                    python -m data_platform.flow_specs.generate_databricks_bundle_root
+                    python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
+                    python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
+                    python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
+                - script: databricks bundle deploy -t prd --var="deploy_user=$(PRD_DEPLOY_USER)"
+                  env:
+                    DATABRICKS_HOST: $(PRD_WORKSPACE_HOST)
+                    DATABRICKS_TOKEN: $(PRD_DATABRICKS_TOKEN)
+                    PRD_DEPLOY_USER: $(PRD_DEPLOY_USER)

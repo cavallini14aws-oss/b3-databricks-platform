@@ -59,7 +59,9 @@ jobs:
           python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
 
       - name: Set up Databricks CLI
-        run: pip install databricks-cli
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks version
 
       - name: Validate bundle on DEV target
         env:
@@ -82,7 +84,9 @@ jobs:
           python-version: "3.12"
 
       - name: Set up Databricks CLI
-        run: pip install databricks-cli
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks version
 
       - name: Generate bundle artifacts
         run: |
@@ -113,7 +117,9 @@ jobs:
           python-version: "3.12"
 
       - name: Set up Databricks CLI
-        run: pip install databricks-cli
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks version
 
       - name: Generate bundle artifacts
         run: |
@@ -144,7 +150,9 @@ jobs:
           python-version: "3.12"
 
       - name: Set up Databricks CLI
-        run: pip install databricks-cli
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          databricks version
 
       - name: Generate bundle artifacts
         run: |
@@ -192,7 +200,9 @@ stages:
               python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
               python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
               python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-          - script: pip install databricks-cli
+          - script: |
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+              databricks version
           - script: databricks bundle validate -t dev --var="deploy_user=$(DEV_DEPLOY_USER)"
             env:
               DATABRICKS_HOST: $(DEV_WORKSPACE_HOST)
@@ -208,7 +218,9 @@ stages:
             deploy:
               steps:
                 - checkout: self
-                - script: pip install databricks-cli
+                - script: |
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+              databricks version
                 - script: |
                     python -m data_platform.flow_specs.generate_databricks_bundle_root
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
@@ -230,7 +242,9 @@ stages:
             deploy:
               steps:
                 - checkout: self
-                - script: pip install databricks-cli
+                - script: |
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+              databricks version
                 - script: |
                     python -m data_platform.flow_specs.generate_databricks_bundle_root
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
@@ -252,7 +266,9 @@ stages:
             deploy:
               steps:
                 - checkout: self
-                - script: pip install databricks-cli
+                - script: |
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+              databricks version
                 - script: |
                     python -m data_platform.flow_specs.generate_databricks_bundle_root
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
@@ -287,8 +303,9 @@ pipelines:
             - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
             - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
             - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-            - pip install databricks-cli
-            - databricks bundle validate -t dev
+            - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+            - databricks version
+            - databricks bundle validate -t dev --var="deploy_user=${DEV_DEPLOY_USER}"
 
   branches:
     main:
@@ -302,8 +319,9 @@ pipelines:
             - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
             - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
             - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-            - pip install databricks-cli
-            - databricks bundle deploy -t dev
+            - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+            - databricks version
+            - databricks bundle deploy -t dev --var="deploy_user=${DEV_DEPLOY_USER}"
 
       - step:
           name: Deploy HML
@@ -316,8 +334,9 @@ pipelines:
             - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
             - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
             - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-            - pip install databricks-cli
-            - databricks bundle deploy -t hml
+            - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+            - databricks version
+            - databricks bundle deploy -t hml --var="deploy_user=${HML_DEPLOY_USER}"
 
       - step:
           name: Deploy PRD
@@ -330,8 +349,9 @@ pipelines:
             - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
             - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
             - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-            - pip install databricks-cli
-            - databricks bundle deploy -t prd
+            - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+            - databricks version
+            - databricks bundle deploy -t prd --var="deploy_user=${PRD_DEPLOY_USER}"
 """
 
 AWS_TEMPLATE = """version: 0.2
@@ -339,7 +359,8 @@ AWS_TEMPLATE = """version: 0.2
 phases:
   install:
     commands:
-      - pip install databricks-cli
+      - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+            - databricks version
   pre_build:
     commands:
       - python -m compileall data_platform config pipelines resources sql
@@ -354,13 +375,13 @@ phases:
       - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
       - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
       - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-      - databricks bundle validate -t dev
+      - databricks bundle validate -t dev --var="deploy_user=${DEV_DEPLOY_USER}"
   build:
     commands:
       - echo "Use CodePipeline stages or manual approvals for hml/prd"
-      - databricks bundle deploy -t dev
-      - databricks bundle deploy -t hml
-      - databricks bundle deploy -t prd
+      - databricks bundle deploy -t dev --var="deploy_user=${DEV_DEPLOY_USER}"
+      - databricks bundle deploy -t hml --var="deploy_user=${HML_DEPLOY_USER}"
+      - databricks bundle deploy -t prd --var="deploy_user=${PRD_DEPLOY_USER}"
 """
 
 

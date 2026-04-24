@@ -1,3 +1,8 @@
+import pytest
+pytestmark = pytest.mark.heavy
+
+import pytest
+
 from pathlib import Path
 import subprocess
 

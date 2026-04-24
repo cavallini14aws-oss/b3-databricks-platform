@@ -15,7 +15,7 @@ identity:
   expected_group: TO_BE_DEFINED
 
 storage:
-  mode: unity-catalog-volumes
+  mode: path
   catalog: b3_dev
   schema: ai
   schema_ai: ai

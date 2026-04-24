@@ -6,7 +6,8 @@ version: 0.2
 phases:
   install:
     commands:
-      - pip install databricks-cli
+      - curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+      - databricks version
   pre_build:
     commands:
       - python -m compileall data_platform config pipelines resources sql
@@ -21,10 +22,10 @@ phases:
       - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
       - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
       - python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-      - databricks bundle validate -t dev
+      - databricks bundle validate -t dev --var="deploy_user=${DEV_DEPLOY_USER}"
   build:
     commands:
       - echo "Use CodePipeline stages or manual approvals for hml/prd"
-      - databricks bundle deploy -t dev
-      - databricks bundle deploy -t hml
-      - databricks bundle deploy -t prd
+      - databricks bundle deploy -t dev --var="deploy_user=${DEV_DEPLOY_USER}"
+      - databricks bundle deploy -t hml --var="deploy_user=${HML_DEPLOY_USER}"
+      - databricks bundle deploy -t prd --var="deploy_user=${PRD_DEPLOY_USER}"

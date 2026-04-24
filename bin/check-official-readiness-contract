@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+ENV_NAME="${1:-}"
+STRICT_MODE="${2:-soft}"
+
+if [[ -z "$ENV_NAME" ]]; then
+  echo "[ERROR] Uso: bin/check-official-readiness-contract <dev|hml|prd> [soft|strict]"
+  exit 1
+fi
+
+if [[ "$STRICT_MODE" != "soft" && "$STRICT_MODE" != "strict" ]]; then
+  echo "[ERROR] Modo inválido: $STRICT_MODE"
+  exit 1
+fi
+
+python - <<PY
+from pathlib import Path
+import sys
+import yaml
+
+env_name = "${ENV_NAME}"
+strict_mode = "${STRICT_MODE}"
+
+contract_path = Path("config/official_environment_contract.yml")
+if not contract_path.exists():
+    print("[ERROR] contrato oficial ausente")
+    sys.exit(1)
+
+data = yaml.safe_load(contract_path.read_text(encoding="utf-8")) or {}
+targets = data.get("targets", {})
+target = targets.get(env_name)
+
+if not target:
+    print(f"[ERROR] ambiente ausente no contrato oficial: {env_name}")
+    sys.exit(1)
+
+errors = []
+warnings = []
+
+def has_placeholder(value):
+    if isinstance(value, str):
+        return value == "TO_BE_DEFINED"
+    if isinstance(value, list):
+        return any(has_placeholder(v) for v in value)
+    if isinstance(value, dict):
+        return any(has_placeholder(v) for v in value.values())
+    return False
+
+required_sections = [
+    "workspace",
+    "run_as",
+    "catalogs",
+    "schemas",
+    "volumes",
+    "secret_scopes",
+    "groups",
+    "cluster_policies",
+    "service_principals",
+]
+
+for section in required_sections:
+    if section not in target:
+        errors.append(f"secao obrigatoria ausente: {section}")
+
+if errors:
+    for e in errors:
+        print(f"[ERROR] {e}")
+    sys.exit(1)
+
+soft_allowed = {"volumes"}
+strict_forbidden = {
+    "run_as",
+    "secret_scopes",
+    "groups",
+    "cluster_policies",
+    "service_principals",
+}
+
+for section, value in target.items():
+    if not has_placeholder(value):
+        continue
+
+    if strict_mode == "soft":
+        if section not in soft_allowed:
+            warnings.append(f"placeholder ainda presente em {section}")
+    else:
+        if section in strict_forbidden or section not in soft_allowed:
+            errors.append(f"placeholder proibido em modo strict: {section}")
+
+if strict_mode == "soft":
+    for w in warnings:
+        print(f"[WARN] {w}")
+    print(f"[OK] contrato oficial validado em modo soft para {env_name}")
+else:
+    if errors:
+        for e in errors:
+            print(f"[ERROR] {e}")
+        sys.exit(1)
+    print(f"[OK] contrato oficial validado em modo strict para {env_name}")
+PY

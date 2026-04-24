@@ -31,6 +31,7 @@ def build_bundle_root_yaml() -> str:
     lines = []
     lines.append("bundle:")
     lines.append('  name: "b3_databricks_platform"')
+    lines.append("  databricks_cli_version: '>= 0.275.0, < 1.0.0'")
     lines.append("")
     lines.append("include:")
     lines.append('  - "artifacts/generated_resources_dev.yml"')

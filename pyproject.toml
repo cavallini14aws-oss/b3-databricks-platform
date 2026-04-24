@@ -3,7 +3,7 @@ requires = ["setuptools>=81", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "b3-platform"
+name = "b3_databricks_platform"
 version = "0.1.0"
 description = "B3 Databricks Platform"
 readme = "README.md"
@@ -11,7 +11,8 @@ requires-python = ">=3.10"
 authors = [
   { name = "Bruno Cavallini" }
 ]
-dependencies = []
+dependencies = [
+  "PyYAML==6.0.3",]
 
 [project.optional-dependencies]
 dev = [

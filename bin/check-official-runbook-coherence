@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+RUNBOOK="docs/OFFICIAL_INTEGRATION_RUNBOOK.md"
+
+if [[ ! -f "$RUNBOOK" ]]; then
+  echo "[ERROR] runbook ausente: $RUNBOOK"
+  exit 1
+fi
+
+required_refs=(
+  "./bin/check-official-release-clean"
+  "./bin/package-official-release-clean"
+  "./bin/dry-run-official-deploy"
+  "./bin/smoke-official-release-adapter"
+  "./bin/rollback-official-release"
+  "config/official_environment_contract.yml"
+)
+
+for ref in "${required_refs[@]}"; do
+  if ! grep -F "$ref" "$RUNBOOK" >/dev/null 2>&1; then
+    echo "[ERROR] referência ausente no runbook: $ref"
+    exit 1
+  fi
+done
+
+echo "[OK] runbook official coerente com os scripts reais"

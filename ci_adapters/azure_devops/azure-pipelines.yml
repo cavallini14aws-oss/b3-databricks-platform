@@ -1,6 +1,3 @@
-# PROVIDER DISABLED
-# Este adapter está gerado, porém não está ativo na configuração central.
-
 trigger:
   branches:
     include:
@@ -19,6 +16,9 @@ stages:
           vmImage: ubuntu-latest
         steps:
           - checkout: self
+          - script: |
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+              databricks version
           - script: python -m compileall data_platform config pipelines resources sql
           - script: |
               python -m data_platform.flow_specs.generate_registry
@@ -32,8 +32,7 @@ stages:
               python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
               python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
               python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-          - script: pip install databricks-cli
-          - script: databricks bundle validate -t dev
+          - script: databricks bundle validate -t dev --var="deploy_user=$(DEV_DEPLOY_USER)"
             env:
               DATABRICKS_HOST: $(DEV_WORKSPACE_HOST)
               DATABRICKS_TOKEN: $(DEV_DATABRICKS_TOKEN)
@@ -48,17 +47,19 @@ stages:
             deploy:
               steps:
                 - checkout: self
-                - script: pip install databricks-cli
+                - script: |
+                    curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+                    databricks version
                 - script: |
                     python -m data_platform.flow_specs.generate_databricks_bundle_root
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-                - script: databricks bundle deploy -t dev
+                - script: databricks bundle deploy -t dev --var="deploy_user=$(DEV_DEPLOY_USER)"
                   env:
                     DATABRICKS_HOST: $(DEV_WORKSPACE_HOST)
                     DATABRICKS_TOKEN: $(DEV_DATABRICKS_TOKEN)
-                    DEV_CLUSTER_ID: $(DEV_CLUSTER_ID)
+                    DEV_DEPLOY_USER: $(DEV_DEPLOY_USER)
 
   - stage: DeployHml
     dependsOn: DeployDev
@@ -70,17 +71,19 @@ stages:
             deploy:
               steps:
                 - checkout: self
-                - script: pip install databricks-cli
+                - script: |
+                    curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+                    databricks version
                 - script: |
                     python -m data_platform.flow_specs.generate_databricks_bundle_root
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-                - script: databricks bundle deploy -t hml
+                - script: databricks bundle deploy -t hml --var="deploy_user=$(HML_DEPLOY_USER)"
                   env:
                     DATABRICKS_HOST: $(HML_WORKSPACE_HOST)
                     DATABRICKS_TOKEN: $(HML_DATABRICKS_TOKEN)
-                    HML_CLUSTER_ID: $(HML_CLUSTER_ID)
+                    HML_DEPLOY_USER: $(HML_DEPLOY_USER)
 
   - stage: DeployPrd
     dependsOn: DeployHml
@@ -92,14 +95,16 @@ stages:
             deploy:
               steps:
                 - checkout: self
-                - script: pip install databricks-cli
+                - script: |
+                    curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+                    databricks version
                 - script: |
                     python -m data_platform.flow_specs.generate_databricks_bundle_root
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment dev
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment hml
                     python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
-                - script: databricks bundle deploy -t prd
+                - script: databricks bundle deploy -t prd --var="deploy_user=$(PRD_DEPLOY_USER)"
                   env:
                     DATABRICKS_HOST: $(PRD_WORKSPACE_HOST)
                     DATABRICKS_TOKEN: $(PRD_DATABRICKS_TOKEN)
-                    PRD_CLUSTER_ID: $(PRD_CLUSTER_ID)
+                    PRD_DEPLOY_USER: $(PRD_DEPLOY_USER)

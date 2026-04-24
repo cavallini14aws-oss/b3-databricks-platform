@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+MODE="${1:-soft}"
+
+if [[ "$MODE" != "soft" && "$MODE" != "strict" ]]; then
+  echo "[ERROR] Uso: bin/check-mosaic-ai-serving-contract [soft|strict]"
+  exit 1
+fi
+
+python - <<PY
+from pathlib import Path
+import sys
+import yaml
+
+mode = "${MODE}"
+path = Path("config/mosaic_ai_contract.yml")
+
+if not path.exists():
+    print("[ERROR] contrato Mosaic AI ausente")
+    sys.exit(1)
+
+data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+serving = data.get("serving", {})
+
+if not serving:
+    print("[ERROR] secao serving ausente no contrato")
+    sys.exit(1)
+
+errors = []
+warnings = []
+
+enabled = serving.get("enabled", False)
+endpoint_name = serving.get("endpoint_name")
+route_optimized = serving.get("route_optimized")
+scale_to_zero = serving.get("scale_to_zero")
+
+if not isinstance(enabled, bool):
+    errors.append("serving.enabled deve ser boolean")
+if not isinstance(route_optimized, bool):
+    errors.append("serving.route_optimized deve ser boolean")
+if not isinstance(scale_to_zero, bool):
+    errors.append("serving.scale_to_zero deve ser boolean")
+
+if enabled:
+    if mode == "soft":
+        if endpoint_name == "TO_BE_DEFINED":
+            warnings.append("endpoint_name ainda indefinido para serving habilitado")
+    else:
+        if endpoint_name == "TO_BE_DEFINED":
+            errors.append("endpoint_name proibido como TO_BE_DEFINED em modo strict")
+
+if errors:
+    for e in errors:
+        print(f"[ERROR] {e}")
+    sys.exit(1)
+
+for w in warnings:
+    print(f"[WARN] {w}")
+
+print(f"[OK] contrato Mosaic AI serving validado em modo {mode}")
+PY

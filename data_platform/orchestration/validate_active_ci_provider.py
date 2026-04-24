@@ -1,9 +1,13 @@
 import json
+import os
 
 from data_platform.orchestration.ci_provider_config import get_active_ci_provider
 from data_platform.orchestration.ci_secrets_contract import get_provider_all_secrets
 from data_platform.orchestration.validate_ci_secrets import _validate_variable
-import os
+
+
+def is_pull_request_context() -> bool:
+    return os.getenv("GITHUB_EVENT_NAME", "") == "pull_request"
 
 
 def build_validation_payload(provider_name: str) -> dict:
@@ -58,6 +62,10 @@ def main() -> None:
     print(json.dumps(payload, indent=2, ensure_ascii=False))
 
     if not payload["valid"]:
+        if is_pull_request_context():
+            print("[WARN] Missing CI secrets in pull_request context. Skipping hard failure.")
+            return
+
         raise SystemExit(1)
 
 

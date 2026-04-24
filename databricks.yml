@@ -1,5 +1,6 @@
 bundle:
   name: "b3_databricks_platform"
+  databricks_cli_version: '>= 0.275.0, < 1.0.0'
 
 include:
   - "artifacts/generated_resources_dev.yml"

@@ -1,3 +1,8 @@
+import pytest
+pytestmark = pytest.mark.heavy
+
+import pytest
+
 from pyspark.sql import Row
 
 from data_platform.mlops.alerting import (

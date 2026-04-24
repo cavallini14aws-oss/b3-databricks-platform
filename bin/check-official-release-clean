@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+echo "[INFO] Validando release clean a partir de arquivos tracked"
+
+bad_patterns=(
+  '^__MACOSX/'
+  '^\.git/'
+  '^\.databricks/bundle/'
+  '^\.state/'
+  '^\.local_backup/'
+  '^\.tmp_env_audit/'
+  '^build/'
+  '^dist/'
+  '(^|/).__pycache__/'
+  '(^|/)\.pytest_cache/'
+  '\.egg-info/'
+)
+
+required_files=(
+  'databricks.yml'
+  'config/official_environment_contract.yml'
+  'data_platform/resources/config/official_environment_contract.yml'
+  'bin/dry-run-official-deploy'
+  'bin/rollback-official-release'
+  'bin/validate-workloads-registry'
+  'docs/OFFICIAL_INTEGRATION_RUNBOOK.md'
+)
+
+tracked_files="$(git ls-files)"
+errors=0
+
+for pattern in "${bad_patterns[@]}"; do
+  if printf '%s\n' "$tracked_files" | grep -E "$pattern" >/dev/null 2>&1; then
+    echo "[ERROR] Caminho proibido versionado encontrado para release clean: $pattern"
+    printf '%s\n' "$tracked_files" | grep -E "$pattern" || true
+    errors=1
+  fi
+done
+
+for file in "${required_files[@]}"; do
+  if ! git ls-files --error-unmatch "$file" >/dev/null 2>&1; then
+    echo "[ERROR] Arquivo obrigatório ausente do release: $file"
+    errors=1
+  fi
+done
+
+if [[ "$errors" -ne 0 ]]; then
+  exit 1
+fi
+
+echo "[OK] Release clean validado"

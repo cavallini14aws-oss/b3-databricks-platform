@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+./bin/check-official-release-clean
+
+OUT_DIR=".state/official_release"
+mkdir -p "$OUT_DIR"
+
+BRANCH_NAME="$(git rev-parse --abbrev-ref HEAD)"
+SAFE_BRANCH_NAME="${BRANCH_NAME//\//-}"
+SHORT_SHA="$(git rev-parse --short HEAD)"
+STAMP="$(date +%Y%m%d_%H%M%S)"
+OUT_FILE="${OUT_DIR}/b3_databricks_platform_${SAFE_BRANCH_NAME}_${SHORT_SHA}_${STAMP}.zip"
+
+echo "[INFO] Gerando pacote clean em $OUT_FILE"
+
+git archive --format=zip --output="$OUT_FILE" HEAD
+
+python - <<PY
+from pathlib import Path
+import zipfile
+
+archive = Path("${OUT_FILE}")
+forbidden = [
+    ".git/",
+    ".databricks/bundle/",
+    ".state/",
+    ".local_backup/",
+    ".tmp_env_audit/",
+    "build/",
+    "dist/",
+    "__MACOSX/",
+    "__pycache__/",
+    ".pytest_cache/",
+    ".egg-info/",
+]
+with zipfile.ZipFile(archive) as zf:
+    names = zf.namelist()
+    bad = []
+    for name in names:
+        for item in forbidden:
+            if item in name:
+                bad.append(name)
+                break
+    if bad:
+        raise SystemExit(f"Pacote clean inválido; caminhos proibidos encontrados: {bad}")
+print(f"[OK] pacote validado: {archive}")
+PY
+
+echo "[OK] Pacote official clean gerado: $OUT_FILE"

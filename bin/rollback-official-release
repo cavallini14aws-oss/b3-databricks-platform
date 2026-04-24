@@ -19,23 +19,56 @@ PAYLOAD_SRC="${SNAPSHOT_DIR}/databricks-deploy-payload.json"
 FINAL_DST=".state/releases/final-official-release-${ENV_NAME}.yml"
 PAYLOAD_DST=".state/releases/databricks-deploy-payload-${ENV_NAME}.json"
 CURRENT_DIR=".state/releases/history/${ENV_NAME}/current"
+RUN_DIR=".state/rollback/${ENV_NAME}/${SNAPSHOT_NAME}"
 
-if [[ ! -f "$FINAL_SRC" ]]; then
-  echo "[ERROR] snapshot final release ausente: $FINAL_SRC"
-  exit 1
-fi
+mkdir -p "$CURRENT_DIR" "$RUN_DIR"
+TRACE_FILE="${RUN_DIR}/trace.log"
+RESULT_FILE="${RUN_DIR}/result.json"
 
-if [[ ! -f "$PAYLOAD_SRC" ]]; then
-  echo "[ERROR] snapshot deploy payload ausente: $PAYLOAD_SRC"
+: > "$TRACE_FILE"
+
+if [[ ! -f "$FINAL_SRC" || ! -f "$PAYLOAD_SRC" ]]; then
+  echo "[ERROR] snapshot incompleto" | tee -a "$TRACE_FILE"
   exit 1
 fi
 
 cp "$FINAL_SRC" "$FINAL_DST"
 cp "$PAYLOAD_SRC" "$PAYLOAD_DST"
 
-mkdir -p "$CURRENT_DIR"
 cp "$FINAL_SRC" "${CURRENT_DIR}/final-official-release.yml"
 cp "$PAYLOAD_SRC" "${CURRENT_DIR}/databricks-deploy-payload.json"
 
-echo "[OK] rollback restaurado para env=${ENV_NAME} a partir de snapshot=${SNAPSHOT_NAME}"
-echo "[WARN] Este rollback restaura manifests/payloads. O apply operacional e smoke devem ser executados em seguida."
+REAPPLY_STATUS="skipped"
+SMOKE_STATUS="skipped"
+
+if [[ "${DATABRICKS_ROLLBACK_REAPPLY:-0}" == "1" ]]; then
+  if ./bin/apply-official-release-adapter "$ENV_NAME" >>"$TRACE_FILE" 2>&1; then
+    REAPPLY_STATUS="ok"
+  else
+    REAPPLY_STATUS="failed"
+    exit 1
+  fi
+
+  if ./bin/smoke-official-release-adapter "$ENV_NAME" >>"$TRACE_FILE" 2>&1; then
+    SMOKE_STATUS="ok"
+  else
+    SMOKE_STATUS="failed"
+    exit 1
+  fi
+fi
+
+python - <<PY
+from pathlib import Path
+import json
+
+summary = {
+    "env": "${ENV_NAME}",
+    "snapshot_name": "${SNAPSHOT_NAME}",
+    "rollback_scope": "declarative_restore_plus_optional_reapply_smoke",
+    "reapply_status": "${REAPPLY_STATUS}",
+    "smoke_status": "${SMOKE_STATUS}",
+    "current_dir": "${CURRENT_DIR}",
+}
+Path("${RESULT_FILE}").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+print("[OK] rollback oficial endurecido")
+PY

@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+MODE="${1:-soft}"
+
+if [[ "$MODE" != "soft" && "$MODE" != "strict" ]]; then
+  echo "[ERROR] Uso: bin/check-mosaic-ai-readiness [soft|strict]"
+  exit 1
+fi
+
+python - <<PY
+from pathlib import Path
+import sys
+import yaml
+
+mode = "${MODE}"
+path = Path("config/mosaic_ai_contract.yml")
+
+if not path.exists():
+    print("[ERROR] contrato Mosaic AI ausente")
+    sys.exit(1)
+
+data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+errors = []
+warnings = []
+
+required_sections = ["serving", "vector_search", "rag", "monitoring"]
+for section in required_sections:
+    if section not in data:
+        errors.append(f"secao obrigatoria ausente: {section}")
+
+if errors:
+    for e in errors:
+        print(f"[ERROR] {e}")
+    sys.exit(1)
+
+def has_placeholder(value):
+    if isinstance(value, str):
+        return value == "TO_BE_DEFINED"
+    if isinstance(value, dict):
+        return any(has_placeholder(v) for v in value.values())
+    if isinstance(value, list):
+        return any(has_placeholder(v) for v in value)
+    return False
+
+enabled_blocks = []
+for name in ("serving", "vector_search", "monitoring"):
+    if data.get(name, {}).get("enabled") is True:
+        enabled_blocks.append(name)
+
+rag = data.get("rag", {})
+if rag.get("standard_enabled") or rag.get("mlflow_enabled"):
+    enabled_blocks.append("rag")
+
+for block in enabled_blocks:
+    value = data.get(block, {})
+    if has_placeholder(value):
+        if mode == "soft":
+            warnings.append(f"placeholder ainda presente em bloco habilitado: {block}")
+        else:
+            errors.append(f"placeholder proibido em modo strict para bloco habilitado: {block}")
+
+if mode == "soft":
+    for w in warnings:
+        print(f"[WARN] {w}")
+    print("[OK] contrato Mosaic AI validado em modo soft")
+else:
+    if errors:
+        for e in errors:
+            print(f"[ERROR] {e}")
+        sys.exit(1)
+    print("[OK] contrato Mosaic AI validado em modo strict")
+PY

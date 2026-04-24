@@ -11,17 +11,17 @@
 ### dev
 - DEV_WORKSPACE_HOST
 - DEV_DATABRICKS_TOKEN
-- DEV_CLUSTER_ID
+- DEV_DEPLOY_USER
 
 ### hml
 - HML_WORKSPACE_HOST
 - HML_DATABRICKS_TOKEN
-- HML_CLUSTER_ID
+- HML_DEPLOY_USER
 
 ### prd
 - PRD_WORKSPACE_HOST
 - PRD_DATABRICKS_TOKEN
-- PRD_CLUSTER_ID
+- PRD_DEPLOY_USER
 
 ## Modelo de aprovação recomendado
 - dev: deploy controlado pela branch main
