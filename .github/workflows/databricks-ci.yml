@@ -58,6 +58,7 @@ jobs:
           python -m data_platform.flow_specs.generate_databricks_resources_yaml --environment prd
 
       - name: Validate bundle on DEV target
+        if: github.event_name != 'pull_request'
         env:
           DATABRICKS_HOST: ${{ secrets.DEV_WORKSPACE_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DEV_DATABRICKS_TOKEN }}

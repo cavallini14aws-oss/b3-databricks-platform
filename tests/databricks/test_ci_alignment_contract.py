@@ -9,7 +9,7 @@ FILES_MUST_NOT_CONTAIN_CLUSTER_ID = [
     ".github/workflows/pr-gate.yml",
     "azure-pipelines.yml",
     "bitbucket-pipelines.yml",
-    "apply_ci_hardening.sh",
+    ".github/workflows/databricks-ci.yml",
     "ci_adapters/github_actions/github-actions.yml",
     "ci_adapters/github_actions/CONTRACT.md",
     "ci_adapters/github_actions/README.md",
